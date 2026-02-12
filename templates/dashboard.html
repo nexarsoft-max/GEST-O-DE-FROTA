@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestão de Frota</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+
+
+
+<body>
+
+<div class="container-principal">
+
+
+  <aside class="barra-lateral">
+    <h2 class="titulo-sistema">Painel</h2>
+    <p class="subtitulo">Sistema de Frota</p>
+
+    <nav class="menu-novo">
+      <a href="{{ url_for('dashboard') }}" class="item-menu ativo">Executivo</a>
+
+      <!-- ✅ AQUI ERA O ERRO -->
+      <a href="{{ url_for('geral_informacao') }}" class="item-menu ">Registros</a>
+
+      <a href="{{ url_for('abastecimento') }}" class="item-menu">Registrar abastecimento</a>
+      <a href="{{ url_for('cadastro') }}" class="item-menu ">Cadastrar</a>
+      <a href="{{ url_for('ajuda') }}" class="item-menu">Ajuda</a>
+      <a href="{{ url_for('logout') }}" class="item-menu sair">Sair</a>
+    </nav>
+  </aside>
+
+  <!-- Conteúdo -->
+  <main class="conteudo">
+
+    <header class="topo">
+      <h1>Visão Executiva</h1>
+    </header>
+
+    <div class="abas">
+      <button class="aba ativa">Abastecimento</button>
+    </div>
+
+    <section class="resumo">
+      <div class="cartao">
+        <button class="ajuda-card" type="button"
+          data-help-title="Consumo Médio (L/km)"
+          data-help="Mostra quantos litros a frota consome por quilômetro rodado (L/km), calculado por trechos do odômetro: para cada veículo, a diferença (odômetro atual − anterior) forma o trecho e os litros do abastecimento atual são associados a esse trecho. No fim: Σ litros ÷ Σ km (somente trechos válidos). Quanto MENOR, melhor.">?</button>
+
+        <span id="tituloConsumoMedio">Consumo Médio (L/Km)</span>
+        <h2 class="roxo" id="cardConsumoMedio">0,00</h2>
+        <p id="cardConsumoDelta">0,0% vs mês anterior</p>
+      </div>
+
+      <div class="cartao">
+        <button class="ajuda-card" type="button"
+          data-help-title="Custo Médio (R$/km)"
+          data-help="Mostra quanto a frota gasta em combustível por quilômetro rodado (R$/km), usando trechos do odômetro: Σ R$ ÷ Σ km (somente trechos com preço). Quanto MENOR, melhor.">?</button>
+
+        <span id="tituloCustoMedio">Custo Médio (R$/km)</span>
+        <h2 class="roxo" id="cardCustoMedio">R$ 0,00/km</h2>
+        <p id="cardCustoDelta">0,0% vs mês anterior</p>
+      </div>
+
+      <div class="cartao">
+        <button class="ajuda-card" type="button"
+          data-help-title="Total mensal"
+          data-help="Soma de todos os custos do mês: abastecimentos (preço) + manutenções (valor).">?</button>
+
+        <span>Total mensal</span>
+        <h2 id="cardTotalMensal">R$ 0,00</h2>
+        <p id="cardMesAtual">Este mês</p>
+      </div>
+
+      <div class="cartao">
+        <button class="ajuda-card" type="button"
+          data-help-title="Não pago"
+          data-help="Soma dos registros do mês marcados como NÃO pagos (abastecimentos e manutenções).">?</button>
+
+        <span>Não pago</span>
+        <h2 class="vermelho" id="cardNaoPago">R$ 0,00</h2>
+        <p>Aguardando pagamento</p>
+      </div>
+
+      <div class="cartao">
+        <button class="ajuda-card" type="button"
+          data-help-title="Já pagos"
+          data-help="Soma dos registros do mês marcados como pagos (abastecimentos e manutenções).">?</button>
+
+        <span>Já pagos</span>
+        <h2 class="verde" id="cardJaPago">R$ 0,00</h2>
+        <p>Pagamento confirmado</p>
+      </div>
+
+      <div class="cartao">
+        <button class="ajuda-card" type="button"
+          data-help-title="KM rodados no mês"
+          data-help="Total de quilômetros rodados no mês pela frota. Para cada veículo: soma dos trechos válidos (odômetro atual − anterior) dentro do mês. Somamos na frota.">?</button>
+
+        <span>KM rodados no mês</span>
+        <h2 class="roxo" id="cardKmMes">0 km</h2>
+        <p>Volume de rodagem</p>
+      </div>
+
+      <div class="cartao">
+        <button class="ajuda-card" type="button"
+          data-help-title="Total de litros no mês"
+          data-help="Soma de todos os litros abastecidos no mês (considera todos os registros de abastecimento do mês).">?</button>
+
+        <span>Total de litros no mês</span>
+        <h2 class="roxo" id="cardLitrosMes">0 L</h2>
+        <p>Volume abastecido</p>
+      </div>
+
+      <div class="cartao">
+        <button class="ajuda-card" type="button"
+          data-help-title="Nº de abastecimentos / manutenções"
+          data-help="Quantidade de abastecimentos no mês. A descrição embaixo mostra também o número de manutenções registradas no mês.">?</button>
+
+        <span>Nº de abastecimentos no mês</span>
+        <h2 class="roxo" id="cardQtdAbastecMes">0</h2>
+        <p id="cardQtdManutMes">Manutenções: 0</p>
+      </div>
+    </section>
+
+    <section class="graficos">
+      <div class="cartao-grafico">
+        <h3>Maior quantidade de abastecimentos (Top 3)</h3>
+        <div class="grafico-falso" id="graficoTop3Abastecimento" title="Passe o mouse nas cores abaixo para ver os detalhes"></div>
+
+        <div class="legend" id="legendAbastecimento">
+          <span><span class="dot gas" data-dot-a="a1" title="—"></span> <span data-leg="a1">—</span></span>
+          <span><span class="dot diesel" data-dot-a="a2" title="—"></span> <span data-leg="a2">—</span></span>
+          <span><span class="dot ethanol" data-dot-a="a3" title="—"></span> <span data-leg="a3">—</span></span>
+        </div>
+      </div>
+
+      <div class="cartao-grafico">
+        <h3>Piores custo por KM (Top 3)</h3>
+        <div class="grafico-falso" id="graficoTop3Eficiencia" title="Passe o mouse nas cores abaixo para ver os detalhes"></div>
+
+        <div class="legend" id="legendEficiencia">
+          <span><span class="dot" data-dot="e1" title="—"></span> <span data-leg="e1">—</span></span>
+          <span><span class="dot" data-dot="e2" title="—"></span> <span data-leg="e2">—</span></span>
+          <span><span class="dot" data-dot="e3" title="—"></span> <span data-leg="e3">—</span></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ✅ INDIVIDUAL AGORA EM COLUNA (um abaixo do outro) -->
+    <section class="secao-inferior">
+      <div class="cartao-custos">
+        <h3>Resumo mensal por Veículo</h3>
+        <div id="listaCustoVeiculo"></div>
+      </div>
+
+      <div class="cartao-custos">
+        <h3>Resumo mensal por Motorista</h3>
+        <div id="listaMotoristas"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Modal de Ajuda -->
+<div id="modalAjuda" class="modal-ajuda" onclick="fecharAjudaSeFundo(event)">
+  <div class="modal-ajuda-caixa" role="dialog" aria-modal="true">
+    <div class="modal-ajuda-topo">
+      <div id="modalAjudaTitulo">Ajuda</div>
+      <button class="fechar" type="button" onclick="fecharAjuda()">✕</button>
+    </div>
+    <div class="modal-ajuda-conteudo" id="modalAjudaTexto"></div>
+    <div class="modal-ajuda-acoes">
+      <button class="modal-ajuda-ok" type="button" onclick="fecharAjuda()">OK</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/dashboard.js"></script>
+
+
+<script>
+  window.addEventListener("pageshow", function (event) {
+    if (event.persisted) {
+      window.location.reload();
+    }
+  });
+</script>
+
+
+</body>
+
+
+</html>

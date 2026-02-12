@@ -1,0 +1,147 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+  background: #f3f3f6;
+}
+
+/* Layout principal */
+.container-principal {
+  display: flex;
+  height: 100vh;
+}
+
+/* Sidebar */
+.barra-lateral {
+  width: 260px;
+  background: #ffffff;
+  padding: 20px;
+  border-right: 1px solid #e5e5ea;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+}
+
+/* Menu */
+.menu-novo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.item-menu {
+  text-decoration: none;
+  color: #222;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  background: #f4f4f8;
+  transition: all 0.2s ease;
+}
+
+.item-menu:hover {
+  background: linear-gradient(90deg, #6f2cff, #9b5cff);
+  color: white;
+  transform: translateX(4px);
+}
+
+.item-menu.ativo {
+  background: linear-gradient(90deg, #6f2cff, #9b5cff);
+  color: white;
+  font-weight: bold;
+}
+
+.item-menu.sair {
+  margin-top: 12px;
+  background: #111;
+  color: white;
+}
+
+.item-menu.sair:hover {
+  background: #000;
+}
+
+/* Conteúdo */
+.conteudo {
+  flex: 1;
+  padding: 40px;
+  overflow-y: auto;
+}
+
+/* Topo */
+.topo-direita h1 {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+
+.topo-direita p {
+  color: #666;
+  margin-bottom: 32px;
+}
+
+/* Cards */
+.cards-registros {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+
+.card-registro {
+  background: #ffffff;
+  padding: 28px;
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-registro:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 36px rgba(0,0,0,0.12);
+}
+
+.card-registro h3 {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.card-registro p {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+/* Botão */
+.card-registro button {
+  border: none;
+  padding: 12px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #6f2cff, #9b5cff);
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.card-registro button:hover {
+  opacity: 0.9;
+}
+
+
+/* TRANSIÇÃO ENTRE TELAS */
+/* Transição SOMENTE na saída */
+.page-exit {
+  opacity: 0;
+  transform: translateX(-12px);
+}
+
+body {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}

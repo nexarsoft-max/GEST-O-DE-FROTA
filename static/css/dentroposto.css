@@ -1,0 +1,90 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', Arial, sans-serif;
+}
+
+body {
+  background: #f3f3f6;
+  color: #222;
+}
+
+/* Header */
+.header {
+  height: 70px;
+  background: linear-gradient(90deg, #6f2cff, #9b5cff);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  color: white;
+}
+
+.header h1 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-left: 16px;
+}
+
+.back {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: white;
+  font-size: 22px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+/* Container preparado para fileira */
+.container {
+  display: flex;
+  align-items: flex-start;
+  padding: 48px 32px;
+  gap: 24px;
+}
+
+/* Card */
+.card-posto {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 28px 26px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+}
+
+/* Nome */
+.nome-posto {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+/* Descrição */
+.descricao {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 20px;
+  line-height: 1.4;
+}
+
+/* Botão */
+.btn-editar {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #6f2cff, #9b5cff);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.btn-editar:hover {
+  transform: translateY(-2px);
+  opacity: 0.95;
+}
