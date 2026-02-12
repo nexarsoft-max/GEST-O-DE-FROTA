@@ -4,11 +4,12 @@ import string
 from werkzeug.security import generate_password_hash
 from conexao import get_db
 
+
 def email_valido(email: str) -> bool:
     return re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", email) is not None
 
+
 def gerar_senha_forte(tamanho: int = 14) -> str:
-    # Gera senha com letras, números e símbolos
     alfabeto = string.ascii_letters + string.digits + "!@#$%&*?-_"
     while True:
         senha = "".join(secrets.choice(alfabeto) for _ in range(tamanho))
@@ -18,7 +19,8 @@ def gerar_senha_forte(tamanho: int = 14) -> str:
             and any(c in "!@#$%&*?-_" for c in senha)):
             return senha
 
-def criar_usuario(email: str, senha: str) -> None:
+
+def criar_usuario(nome: str, email: str, senha: str) -> None:
     conn = get_db()
     cur = conn.cursor()
     try:
@@ -30,11 +32,14 @@ def criar_usuario(email: str, senha: str) -> None:
         senha_hash = generate_password_hash(senha)
 
         cur.execute(
-            "INSERT INTO usuarios (email, senha_hash) VALUES (%s, %s)",
-            (email, senha_hash)
+            "INSERT INTO usuarios (nome, email, senha_hash) VALUES (%s, %s, %s)",
+            (nome, email, senha_hash)
         )
+
         conn.commit()
-        print("✅ Usuário criado com sucesso!")
+
+        print("\n✅ Usuário criado com sucesso!")
+        print(f"Nome: {nome}")
         print(f"Email: {email}")
         print(f"Senha: {senha}")
 
@@ -42,8 +47,14 @@ def criar_usuario(email: str, senha: str) -> None:
         cur.close()
         conn.close()
 
+
 if __name__ == "__main__":
+    nome = input("Nome do cliente: ").strip()
     email = input("Email do cliente: ").strip().lower()
+
+    if not nome:
+        print("❌ Nome obrigatório.")
+        raise SystemExit(1)
 
     if not email_valido(email):
         print("❌ Email inválido (formato).")
@@ -60,4 +71,4 @@ if __name__ == "__main__":
         print("❌ Senha fraca. Use pelo menos 10 caracteres.")
         raise SystemExit(1)
 
-    criar_usuario(email, senha)
+    criar_usuario(nome, email, senha)
