@@ -9,7 +9,7 @@ def criar_tabelas():
     # =========================
     cur.execute("""
     CREATE TABLE IF NOT EXISTS usuarios (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         nome VARCHAR(100) NOT NULL,
         email VARCHAR(150) UNIQUE NOT NULL,
         senha_hash TEXT NOT NULL,
@@ -18,11 +18,38 @@ def criar_tabelas():
     """)
 
     # =========================
+    # POSTOS
+    # =========================
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS postos (
+        id BIGSERIAL PRIMARY KEY,
+        usuario_id BIGINT NOT NULL,
+        nome VARCHAR(100) NOT NULL,
+        endereco VARCHAR(200),
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+
+    # =========================
+    # POSTO_COMBUSTIVEIS
+    # =========================
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS posto_combustiveis (
+        id BIGSERIAL PRIMARY KEY,
+        usuario_id BIGINT NOT NULL,
+        posto_id BIGINT NOT NULL REFERENCES postos(id) ON DELETE CASCADE,
+        tipo TEXT NOT NULL,
+        preco NUMERIC(10,2) NOT NULL
+    );
+    """)
+
+    # =========================
     # MOTORISTAS
     # =========================
     cur.execute("""
     CREATE TABLE IF NOT EXISTS motoristas (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
+        usuario_id BIGINT NOT NULL,
         nome VARCHAR(100) NOT NULL,
         cpf VARCHAR(20),
         telefone VARCHAR(20),
@@ -35,36 +62,12 @@ def criar_tabelas():
     # =========================
     cur.execute("""
     CREATE TABLE IF NOT EXISTS veiculos (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
+        usuario_id BIGINT NOT NULL,
         modelo VARCHAR(100) NOT NULL,
         placa VARCHAR(20) UNIQUE NOT NULL,
-        motorista_id INTEGER REFERENCES motoristas(id) ON DELETE SET NULL,
+        motorista_id BIGINT REFERENCES motoristas(id) ON DELETE SET NULL,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    """)
-
-    # =========================
-    # POSTOS
-    # =========================
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS postos (
-        id SERIAL PRIMARY KEY,
-        nome VARCHAR(100) NOT NULL,
-        endereco VARCHAR(200),
-        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    """)
-
-    # =========================
-    # POSTO_PRECOS
-    # =========================
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS posto_precos (
-        id SERIAL PRIMARY KEY,
-        posto_id INTEGER REFERENCES postos(id) ON DELETE CASCADE,
-        tipo_combustivel VARCHAR(50) NOT NULL,
-        preco NUMERIC(10,2) NOT NULL,
-        atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
 
@@ -73,10 +76,12 @@ def criar_tabelas():
     # =========================
     cur.execute("""
     CREATE TABLE IF NOT EXISTS abastecimentos (
-        id SERIAL PRIMARY KEY,
-        motorista_id INTEGER REFERENCES motoristas(id) ON DELETE SET NULL,
-        veiculo_id INTEGER REFERENCES veiculos(id) ON DELETE SET NULL,
-        posto_id INTEGER REFERENCES postos(id) ON DELETE SET NULL,
+        id BIGSERIAL PRIMARY KEY,
+        usuario_id BIGINT NOT NULL,
+        motorista_id BIGINT REFERENCES motoristas(id) ON DELETE SET NULL,
+        veiculo_id BIGINT REFERENCES veiculos(id) ON DELETE SET NULL,
+        posto_id BIGINT REFERENCES postos(id) ON DELETE SET NULL,
+        tipo_combustivel TEXT NOT NULL,
         litros NUMERIC(10,2) NOT NULL,
         valor_total NUMERIC(10,2) NOT NULL,
         data_abastecimento TIMESTAMP DEFAULT CURRENT_TIMESTAMP
