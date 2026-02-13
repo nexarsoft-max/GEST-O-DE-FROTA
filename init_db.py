@@ -18,7 +18,6 @@ def criar_tabelas():
     cur.execute("""
     CREATE TABLE IF NOT EXISTS veiculos (
         id BIGSERIAL PRIMARY KEY,
-        usuario_id BIGINT NOT NULL,
         nome VARCHAR(100) NOT NULL,
         placa VARCHAR(20),
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -29,7 +28,6 @@ def criar_tabelas():
     cur.execute("""
     CREATE TABLE IF NOT EXISTS motoristas (
         id BIGSERIAL PRIMARY KEY,
-        usuario_id BIGINT NOT NULL,
         nome VARCHAR(100) NOT NULL,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
@@ -39,22 +37,20 @@ def criar_tabelas():
     cur.execute("""
     CREATE TABLE IF NOT EXISTS postos (
         id BIGSERIAL PRIMARY KEY,
-        usuario_id BIGINT NOT NULL,
         nome VARCHAR(150) NOT NULL,
         endereco TEXT,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
 
-    # POSTO_COMBUSTIVEIS
+    # POSTO_COMBUSTIVEIS (A QUE ESTAVA FALTANDO)
     cur.execute("""
     CREATE TABLE IF NOT EXISTS posto_combustiveis (
         id BIGSERIAL PRIMARY KEY,
-        usuario_id BIGINT NOT NULL,
         posto_id BIGINT NOT NULL,
         tipo TEXT NOT NULL,
         preco NUMERIC(10,2) NOT NULL,
-        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        FOREIGN KEY (posto_id) REFERENCES postos(id) ON DELETE CASCADE
     );
     """)
 
@@ -62,20 +58,13 @@ def criar_tabelas():
     cur.execute("""
     CREATE TABLE IF NOT EXISTS abastecimentos (
         id BIGSERIAL PRIMARY KEY,
-        usuario_id BIGINT NOT NULL,
-        data DATE NOT NULL,
-        hora TIME NOT NULL,
-        motorista_id BIGINT,
         veiculo_id BIGINT,
+        motorista_id BIGINT,
         posto_id BIGINT,
-        combustivel_tipo TEXT,
+        tipo_combustivel TEXT,
         litros NUMERIC(10,2),
-        preco_total NUMERIC(10,2),
-        preco_unitario NUMERIC(10,2),
-        odometro NUMERIC(10,2),
-        pago BOOLEAN DEFAULT FALSE,
-        obs TEXT,
-        comprovante_url TEXT,
+        valor_total NUMERIC(10,2),
+        data DATE,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
@@ -84,15 +73,10 @@ def criar_tabelas():
     cur.execute("""
     CREATE TABLE IF NOT EXISTS manutencoes (
         id BIGSERIAL PRIMARY KEY,
-        usuario_id BIGINT NOT NULL,
-        data DATE NOT NULL,
-        hora TIME NOT NULL,
         veiculo_id BIGINT,
         descricao TEXT,
         valor NUMERIC(10,2),
-        pago BOOLEAN DEFAULT FALSE,
-        obs TEXT,
-        comprovante_url TEXT,
+        data DATE,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
@@ -101,7 +85,7 @@ def criar_tabelas():
     cur.close()
     conn.close()
 
-    print("✅ Banco 100% alinhado com arquitetura nova")
+    print("✅ Todas as tabelas criadas com sucesso.")
 
 if __name__ == "__main__":
     criar_tabelas()

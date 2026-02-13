@@ -31,15 +31,16 @@ def criar_usuario(nome: str, email: str, senha: str) -> None:
 
         senha_hash = generate_password_hash(senha)
 
+        # ✅ ALINHADO AO SEU INIT_DB: usuarios(email, senha_hash)
         cur.execute(
-            "INSERT INTO usuarios (nome, email, senha_hash) VALUES (%s, %s, %s)",
-            (nome, email, senha_hash)
+            "INSERT INTO usuarios (email, senha_hash) VALUES (%s, %s)",
+            (email, senha_hash)
         )
 
         conn.commit()
 
         print("\n✅ Usuário criado com sucesso!")
-        print(f"Nome: {nome}")
+        print(f"Nome (não salvo no banco): {nome}")
         print(f"Email: {email}")
         print(f"Senha: {senha}")
 
