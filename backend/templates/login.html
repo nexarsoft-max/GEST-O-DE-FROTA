@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoRota - Login</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/telalogin.css') }}">
+</head>
+<body>
+
+  <div class="logo">
+    <img src="{{ url_for('static', filename='img/logogorota.png') }}" alt="GoRota">
+  </div>
+
+  <main>
+    <section class="titulocadastro">
+      <h1>Login</h1>
+      <div class="subtitulo1"><p>Acesse sua conta</p></div>
+    </section>
+
+    <form class="cadastro" id="formLogin">
+      <section class="inputs">
+        <div class="mod">
+          <div class="campo">
+            <label>E-mail</label>
+            <input type="email" id="email" name="email" placeholder="Digite seu e-mail" required>
+          </div>
+
+          <div class="campo">
+            <label>Senha</label>
+            <input type="password" id="senha" name="senha" placeholder="Digite sua senha" required>
+          </div>
+        </div>
+
+        <div class="check">
+          <input type="checkbox" id="lembrar">
+          <label for="lembrar">Lembrar senha</label>
+          <a href="#">Esqueci a senha?</a>
+        </div>
+      </section>
+
+      <section class="botão">
+        <button class="Entrar-btn" type="submit">Entrar</button>
+      </section>
+    </form>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/login.js') }}"></script>
+</body>
+</html>
