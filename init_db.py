@@ -5,7 +5,19 @@ def criar_tabelas():
     cur = conn.cursor()
 
     # =========================
-    # USUARIOS
+    # 0) CORREÇÃO: tabela antiga com acento ("veículos") -> veiculos
+    # =========================
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF to_regclass('public."veículos"') IS NOT NULL AND to_regclass('public.veiculos') IS NULL THEN
+            EXECUTE 'ALTER TABLE "veículos" RENAME TO veiculos';
+        END IF;
+    END$$;
+    """)
+
+    # =========================
+    # 1) USUARIOS
     # =========================
     cur.execute("""
     CREATE TABLE IF NOT EXISTS usuarios (
@@ -17,7 +29,7 @@ def criar_tabelas():
     """)
 
     # =========================
-    # VEICULOS (app.py)
+    # 2) VEICULOS (schema oficial do app)
     # =========================
     cur.execute("""
     CREATE TABLE IF NOT EXISTS veiculos (
@@ -27,11 +39,11 @@ def criar_tabelas():
         placa VARCHAR(20) NOT NULL,
         renavam VARCHAR(50),
         cidade VARCHAR(120) NOT NULL,
-        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
 
+    # Garante colunas novas/antigas
     cur.execute("""ALTER TABLE veiculos ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
     cur.execute("""ALTER TABLE veiculos ADD COLUMN IF NOT EXISTS modelo VARCHAR(100);""")
     cur.execute("""ALTER TABLE veiculos ADD COLUMN IF NOT EXISTS placa VARCHAR(20);""")
@@ -39,7 +51,44 @@ def criar_tabelas():
     cur.execute("""ALTER TABLE veiculos ADD COLUMN IF NOT EXISTS cidade VARCHAR(120);""")
     cur.execute("""ALTER TABLE veiculos ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
 
-    # Index único (usuario_id, placa)
+    # Se existir coluna antiga "nome", não deixa ela quebrar inserts (NOT NULL)
+    # - copia modelo -> nome quando nome estiver NULL
+    # - derruba NOT NULL do nome (pra nunca mais quebrar)
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name='veiculos' AND column_name='nome'
+        ) THEN
+            EXECUTE 'UPDATE veiculos SET nome = COALESCE(nome, modelo, ''SEM NOME'') WHERE nome IS NULL';
+            BEGIN
+                EXECUTE 'ALTER TABLE veiculos ALTER COLUMN nome DROP NOT NULL';
+            EXCEPTION WHEN others THEN
+                NULL;
+            END;
+        END IF;
+    END$$;
+    """)
+
+    # FK veiculos.usuario_id
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints
+            WHERE constraint_name = 'fk_veiculos_usuario'
+        ) THEN
+            ALTER TABLE veiculos
+            ADD CONSTRAINT fk_veiculos_usuario
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE;
+        END IF;
+    EXCEPTION WHEN duplicate_object THEN
+        NULL;
+    END$$;
+    """)
+
+    # Unique usuario_id + placa
     cur.execute("""
     DO $$
     BEGIN
@@ -53,7 +102,7 @@ def criar_tabelas():
     """)
 
     # =========================
-    # MOTORISTAS (app.py)
+    # 3) MOTORISTAS
     # =========================
     cur.execute("""
     CREATE TABLE IF NOT EXISTS motoristas (
@@ -68,6 +117,7 @@ def criar_tabelas():
     );
     """)
 
+    # migração segura
     cur.execute("""ALTER TABLE motoristas ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
     cur.execute("""ALTER TABLE motoristas ADD COLUMN IF NOT EXISTS nome VARCHAR(100);""")
     cur.execute("""ALTER TABLE motoristas ADD COLUMN IF NOT EXISTS cpf VARCHAR(30);""")
@@ -75,8 +125,24 @@ def criar_tabelas():
     cur.execute("""ALTER TABLE motoristas ADD COLUMN IF NOT EXISTS endereco TEXT;""")
     cur.execute("""ALTER TABLE motoristas ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
 
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints
+            WHERE constraint_name = 'fk_motoristas_usuario'
+        ) THEN
+            ALTER TABLE motoristas
+            ADD CONSTRAINT fk_motoristas_usuario
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE;
+        END IF;
+    EXCEPTION WHEN duplicate_object THEN
+        NULL;
+    END$$;
+    """)
+
     # =========================
-    # POSTOS (app.py)
+    # 4) POSTOS
     # =========================
     cur.execute("""
     CREATE TABLE IF NOT EXISTS postos (
@@ -88,31 +154,108 @@ def criar_tabelas():
         FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
     );
     """)
+
     cur.execute("""ALTER TABLE postos ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
     cur.execute("""ALTER TABLE postos ADD COLUMN IF NOT EXISTS nome VARCHAR(150);""")
     cur.execute("""ALTER TABLE postos ADD COLUMN IF NOT EXISTS endereco TEXT;""")
     cur.execute("""ALTER TABLE postos ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
 
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints
+            WHERE constraint_name = 'fk_postos_usuario'
+        ) THEN
+            ALTER TABLE postos
+            ADD CONSTRAINT fk_postos_usuario
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE;
+        END IF;
+    EXCEPTION WHEN duplicate_object THEN
+        NULL;
+    END$$;
+    """)
+
     # =========================
-    # POSTO_COMBUSTIVEIS (SEM usuario_id)
+    # 5) POSTO_COMBUSTIVEIS (ALINHADO COM app.py)
     # =========================
     cur.execute("""
     CREATE TABLE IF NOT EXISTS posto_combustiveis (
         id BIGSERIAL PRIMARY KEY,
+        usuario_id BIGINT NOT NULL,
         posto_id BIGINT NOT NULL,
         tipo TEXT NOT NULL,
         preco NUMERIC(10,2) NOT NULL,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
         FOREIGN KEY (posto_id) REFERENCES postos(id) ON DELETE CASCADE
     );
     """)
+
+    # garante colunas
+    cur.execute("""ALTER TABLE posto_combustiveis ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
     cur.execute("""ALTER TABLE posto_combustiveis ADD COLUMN IF NOT EXISTS posto_id BIGINT;""")
     cur.execute("""ALTER TABLE posto_combustiveis ADD COLUMN IF NOT EXISTS tipo TEXT;""")
     cur.execute("""ALTER TABLE posto_combustiveis ADD COLUMN IF NOT EXISTS preco NUMERIC(10,2);""")
     cur.execute("""ALTER TABLE posto_combustiveis ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
 
+    # ✅ Corrige linhas antigas: se usuario_id está NULL, puxa de postos.usuario_id
+    cur.execute("""
+    UPDATE posto_combustiveis pc
+    SET usuario_id = p.usuario_id
+    FROM postos p
+    WHERE pc.posto_id = p.id
+      AND pc.usuario_id IS NULL;
+    """)
+
+    # FK usuario_id
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints
+            WHERE constraint_name = 'fk_pc_usuario'
+        ) THEN
+            ALTER TABLE posto_combustiveis
+            ADD CONSTRAINT fk_pc_usuario
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE;
+        END IF;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END$$;
+    """)
+
+    # FK posto_id
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints
+            WHERE constraint_name = 'fk_pc_posto'
+        ) THEN
+            ALTER TABLE posto_combustiveis
+            ADD CONSTRAINT fk_pc_posto
+            FOREIGN KEY (posto_id) REFERENCES postos(id) ON DELETE CASCADE;
+        END IF;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END$$;
+    """)
+
+    # Unique usuario_id + posto_id + tipo
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_indexes
+            WHERE schemaname='public' AND indexname='ux_pc_usuario_posto_tipo'
+        ) THEN
+            CREATE UNIQUE INDEX ux_pc_usuario_posto_tipo
+            ON posto_combustiveis (usuario_id, posto_id, tipo);
+        END IF;
+    END$$;
+    """)
+
     # =========================
-    # ABASTECIMENTOS (app.py)
+    # 6) ABASTECIMENTOS (alinhado com app.py)
     # =========================
     cur.execute("""
     CREATE TABLE IF NOT EXISTS abastecimentos (
@@ -126,62 +269,21 @@ def criar_tabelas():
         combustivel_tipo TEXT NOT NULL,
         litros NUMERIC(10,2) NOT NULL,
         preco_total NUMERIC(10,2) NOT NULL,
-        preco_unitario NUMERIC(10,4) NOT NULL,
+        preco_unitario NUMERIC(10,2) NOT NULL,
         odometro BIGINT,
         pago BOOLEAN DEFAULT FALSE,
         obs TEXT,
         comprovante_url TEXT,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-        FOREIGN KEY (veiculo_id) REFERENCES veiculos(id) ON DELETE SET NULL,
-        FOREIGN KEY (motorista_id) REFERENCES motoristas(id) ON DELETE SET NULL,
-        FOREIGN KEY (posto_id) REFERENCES postos(id) ON DELETE SET NULL
+        FOREIGN KEY (motorista_id) REFERENCES motoristas(id) ON DELETE RESTRICT,
+        FOREIGN KEY (veiculo_id) REFERENCES veiculos(id) ON DELETE RESTRICT,
+        FOREIGN KEY (posto_id) REFERENCES postos(id) ON DELETE RESTRICT
     );
     """)
 
-    # migração segura (se tabela já existe com nomes antigos)
-    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
-    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS data DATE;""")
-    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS hora TIME;""")
-    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS motorista_id BIGINT;""")
-    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS veiculo_id BIGINT;""")
-    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS posto_id BIGINT;""")
-    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS combustivel_tipo TEXT;""")
-    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS litros NUMERIC(10,2);""")
-    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS preco_total NUMERIC(10,2);""")
-    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS preco_unitario NUMERIC(10,4);""")
-    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS odometro BIGINT;""")
-    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS pago BOOLEAN DEFAULT FALSE;""")
-    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS obs TEXT;""")
-    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS comprovante_url TEXT;""")
-    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
-
-    # Se sua tabela antiga tinha tipo_combustivel/valor_total, copia para os nomes novos
-    cur.execute("""
-    DO $$
-    BEGIN
-        IF EXISTS (
-            SELECT 1 FROM information_schema.columns
-            WHERE table_name='abastecimentos' AND column_name='tipo_combustivel'
-        ) THEN
-            UPDATE abastecimentos
-            SET combustivel_tipo = COALESCE(combustivel_tipo, tipo_combustivel)
-            WHERE combustivel_tipo IS NULL;
-        END IF;
-
-        IF EXISTS (
-            SELECT 1 FROM information_schema.columns
-            WHERE table_name='abastecimentos' AND column_name='valor_total'
-        ) THEN
-            UPDATE abastecimentos
-            SET preco_total = COALESCE(preco_total, valor_total)
-            WHERE preco_total IS NULL;
-        END IF;
-    END$$;
-    """)
-
     # =========================
-    # MANUTENCOES (app.py)
+    # 7) MANUTENCOES (alinhado com app.py)
     # =========================
     cur.execute("""
     CREATE TABLE IF NOT EXISTS manutencoes (
@@ -198,29 +300,15 @@ def criar_tabelas():
         comprovante_url TEXT,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-        FOREIGN KEY (veiculo_id) REFERENCES veiculos(id) ON DELETE SET NULL,
-        FOREIGN KEY (motorista_id) REFERENCES motoristas(id) ON DELETE SET NULL
+        FOREIGN KEY (motorista_id) REFERENCES motoristas(id) ON DELETE RESTRICT,
+        FOREIGN KEY (veiculo_id) REFERENCES veiculos(id) ON DELETE RESTRICT
     );
     """)
-
-    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
-    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS data DATE;""")
-    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS hora TIME;""")
-    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS motorista_id BIGINT;""")
-    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS veiculo_id BIGINT;""")
-    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS valor NUMERIC(10,2);""")
-    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS prestador TEXT;""")
-    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS pago BOOLEAN DEFAULT FALSE;""")
-    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS obs TEXT;""")
-    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS comprovante_url TEXT;""")
-    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
 
     conn.commit()
     cur.close()
     conn.close()
-
-    print("✅ init_db.py: tabelas criadas/alinhadas com sucesso (app.py).")
-
+    print("✅ init_db.py: tabelas criadas/alinhadas com sucesso.")
 
 if __name__ == "__main__":
     criar_tabelas()

@@ -15,6 +15,8 @@ TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 app = Flask(__name__, template_folder=TEMPLATES_DIR, static_folder=STATIC_DIR)
+
+# ✅ cria/alinha tabelas ao subir
 from init_db import criar_tabelas
 
 with app.app_context():
@@ -64,13 +66,16 @@ def proteger_api():
 
 
 def _posto_completo_por_id(cur, usuario_id: int, posto_id: int):
-    # ✅ filtra por usuario_id (não vaza dados de outro usuário)
+    # ✅ ALINHADO COM init_db.py:
+    # posto_combustiveis TEM usuario_id => filtra também por pc.usuario_id
     cur.execute("""
         SELECT
             p.id, p.nome, p.endereco,
             pc.tipo, pc.preco
         FROM postos p
-        LEFT JOIN posto_combustiveis pc ON pc.posto_id = p.id
+        LEFT JOIN posto_combustiveis pc
+            ON pc.posto_id = p.id
+           AND pc.usuario_id = p.usuario_id
         WHERE p.id = %s AND p.usuario_id = %s
         ORDER BY pc.tipo ASC
     """, (posto_id, usuario_id))
@@ -342,13 +347,15 @@ def api_veiculos():
                 conn.close()
 
     dados = request.get_json(silent=True) or {}
-    modelo = (dados.get("modelo") or "").strip()
+
+    # ✅ compatibilidade: alguns front-ends antigos mandam "nome" ao invés de "modelo"
+    modelo = (dados.get("modelo") or dados.get("nome") or "").strip()
     placa = (dados.get("placa") or "").strip().upper()
     cidade = (dados.get("cidade") or "").strip()
     renavam = (dados.get("renavam") or "").strip()
 
     if not modelo or not placa or not cidade:
-        return jsonify({"sucesso": False, "erro": "Campos obrigatórios: modelo, placa, cidade"}), 400
+        return jsonify({"sucesso": False, "erro": "Campos obrigatórios: modelo (ou nome), placa, cidade"}), 400
 
     conn = cur = None
     try:
@@ -412,7 +419,9 @@ def api_veiculo_por_id(veiculo_id):
 
         if request.method == "PUT":
             dados = request.get_json(silent=True) or {}
-            modelo = (dados.get("modelo") or "").strip()
+
+            # ✅ compatibilidade: aceita "nome" também
+            modelo = (dados.get("modelo") or dados.get("nome") or "").strip()
             placa = (dados.get("placa") or "").strip().upper()
             renavam = (dados.get("renavam") or "").strip()
             cidade = (dados.get("cidade") or "").strip()
@@ -644,12 +653,17 @@ def api_postos():
         try:
             conn = get_db()
             cur = conn.cursor()
+
+            # ✅ ALINHADO COM init_db.py:
+            # posto_combustiveis TEM usuario_id => join filtra por pc.usuario_id
             cur.execute("""
                 SELECT
                     p.id, p.nome, p.endereco,
                     pc.tipo, pc.preco
                 FROM postos p
-                LEFT JOIN posto_combustiveis pc ON pc.posto_id = p.id
+                LEFT JOIN posto_combustiveis pc
+                    ON pc.posto_id = p.id
+                   AND pc.usuario_id = p.usuario_id
                 WHERE p.usuario_id = %s
                 ORDER BY p.id DESC, pc.tipo ASC
             """, (uid,))
@@ -706,17 +720,18 @@ def api_postos():
         """, (uid, nome, endereco))
         posto_id = cur.fetchone()[0]
 
-        # ✅ CORREÇÃO: posto_combustiveis NÃO tem usuario_id (quem tem usuario_id é o posto)
+        # ✅ ALINHADO COM init_db.py:
+        # posto_combustiveis TEM usuario_id => inserir com usuario_id
         cur.execute("""
-            INSERT INTO posto_combustiveis (posto_id, tipo, preco)
+            INSERT INTO posto_combustiveis (usuario_id, posto_id, tipo, preco)
             VALUES
-                (%s, %s, %s),
-                (%s, %s, %s),
-                (%s, %s, %s)
+                (%s, %s, %s, %s),
+                (%s, %s, %s, %s),
+                (%s, %s, %s, %s)
         """, (
-            posto_id, "gasolina", gasolina,
-            posto_id, "etanol", etanol,
-            posto_id, "diesel", diesel
+            uid, posto_id, "gasolina", gasolina,
+            uid, posto_id, "etanol", etanol,
+            uid, posto_id, "diesel", diesel
         ))
 
         conn.commit()
@@ -781,29 +796,30 @@ def api_posto_por_id(posto_id: int):
                 conn.rollback()
                 return jsonify({"sucesso": False, "erro": "Posto não encontrado"}), 404
 
-            # ✅ CORREÇÃO: posto_combustiveis NÃO filtra por usuario_id
+            # ✅ ALINHADO COM init_db.py:
+            # apaga combustíveis do posto daquele usuário
             cur.execute("""
                 DELETE FROM posto_combustiveis
-                WHERE posto_id = %s AND tipo IN ('gasolina','etanol','diesel')
-            """, (posto_id,))
+                WHERE usuario_id = %s AND posto_id = %s AND tipo IN ('gasolina','etanol','diesel')
+            """, (uid, posto_id))
 
             cur.execute("""
-                INSERT INTO posto_combustiveis (posto_id, tipo, preco)
+                INSERT INTO posto_combustiveis (usuario_id, posto_id, tipo, preco)
                 VALUES
-                    (%s, %s, %s),
-                    (%s, %s, %s),
-                    (%s, %s, %s)
+                    (%s, %s, %s, %s),
+                    (%s, %s, %s, %s),
+                    (%s, %s, %s, %s)
             """, (
-                posto_id, "gasolina", gasolina,
-                posto_id, "etanol", etanol,
-                posto_id, "diesel", diesel
+                uid, posto_id, "gasolina", gasolina,
+                uid, posto_id, "etanol", etanol,
+                uid, posto_id, "diesel", diesel
             ))
 
             conn.commit()
             return jsonify({"sucesso": True}), 200
 
         # DELETE
-        cur.execute("DELETE FROM posto_combustiveis WHERE posto_id = %s", (posto_id,))
+        cur.execute("DELETE FROM posto_combustiveis WHERE usuario_id = %s AND posto_id = %s", (uid, posto_id))
         cur.execute("DELETE FROM postos WHERE id = %s AND usuario_id = %s", (posto_id, uid))
         if cur.rowcount == 0:
             conn.rollback()
@@ -881,7 +897,9 @@ def api_catalogo():
                 p.id, p.nome, p.endereco,
                 pc.tipo, pc.preco
             FROM postos p
-            LEFT JOIN posto_combustiveis pc ON pc.posto_id = p.id
+            LEFT JOIN posto_combustiveis pc
+                ON pc.posto_id = p.id
+               AND pc.usuario_id = p.usuario_id
             WHERE p.usuario_id = %s
             ORDER BY p.id DESC, pc.tipo ASC
         """, (uid,))
