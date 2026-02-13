@@ -15,6 +15,10 @@ TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 app = Flask(__name__, template_folder=TEMPLATES_DIR, static_folder=STATIC_DIR)
+from init_db import criar_tabelas
+
+with app.app_context():
+    criar_tabelas()
 
 app.config["SECRET_KEY"] = "gorota-dev"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
