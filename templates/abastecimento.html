@@ -523,7 +523,8 @@ body{ background:var(--bg); color:var(--texto); }
           <option value="" disabled selected>Selecione o combustível</option>
         </select>
 
-        <input placeholder="Odômetro" id="odometro" />
+        <!-- ✅ ODOMETRO: agora com inputmode + maxlength (6) -->
+        <input placeholder="Odômetro" id="odometro" inputmode="numeric" maxlength="6" />
 
         <label class="check-ja-pago" for="pagoAbastecimento">
           <input type="checkbox" id="pagoAbastecimento" />
@@ -654,63 +655,53 @@ let veiculos = [];
 let postos = [];
 
 /* =========================================================
-   ✅ ODOMETRO: "0" inicial + normalização por veículo
+   ✅ ODOMETRO (FIXO 6 DÍGITOS)
+   - só números
+   - máximo 6
+   - no blur/enter: completa com zeros à esquerda
+   - quando vem do banco com ".00": ignora e pega só dígitos
    ========================================================= */
-const KEY_ODO_DIGITS = "odometro_digits_por_veiculo";
+const ODO_MAX = 6;
 
-function getOdoDigitsMap(){
-  try { return JSON.parse(localStorage.getItem(KEY_ODO_DIGITS)) || {}; }
-  catch { return {}; }
-}
-function setOdoDigitsMap(map){
-  localStorage.setItem(KEY_ODO_DIGITS, JSON.stringify(map));
-}
 function onlyDigits(s){ return String(s ?? "").replace(/[^\d]/g, ""); }
-
-function getDigitsForVehicle(veiculoId){
-  const map = getOdoDigitsMap();
-  const cur = Number(map[String(veiculoId)] || 0);
-  return Math.max(cur || 0, 6);
+function clampOdo(s){
+  const d = onlyDigits(s);
+  return d.length > ODO_MAX ? d.slice(0, ODO_MAX) : d;
 }
-
-function updateDigitsForVehicle(veiculoId, digits){
-  const map = getOdoDigitsMap();
-  const cur = Number(map[String(veiculoId)] || 0);
-  if(digits > cur){
-    map[String(veiculoId)] = digits;
-    setOdoDigitsMap(map);
-  }
+function padOdo6(s){
+  const d = clampOdo(s);
+  if(!d) return "";
+  return d.padStart(ODO_MAX, "0");
 }
-
-function normalizarOdometroStr(odometroDigitado, veiculoId){
-  const dig = onlyDigits(odometroDigitado);
-  if(!dig) return "";
-  const pad = Math.max(getDigitsForVehicle(veiculoId), dig.length);
-  updateDigitsForVehicle(veiculoId, pad);
-  return dig.padStart(pad, "0");
+function stripLeftZeros(s){
+  const d = clampOdo(s);
+  if(!d) return "";
+  const x = d.replace(/^0+/, "");
+  return x === "" ? "0" : x;
 }
 
 (function setupOdometerInput(){
   const input = document.getElementById("odometro");
-  const selVeiculo = document.getElementById("selectVeiculo");
-  if(!input || !selVeiculo) return;
+  if(!input) return;
+
+  input.addEventListener("input", () => {
+    input.value = clampOdo(input.value);
+  });
 
   input.addEventListener("focus", () => {
-    if(input.value.trim() === ""){
-      input.value = "0";
-      requestAnimationFrame(()=> input.setSelectionRange(input.value.length, input.value.length));
+    // facilita digitar (não atrapalha com 000123)
+    input.value = stripLeftZeros(input.value);
+    input.select?.();
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if(e.key === "Enter"){
+      input.blur();
     }
   });
 
-  input.addEventListener("input", () => {
-    input.value = onlyDigits(input.value);
-  });
-
   input.addEventListener("blur", () => {
-    const veiculoId = parseInt(selVeiculo.value);
-    if(!veiculoId) return;
-    const norm = normalizarOdometroStr(input.value, veiculoId);
-    input.value = norm;
+    input.value = padOdo6(input.value);
   });
 })();
 
@@ -882,7 +873,7 @@ async function registrarAbastecimento(){
   const veiculoId=parseInt(document.getElementById("selectVeiculo").value);
 
   const odometroBruto=document.getElementById("odometro").value.trim();
-  const odometro = normalizarOdometroStr(odometroBruto, veiculoId);
+  const odometro = padOdo6(odometroBruto);
 
   const combustivel=document.getElementById("selectCombustivel").value;
   const litros=parseFloat(document.getElementById("inputLitros").value);
@@ -990,6 +981,16 @@ async function carregarHistoricoDoBanco(){
   }else{
     registros = Array.isArray(data) ? data : [];
   }
+
+  // ✅ normaliza odômetro vindo do banco (evita "52502.00" e garante 6 dígitos)
+  registros = registros.map(r => {
+    if(r && r.tipo === "abastecimento"){
+      const raw = r.odometro ?? "";
+      const norm = padOdo6(raw);
+      return { ...r, odometro: norm };
+    }
+    return r;
+  });
 
   atualizarFiltroPostoPrestador();
   carregarHistorico();
@@ -1150,6 +1151,37 @@ function setEditMode(div, isEdit){
   div.querySelector(".btn-excluir").style.display = isEdit ? "none" : "";
   div.querySelector(".btn-salvar").style.display = isEdit ? "" : "none";
   div.querySelector(".btn-cancelar-edicao").style.display = isEdit ? "" : "none";
+
+  // ✅ quando entra em edição, aplica máscara no odômetro do card (abastecimento)
+  const odoEdit = div.querySelector('[data-e="odometro"]');
+  if(odoEdit){
+    odoEdit.setAttribute("inputmode", "numeric");
+    odoEdit.setAttribute("maxlength", String(ODO_MAX));
+
+    // garante que começa com 6 dígitos visualmente (mas ao focar tira zeros)
+    odoEdit.value = padOdo6(odoEdit.value);
+
+    // remove zeros ao focar (pra digitar fácil)
+    odoEdit.addEventListener("focus", () => {
+      odoEdit.value = stripLeftZeros(odoEdit.value);
+      odoEdit.select?.();
+    }, { once:false });
+
+    // só dígitos enquanto digita
+    odoEdit.addEventListener("input", () => {
+      odoEdit.value = clampOdo(odoEdit.value);
+    }, { once:false });
+
+    // enter confirma
+    odoEdit.addEventListener("keydown", (e) => {
+      if(e.key === "Enter") odoEdit.blur();
+    }, { once:false });
+
+    // blur aplica pad 6
+    odoEdit.addEventListener("blur", () => {
+      odoEdit.value = padOdo6(odoEdit.value);
+    }, { once:false });
+  }
 }
 
 async function excluirRegistroNoBanco(r){
@@ -1184,7 +1216,7 @@ async function salvarEdicaoNoBanco(div, r){
 
     const litros = parseFloat(div.querySelector('[data-e="litros"]').value);
     const odometroRaw = (div.querySelector('[data-e="odometro"]').value || "").trim();
-    const odometro = normalizarOdometroStr(odometroRaw, veiculo_id);
+    const odometro = padOdo6(odometroRaw);
 
     const pago = div.querySelector('[data-e="pago"]').checked;
     const obs = (div.querySelector('[data-e="obs"]').value || "").trim();
@@ -1292,6 +1324,9 @@ function criarDivRegistro(r){
       return v ? `${v.placa} - ${v.modelo}` : "-";
     })();
 
+    // ✅ garante que view + edit já mostrem 6 dígitos
+    const odo6 = padOdo6(r.odometro || "");
+
     div.innerHTML=`
       <div class="registro-grid">
 
@@ -1351,8 +1386,8 @@ function criarDivRegistro(r){
 
         <div>
           <strong>Odômetro:</strong>
-          <input data-view value="${r.odometro || ''}" readonly>
-          <input data-edit data-e="odometro" class="editavel" value="${r.odometro || ''}" style="display:none;">
+          <input data-view value="${odo6}" readonly>
+          <input data-edit data-e="odometro" class="editavel" value="${odo6}" style="display:none;" inputmode="numeric" maxlength="6">
         </div>
 
         <div>
