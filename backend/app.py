@@ -91,6 +91,18 @@ def _odometro_to_int(odometro):
     return int(odo_digits) if odo_digits else None
 
 
+def _odometro_to_str6(odometro):
+    """
+    ✅ Mostra SEM .00 e com zeros à esquerda até 6 dígitos (quando tiver <= 6).
+    Se tiver mais de 6 dígitos, não corta (só remove qualquer formatação).
+    """
+    n = _odometro_to_int(odometro)
+    if n is None:
+        return ""
+    s = str(n)
+    return s.zfill(6) if len(s) <= 6 else s
+
+
 # =========================
 # LOGIN (compatível com JSON e FORM)
 # =========================
@@ -955,7 +967,7 @@ def api_abastecimentos():
                     "litros": float(litros) if litros is not None else 0.0,
                     "preco": float(preco_total) if preco_total is not None else 0.0,
                     "precoUnitario": float(preco_unitario) if preco_unitario is not None else 0.0,
-                    "odometro": str(odometro) if odometro is not None else "",
+                    "odometro": _odometro_to_str6(odometro),
                     "pago": bool(pago),
                     "obs": obs,
                     "comprovante": comprovante_url
@@ -1221,7 +1233,7 @@ def api_abastecimento_por_id(abastecimento_id: int):
                 "litros": float(litros) if litros is not None else 0.0,
                 "preco": float(preco_total) if preco_total is not None else 0.0,
                 "precoUnitario": float(preco_unitario) if preco_unitario is not None else 0.0,
-                "odometro": str(odometro) if odometro is not None else "",
+                "odometro": _odometro_to_str6(odometro),
                 "pago": bool(pago),
                 "obs": obs,
                 "comprovante": comprovante_url
@@ -1490,7 +1502,7 @@ def api_historico():
                 "litros": float(litros) if litros is not None else 0.0,
                 "preco": float(preco_total) if preco_total is not None else 0.0,
                 "precoUnitario": float(preco_unitario) if preco_unitario is not None else 0.0,
-                "odometro": str(odometro) if odometro is not None else "",
+                "odometro": _odometro_to_str6(odometro),
                 "pago": bool(pago),
                 "obs": obs,
                 "comprovante": comprovante_url
@@ -1672,7 +1684,7 @@ def api_dashboard():
                 "litros": float(litros) if litros is not None else 0.0,
                 "preco": float(preco_total) if preco_total is not None else 0.0,
                 "precoUnitario": float(preco_unitario) if preco_unitario is not None else 0.0,
-                "odometro": str(odometro) if odometro is not None else "",
+                "odometro": _odometro_to_str6(odometro),
                 "pago": bool(pago),
                 "obs": obs,
                 "comprovante": comprovante_url
