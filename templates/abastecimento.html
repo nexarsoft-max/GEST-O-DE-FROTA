@@ -477,7 +477,6 @@ body{ background:var(--bg); color:var(--texto); }
 
 <body>
 
-<!-- ✅ APENAS 1 container-principal (FLEX correto) -->
 <div class="container-principal">
 
   <aside class="barra-lateral">
@@ -486,10 +485,7 @@ body{ background:var(--bg); color:var(--texto); }
 
     <nav class="menu-novo">
       <a href="{{ url_for('dashboard') }}" class="item-menu">Executivo</a>
-
-      <!-- ✅ AQUI ERA O ERRO -->
-      <a href="{{ url_for('geral_informacao') }}" class="item-menu ">Registros</a>
-
+      <a href="{{ url_for('geral_informacao') }}" class="item-menu">Registros</a>
       <a href="{{ url_for('abastecimento') }}" class="item-menu ativo">Registrar abastecimento</a>
       <a href="{{ url_for('cadastro') }}" class="item-menu">Cadastrar</a>
       <a href="{{ url_for('ajuda') }}" class="item-menu">Ajuda</a>
@@ -617,8 +613,6 @@ body{ background:var(--bg); color:var(--texto); }
   </main>
 
 </div>
-<!-- ✅ FECHA o container-principal ANTES do modal -->
-
 
 <!-- ✅ MODAL -->
 <div id="modalComprovante" class="modal-comprovante" onclick="fecharModalSeFundo(event)">
@@ -654,35 +648,70 @@ let veiculos = [];
 let postos = [];
 
 /* =========================================================
-   ✅ ODOMETRO FIXO 6 DIGITOS (CORREÇÃO DEFINITIVA)
-   - tira tudo que não é número
-   - limita 6
-   - completa com zeros à esquerda até 6
+   ✅ ODOMETRO: "0" inicial + normalização por veículo
    ========================================================= */
-function onlyDigits(v){
-  return String(v || "").replace(/\D/g, "");
+const KEY_ODO_DIGITS = "odometro_digits_por_veiculo";
+
+function getOdoDigitsMap(){
+  try { return JSON.parse(localStorage.getItem(KEY_ODO_DIGITS)) || {}; }
+  catch { return {}; }
+}
+function setOdoDigitsMap(map){
+  localStorage.setItem(KEY_ODO_DIGITS, JSON.stringify(map));
+}
+function onlyDigits(s){ return String(s ?? "").replace(/[^\d]/g, ""); }
+
+/* ✅ FIX DEFINITIVO: sempre exibir odômetro com 6 dígitos */
+function formatarOdometro6(valor){
+  const dig = String(valor ?? "").replace(/[^\d]/g, "");
+  if(!dig) return "";
+  return dig.padStart(6, "0");
 }
 
-function normalizarOdometroStr(valor){
-  let dig = onlyDigits(valor);
+function getDigitsForVehicle(veiculoId){
+  const map = getOdoDigitsMap();
+  const cur = Number(map[String(veiculoId)] || 0);
+  return Math.max(cur || 0, 6);
+}
 
+function updateDigitsForVehicle(veiculoId, digits){
+  const map = getOdoDigitsMap();
+  const cur = Number(map[String(veiculoId)] || 0);
+  if(digits > cur){
+    map[String(veiculoId)] = digits;
+    setOdoDigitsMap(map);
+  }
+}
+
+function normalizarOdometroStr(odometroDigitado, veiculoId){
+  const dig = onlyDigits(odometroDigitado);
   if(!dig) return "";
-
-  dig = dig.slice(0,6);
-  return dig.padStart(6, "0");
+  const pad = Math.max(getDigitsForVehicle(veiculoId), dig.length);
+  updateDigitsForVehicle(veiculoId, pad);
+  return dig.padStart(pad, "0");
 }
 
 (function setupOdometerInput(){
   const input = document.getElementById("odometro");
-  if(!input) return;
+  const selVeiculo = document.getElementById("selectVeiculo");
+  if(!input || !selVeiculo) return;
 
-  input.addEventListener("input", ()=>{
-    input.value = onlyDigits(input.value).slice(0,6);
+  input.addEventListener("focus", () => {
+    if(input.value.trim() === ""){
+      input.value = "0";
+      requestAnimationFrame(()=> input.setSelectionRange(input.value.length, input.value.length));
+    }
   });
 
-  input.addEventListener("blur", ()=>{
-    if(!input.value) return;
-    input.value = normalizarOdometroStr(input.value);
+  input.addEventListener("input", () => {
+    input.value = onlyDigits(input.value);
+  });
+
+  input.addEventListener("blur", () => {
+    const veiculoId = parseInt(selVeiculo.value);
+    if(!veiculoId) return;
+    const norm = normalizarOdometroStr(input.value, veiculoId);
+    input.value = norm;
   });
 })();
 
@@ -854,7 +883,7 @@ async function registrarAbastecimento(){
   const veiculoId=parseInt(document.getElementById("selectVeiculo").value);
 
   const odometroBruto=document.getElementById("odometro").value.trim();
-  const odometro = normalizarOdometroStr(odometroBruto);
+  const odometro = normalizarOdometroStr(odometroBruto, veiculoId);
 
   const combustivel=document.getElementById("selectCombustivel").value;
   const litros=parseFloat(document.getElementById("inputLitros").value);
@@ -1156,7 +1185,7 @@ async function salvarEdicaoNoBanco(div, r){
 
     const litros = parseFloat(div.querySelector('[data-e="litros"]').value);
     const odometroRaw = (div.querySelector('[data-e="odometro"]').value || "").trim();
-    const odometro = normalizarOdometroStr(odometroRaw);
+    const odometro = normalizarOdometroStr(odometroRaw, veiculo_id);
 
     const pago = div.querySelector('[data-e="pago"]').checked;
     const obs = (div.querySelector('[data-e="obs"]').value || "").trim();
@@ -1247,8 +1276,6 @@ async function salvarEdicaoNoBanco(div, r){
   await carregarHistoricoDoBanco();
 }
 
-/* (restante do seu script continua igual daqui pra baixo) */
-
 function criarDivRegistro(r){
   const div=document.createElement("div");
   div.classList.add("registro");
@@ -1325,8 +1352,8 @@ function criarDivRegistro(r){
 
         <div>
           <strong>Odômetro:</strong>
-          <input data-view value="${r.odometro || ''}" readonly>
-          <input data-edit data-e="odometro" class="editavel" value="${r.odometro || ''}" style="display:none;">
+          <input data-view value="${formatarOdometro6(r.odometro)}" readonly>
+          <input data-edit data-e="odometro" class="editavel" value="${formatarOdometro6(r.odometro)}" style="display:none;">
         </div>
 
         <div>
