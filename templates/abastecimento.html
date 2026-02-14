@@ -648,7 +648,7 @@ let veiculos = [];
 let postos = [];
 
 /* =========================================================
-   ✅ ODOMETRO: "0" inicial + normalização por veículo
+   ✅ ODOMETRO: FIX DEFINITIVO (não deixar "580.00" virar "58000")
    ========================================================= */
 const KEY_ODO_DIGITS = "odometro_digits_por_veiculo";
 
@@ -659,11 +659,29 @@ function getOdoDigitsMap(){
 function setOdoDigitsMap(map){
   localStorage.setItem(KEY_ODO_DIGITS, JSON.stringify(map));
 }
-function onlyDigits(s){ return String(s ?? "").replace(/[^\d]/g, ""); }
 
-/* ✅ FIX DEFINITIVO: sempre exibir odômetro com 6 dígitos */
+/**
+ * ✅ Extrai KM correto:
+ * - Se vier "580.00" ou "580,00" -> "580"
+ * - Se vier "12.345" (milhar) -> "12345"
+ * - Se vier "000580" -> "000580"
+ * - Se vier "58000" -> "58000" (não inventa, só limpa)
+ */
+function apenasDigitosKm(valor){
+  const s = String(valor ?? "").trim();
+  if(!s) return "";
+
+  // decimal exatamente com 2 casas (caso típico de numeric do banco: 580.00)
+  const m = s.match(/^(\d+)[\.,](\d{2})$/);
+  if(m) return m[1];
+
+  // fallback: remove tudo que não é dígito
+  return s.replace(/[^\d]/g, "");
+}
+
+/* ✅ Sempre exibir odômetro com 6 dígitos (e corrigir caso venha "580.00") */
 function formatarOdometro6(valor){
-  const dig = String(valor ?? "").replace(/[^\d]/g, "");
+  const dig = apenasDigitosKm(valor);
   if(!dig) return "";
   return dig.padStart(6, "0");
 }
@@ -684,13 +702,14 @@ function updateDigitsForVehicle(veiculoId, digits){
 }
 
 function normalizarOdometroStr(odometroDigitado, veiculoId){
-  const dig = onlyDigits(odometroDigitado);
+  const dig = apenasDigitosKm(odometroDigitado);
   if(!dig) return "";
-  const pad = Math.max(getDigitsForVehicle(veiculoId), dig.length);
+  const pad = Math.max(getDigitsForVehicle(veiculoId), dig.length, 6);
   updateDigitsForVehicle(veiculoId, pad);
   return dig.padStart(pad, "0");
 }
 
+/* ✅ Aplica comportamento de "só dígitos" + pad no input principal */
 (function setupOdometerInput(){
   const input = document.getElementById("odometro");
   const selVeiculo = document.getElementById("selectVeiculo");
@@ -704,7 +723,8 @@ function normalizarOdometroStr(odometroDigitado, veiculoId){
   });
 
   input.addEventListener("input", () => {
-    input.value = onlyDigits(input.value);
+    // mantém digitável só números, mas SEM transformar 580.00 em 58000 (aqui ele nem deveria digitar ponto)
+    input.value = input.value.replace(/[^\d]/g, "");
   });
 
   input.addEventListener("blur", () => {
@@ -714,6 +734,29 @@ function normalizarOdometroStr(odometroDigitado, veiculoId){
     input.value = norm;
   });
 })();
+
+/* ✅ Aplica o mesmo comportamento nos inputs de odômetro do HISTÓRICO (edição) */
+function aplicarMascaraOdometroEmInput(inputEl, getVeiculoIdFn){
+  if(!inputEl) return;
+
+  inputEl.addEventListener("input", () => {
+    inputEl.value = inputEl.value.replace(/[^\d]/g, "");
+  });
+
+  inputEl.addEventListener("blur", () => {
+    const veiculoId = Number(getVeiculoIdFn?.() || 0);
+    if(!veiculoId) return;
+    inputEl.value = normalizarOdometroStr(inputEl.value, veiculoId);
+  });
+
+  // se já vier algo esquisito tipo "580.00", corrige ao abrir
+  const veiculoId0 = Number(getVeiculoIdFn?.() || 0);
+  if(veiculoId0){
+    inputEl.value = normalizarOdometroStr(inputEl.value, veiculoId0);
+  }else{
+    inputEl.value = formatarOdometro6(inputEl.value);
+  }
+}
 
 /* ===== ORDENAR POR DATA/HORA ===== */
 function ordenarMaisRecentePrimeiro(lista){
@@ -1184,7 +1227,9 @@ async function salvarEdicaoNoBanco(div, r){
     const combustivel = div.querySelector('[data-e="combustivel"]').value;
 
     const litros = parseFloat(div.querySelector('[data-e="litros"]').value);
-    const odometroRaw = (div.querySelector('[data-e="odometro"]').value || "").trim();
+
+    const odoEl = div.querySelector('[data-e="odometro"]');
+    const odometroRaw = (odoEl?.value || "").trim();
     const odometro = normalizarOdometroStr(odometroRaw, veiculo_id);
 
     const pago = div.querySelector('[data-e="pago"]').checked;
@@ -1393,6 +1438,19 @@ function criarDivRegistro(r){
     };
     montar();
     selPosto.addEventListener("change", montar);
+
+    // ✅ FIX: aplicar máscara do odômetro no input de edição (histórico)
+    const odoEdit = div.querySelector('[data-e="odometro"]');
+    const getVeiculoAtual = () => Number(div.querySelector('[data-e="veiculo"]')?.value || r.veiculoId);
+    aplicarMascaraOdometroEmInput(odoEdit, getVeiculoAtual);
+
+    // se trocar veículo durante edição, re-normaliza o odômetro
+    const selVeicEdit = div.querySelector('[data-e="veiculo"]');
+    if(selVeicEdit){
+      selVeicEdit.addEventListener("change", ()=>{
+        aplicarMascaraOdometroEmInput(odoEdit, getVeiculoAtual);
+      });
+    }
 
   } else {
     const motoristaNome = (motoristas.find(m=>m.id===r.motoristaId)?.nome) || "-";
