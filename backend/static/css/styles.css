@@ -705,3 +705,9 @@ body{
     padding: 11px 12px;
   }
 }
+
+.titulo-sistema{
+  font-size:24px;
+  font-weight:800;
+  color:#6f2cff;
+}

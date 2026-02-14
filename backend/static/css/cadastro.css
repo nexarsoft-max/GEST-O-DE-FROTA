@@ -227,3 +227,9 @@ body{
     min-height:170px;
   }
 }
+
+.titulo-sistema{
+  font-size:24px;
+  font-weight:800;
+  color:#6f2cff;
+}
