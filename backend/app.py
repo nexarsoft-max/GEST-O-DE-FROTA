@@ -60,7 +60,6 @@ def proteger_api():
 
 
 def _posto_completo_por_id(cur, usuario_id: int, posto_id: int):
-    # ✅ filtra por usuario_id (não vaza dados de outro usuário)
     cur.execute("""
         SELECT
             p.id, p.nome, p.endereco,
@@ -86,70 +85,61 @@ def _posto_completo_por_id(cur, usuario_id: int, posto_id: int):
 
 
 # =========================
-# ✅ CORREÇÃO DEFINITIVA DO ODÔMETRO
+# ✅ CORREÇÃO DO ODÔMETRO (segura)
 # =========================
 def _odometro_to_int(odometro):
     """
     Normaliza odômetro para KM inteiro.
 
-    Corrige casos como:
-      - "000580" -> 580
-      - "580.00" -> 580   (evita virar 58000)
-      - "580,00" -> 580
-      - valores já salvos errados como 58000 (padrão x100) -> 580 (heurística)
+    Regras:
+    - "000580" -> 580
+    - "580.00"/"580,00" -> 580  (evita virar 58000)
+    - Mantém INT puro como INT (NÃO divide por 100 automaticamente!)
+      => correção do bug x100 é feita na hora de calcular o TRECHO (km),
+         com heurística segura (km > 5000 e múltiplo de 100).
     """
     if odometro is None:
         return None
 
-    # Se já for número (vindo do banco), trata também
-    if isinstance(odometro, (int, float)):
+    # número vindo do banco
+    if isinstance(odometro, int):
+        return odometro
+
+    if isinstance(odometro, float):
         try:
-            n = int(odometro)
+            return int(round(odometro))
         except Exception:
             return None
 
-        # Heurística para corrigir bug x100 já salvo:
-        # Ex: 58000 (que era 580.00) -> 580
-        # Só aplica se for múltiplo de 100 e estiver em uma faixa "suspeita".
-        if n >= 10000 and n <= 999999 and (n % 100 == 0):
-            return n // 100
-
-        return n
-
     s = str(odometro).strip()
+    if not s:
+        return None
 
-    # Caso venha como "580.00" ou "580,00"
+    # caso "580.00" / "580,00"
     m = re.match(r"^\s*(\d+)\s*([.,])\s*(\d{1,2})\s*$", s)
     if m:
         inteiro = m.group(1)
-        dec = m.group(3).ljust(2, "0")  # "5" -> "50"
+        dec = m.group(3).ljust(2, "0")
         try:
             val = float(f"{inteiro}.{dec}")
             return int(round(val))
         except Exception:
-            pass
+            return None
 
-    # fallback: remove tudo que não for dígito
+    # fallback: só dígitos
     digits = re.sub(r"[^\d]", "", s)
     if not digits:
         return None
 
-    n = int(digits)
-
-    # Heurística para corrigir bug x100 vindo como string sem separador:
-    # exemplo comum: "058000" (de "580.00") -> 580
-    if n >= 10000 and n <= 999999 and (n % 100 == 0):
-        if ("," in s) or ("." in s):
-            return n // 100
-        return n // 100
-
-    return n
+    try:
+        return int(digits)
+    except Exception:
+        return None
 
 
 def _odometro_to_str6(odometro):
     """
-    ✅ Mostra SEM .00 e com zeros à esquerda até 6 dígitos (quando tiver <= 6).
-    Se tiver mais de 6 dígitos, não corta (só remove qualquer formatação).
+    Mostra com zeros à esquerda até 6 dígitos (se <= 6).
     """
     n = _odometro_to_int(odometro)
     if n is None:
@@ -176,12 +166,10 @@ def login():
     dados = request.get_json(silent=True)
 
     if dados is None:
-        # FORM
         email = (request.form.get("email") or "").strip().lower()
         senha = request.form.get("senha") or ""
         modo = "form"
     else:
-        # JSON
         email = (dados.get("email") or "").strip().lower()
         senha = dados.get("senha") or ""
         modo = "json"
@@ -393,8 +381,8 @@ def api_veiculos():
                 ORDER BY id DESC
             """, (uid,))
             rows = cur.fetchall()
-            data = [{"id": i, "modelo": m, "placa": p, "renavam": rnv, "cidade": c} for (i, m, p, rnv, c) in rows]
-            return jsonify(data), 200
+            data_out = [{"id": i, "modelo": m, "placa": p, "renavam": rnv, "cidade": c} for (i, m, p, rnv, c) in rows]
+            return jsonify(data_out), 200
         except Exception as e:
             print("ERRO api_veiculos GET:", e, flush=True)
             return jsonify({"sucesso": False, "erro": str(e)}), 500
@@ -499,7 +487,6 @@ def api_veiculo_por_id(veiculo_id):
             conn.commit()
             return jsonify({"sucesso": True}), 200
 
-        # DELETE
         cur.execute("""
             DELETE FROM veiculos
             WHERE id = %s AND usuario_id = %s
@@ -567,7 +554,6 @@ def api_motoristas():
             if conn:
                 conn.close()
 
-    # POST
     dados = request.get_json(silent=True) or {}
     nome = (dados.get("nome") or "").strip()
     cpf = (dados.get("cpf") or "").strip()
@@ -666,7 +652,6 @@ def api_motorista_por_id(motorista_id):
             conn.commit()
             return jsonify({"sucesso": True}), 200
 
-        # DELETE
         cur.execute("""
             DELETE FROM motoristas
             WHERE id = %s AND usuario_id = %s
@@ -739,7 +724,6 @@ def api_postos():
             if conn:
                 conn.close()
 
-    # POST (3 combustíveis fixos)
     dados = request.get_json(silent=True) or {}
     nome = (dados.get("nome") or "").strip()
     endereco = (dados.get("endereco") or "").strip()
@@ -769,7 +753,6 @@ def api_postos():
         """, (uid, nome, endereco))
         posto_id = cur.fetchone()[0]
 
-        # ✅ CORREÇÃO: posto_combustiveis NÃO tem usuario_id (quem tem usuario_id é o posto)
         cur.execute("""
             INSERT INTO posto_combustiveis (posto_id, tipo, preco)
             VALUES
@@ -844,7 +827,6 @@ def api_posto_por_id(posto_id: int):
                 conn.rollback()
                 return jsonify({"sucesso": False, "erro": "Posto não encontrado"}), 404
 
-            # ✅ CORREÇÃO: posto_combustiveis NÃO filtra por usuario_id
             cur.execute("""
                 DELETE FROM posto_combustiveis
                 WHERE posto_id = %s AND tipo IN ('gasolina','etanol','diesel')
@@ -865,7 +847,6 @@ def api_posto_por_id(posto_id: int):
             conn.commit()
             return jsonify({"sucesso": True}), 200
 
-        # DELETE
         cur.execute("DELETE FROM posto_combustiveis WHERE posto_id = %s", (posto_id,))
         cur.execute("DELETE FROM postos WHERE id = %s AND usuario_id = %s", (posto_id, uid))
         if cur.rowcount == 0:
@@ -906,7 +887,7 @@ def add_no_cache_headers(response):
 
 
 # =========================
-# ✅ API - CATÁLOGO PARA ABASTECIMENTO (motoristas/veiculos/postos)
+# ✅ API - CATÁLOGO PARA ABASTECIMENTO
 # =========================
 @app.get("/api/catalogo")
 def api_catalogo():
@@ -920,7 +901,6 @@ def api_catalogo():
         conn = get_db()
         cur = conn.cursor()
 
-        # motoristas
         cur.execute("""
             SELECT id, nome
             FROM motoristas
@@ -929,7 +909,6 @@ def api_catalogo():
         """, (uid,))
         motoristas = [{"id": i, "nome": n} for (i, n) in cur.fetchall()]
 
-        # veiculos
         cur.execute("""
             SELECT id, placa, modelo
             FROM veiculos
@@ -938,7 +917,6 @@ def api_catalogo():
         """, (uid,))
         veiculos = [{"id": i, "placa": p, "modelo": m} for (i, p, m) in cur.fetchall()]
 
-        # postos + combustiveis
         cur.execute("""
             SELECT
                 p.id, p.nome, p.endereco,
@@ -984,7 +962,6 @@ def api_abastecimentos():
 
     uid = usuario_id_atual()
 
-    # GET
     if request.method == "GET":
         conn = cur = None
         try:
@@ -1039,7 +1016,6 @@ def api_abastecimentos():
             if conn:
                 conn.close()
 
-    # POST
     dados = request.get_json(silent=True) or {}
 
     data_ = dados.get("data")
@@ -1071,7 +1047,6 @@ def api_abastecimentos():
         conn = get_db()
         cur = conn.cursor()
 
-        # valida pertencimento
         cur.execute("SELECT 1 FROM motoristas WHERE id=%s AND usuario_id=%s", (motorista_id, uid))
         if not cur.fetchone():
             return jsonify({"sucesso": False, "erro": "Motorista inválido"}), 400
@@ -1130,7 +1105,6 @@ def api_manutencoes():
 
     uid = usuario_id_atual()
 
-    # GET
     if request.method == "GET":
         conn = cur = None
         try:
@@ -1177,7 +1151,6 @@ def api_manutencoes():
             if conn:
                 conn.close()
 
-    # POST
     dados = request.get_json(silent=True) or {}
 
     data_ = dados.get("data")
@@ -1367,7 +1340,6 @@ def api_abastecimento_por_id(abastecimento_id: int):
             conn.commit()
             return jsonify({"sucesso": True}), 200
 
-        # DELETE
         cur.execute("DELETE FROM abastecimentos WHERE id = %s AND usuario_id = %s", (abastecimento_id, uid))
         if cur.rowcount == 0:
             conn.rollback()
@@ -1491,7 +1463,6 @@ def api_manutencao_por_id(manutencao_id: int):
             conn.commit()
             return jsonify({"sucesso": True}), 200
 
-        # DELETE
         cur.execute("DELETE FROM manutencoes WHERE id = %s AND usuario_id = %s", (manutencao_id, uid))
         if cur.rowcount == 0:
             conn.rollback()
@@ -1528,7 +1499,6 @@ def api_historico():
         conn = get_db()
         cur = conn.cursor()
 
-        # abastecimentos
         cur.execute("""
             SELECT
                 id, data, hora,
@@ -1563,7 +1533,6 @@ def api_historico():
                 "comprovante": comprovante_url
             })
 
-        # manutencoes
         cur.execute("""
             SELECT
                 id, data, hora,
@@ -1639,58 +1608,6 @@ def _safe_float(x, default=0.0):
         return default
 
 
-# ✅✅✅ CORREÇÃO: km rodado (trechos) com proteção contra bug x100
-def _compute_trechos_por_veiculo(abastecs):
-    por_veic = {}
-    for a in abastecs:
-        por_veic.setdefault(a["veiculoId"], []).append(a)
-
-    trechos = []
-
-    def corrigir_km_suspeito(km: int) -> int:
-        """
-        Se der um salto absurdo (ex: 44000) e múltiplo de 100,
-        assume bug de escala x100 e corrige para 440.
-        """
-        if km is None:
-            return 0
-        try:
-            km = int(km)
-        except Exception:
-            return 0
-
-        # limite de segurança: trecho > 5000 km em um abastecimento é quase impossível
-        if km > 5000 and (km % 100 == 0):
-            return km // 100
-        return km
-
-    for veic_id, lista in por_veic.items():
-        lista_sorted = sorted(lista, key=lambda r: _dt_key(r.get("data", ""), r.get("hora", "")))
-        prev_odo = None
-
-        for r in lista_sorted:
-            odo = _odometro_to_int(r.get("odometro"))
-
-            if prev_odo is not None and odo is not None:
-                km = odo - prev_odo
-                km = corrigir_km_suspeito(km)
-
-                if km > 0:
-                    trechos.append({
-                        "veiculoId": veic_id,
-                        "motoristaId": r.get("motoristaId"),
-                        "km": km,
-                        "litros": _safe_float(r.get("litros"), 0.0),
-                        "custo": _safe_float(r.get("preco"), 0.0),
-                        "data": r.get("data", ""),
-                    })
-
-            if odo is not None:
-                prev_odo = odo
-
-    return trechos
-
-
 def _filtrar_mes(registros, start: date, end: date):
     out = []
     for r in registros:
@@ -1714,6 +1631,61 @@ def _pct_delta(atual, anterior):
     if anterior == 0:
         return 0.0
     return ((atual - anterior) / anterior) * 100.0
+
+
+# =========================================================
+# ✅✅✅ NOVA LÓGICA CORRETA (EXATAMENTE COMO VOCÊ PEDIU)
+# =========================================================
+def _compute_trechos_por_veiculo(abastecs):
+    """
+    Trechos corretos por veículo:
+
+    - Agrupa abastecimentos por veículo
+    - Ordena por data/hora (sequência real)
+    - O primeiro abastecimento NÃO entra no cálculo
+    - Para cada abastecimento atual:
+        km = odometro_atual - odometro_anterior
+        litros do trecho = litros do abastecimento ATUAL
+        custo do trecho  = preco_total do abastecimento ATUAL
+
+    Correção segura do bug x100:
+    Se km > 5000 e múltiplo de 100, assume bug e divide por 100.
+    """
+    por_veic = {}
+    for a in abastecs:
+        por_veic.setdefault(a["veiculoId"], []).append(a)
+
+    trechos = []
+
+    for veic_id, lista in por_veic.items():
+        lista_sorted = sorted(lista, key=lambda r: _dt_key(r.get("data", ""), r.get("hora", "")))
+
+        odometro_anterior = None
+
+        for a in lista_sorted:
+            odometro_atual = _odometro_to_int(a.get("odometro"))
+
+            if odometro_anterior is not None and odometro_atual is not None:
+                km = odometro_atual - odometro_anterior
+
+                # ✅ correção x100 (segura)
+                if km > 5000 and (km % 100 == 0):
+                    km = km // 100
+
+                if km > 0:
+                    trechos.append({
+                        "veiculoId": veic_id,
+                        "motoristaId": a.get("motoristaId"),
+                        "km": int(km),
+                        "litros": _safe_float(a.get("litros"), 0.0),
+                        "custo": _safe_float(a.get("preco"), 0.0),
+                        "data": a.get("data", ""),
+                    })
+
+            if odometro_atual is not None:
+                odometro_anterior = odometro_atual
+
+    return trechos
 
 
 @app.get("/api/dashboard")
@@ -1749,8 +1721,6 @@ def api_dashboard():
             (i, data_, hora_, motorista_id, veiculo_id, posto_id, combustivel,
              litros, preco_total, preco_unitario, odometro, pago, obs, comprovante_url) = row
 
-            # ✅✅✅ IMPORTANTE: no dashboard o odometro tem que estar como INT (para calcular)
-            # e se quiser exibir, use odometro_str
             abastecs.append({
                 "id": i,
                 "tipo": "abastecimento",
@@ -1764,7 +1734,7 @@ def api_dashboard():
                 "preco": float(preco_total) if preco_total is not None else 0.0,
                 "precoUnitario": float(preco_unitario) if preco_unitario is not None else 0.0,
                 "odometro": _odometro_to_int(odometro),       # usado pra calcular
-                "odometro_str": _odometro_to_str6(odometro),  # opcional p/ exibição
+                "odometro_str": _odometro_to_str6(odometro),  # exibição
                 "pago": bool(pago),
                 "obs": obs,
                 "comprovante": comprovante_url
@@ -1809,24 +1779,30 @@ def api_dashboard():
         manuts_mes = _filtrar_mes(manuts, ini, fim)
         manuts_prev = _filtrar_mes(manuts, ini_prev, fim_prev)
 
+        # ✅ trechos corretos
         trechos_mes = _compute_trechos_por_veiculo(abastec_mes)
         trechos_prev = _compute_trechos_por_veiculo(abastec_prev)
 
+        # ✅ KM rodados no mês = soma dos trechos
         km_mes = sum(t["km"] for t in trechos_mes)
         km_prev = sum(t["km"] for t in trechos_prev)
 
+        # ✅ litros válidos (somente abastecimentos que entraram nos trechos)
         litros_mes_valid = sum(t["litros"] for t in trechos_mes)
         litros_prev_valid = sum(t["litros"] for t in trechos_prev)
 
+        # ✅ custo válido (somente abastecimentos que entraram nos trechos)
         custo_mes_valid = sum(t["custo"] for t in trechos_mes)
         custo_prev_valid = sum(t["custo"] for t in trechos_prev)
 
+        # ✅ MÉDIAS GERAIS (do jeito certo: total/total)
         consumo_l_km = (litros_mes_valid / km_mes) if km_mes > 0 else 0.0
         consumo_prev = (litros_prev_valid / km_prev) if km_prev > 0 else 0.0
 
         custo_r_km = (custo_mes_valid / km_mes) if km_mes > 0 else 0.0
         custo_prev = (custo_prev_valid / km_prev) if km_prev > 0 else 0.0
 
+        # total mensal geral (mantém seu comportamento: abastec + manut)
         total_abastec_mes = sum(a["preco"] for a in abastec_mes)
         total_abastec_prev = sum(a["preco"] for a in abastec_prev)
 
@@ -1860,6 +1836,7 @@ def api_dashboard():
             reverse=True
         )[:3]
 
+        # top piores custo/km (por trechos)
         custo_km_por_veic = {}
         km_por_veic = {}
         custo_por_veic = {}
@@ -1884,6 +1861,7 @@ def api_dashboard():
             reverse=True
         )[:3]
 
+        # resumo por veiculo (tabela de baixo)
         resumo_veiculos = []
         veic_ids = set([a["veiculoId"] for a in abastec_mes] + [m["veiculoId"] for m in manuts_mes])
 

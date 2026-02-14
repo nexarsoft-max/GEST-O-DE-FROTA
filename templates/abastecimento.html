@@ -723,7 +723,6 @@ function normalizarOdometroStr(odometroDigitado, veiculoId){
   });
 
   input.addEventListener("input", () => {
-    // mantém digitável só números, mas SEM transformar 580.00 em 58000 (aqui ele nem deveria digitar ponto)
     input.value = input.value.replace(/[^\d]/g, "");
   });
 
@@ -749,7 +748,6 @@ function aplicarMascaraOdometroEmInput(inputEl, getVeiculoIdFn){
     inputEl.value = normalizarOdometroStr(inputEl.value, veiculoId);
   });
 
-  // se já vier algo esquisito tipo "580.00", corrige ao abrir
   const veiculoId0 = Number(getVeiculoIdFn?.() || 0);
   if(veiculoId0){
     inputEl.value = normalizarOdometroStr(inputEl.value, veiculoId0);
@@ -1430,7 +1428,6 @@ function criarDivRegistro(r){
       </div>
     `;
 
-    // montar combustível conforme o posto atual (edição)
     const selPosto = div.querySelector('[data-e="posto"]');
     const selComb = div.querySelector('[data-e="combustivel"]');
     const montar = ()=>{
@@ -1439,12 +1436,10 @@ function criarDivRegistro(r){
     montar();
     selPosto.addEventListener("change", montar);
 
-    // ✅ FIX: aplicar máscara do odômetro no input de edição (histórico)
     const odoEdit = div.querySelector('[data-e="odometro"]');
     const getVeiculoAtual = () => Number(div.querySelector('[data-e="veiculo"]')?.value || r.veiculoId);
     aplicarMascaraOdometroEmInput(odoEdit, getVeiculoAtual);
 
-    // se trocar veículo durante edição, re-normaliza o odômetro
     const selVeicEdit = div.querySelector('[data-e="veiculo"]');
     if(selVeicEdit){
       selVeicEdit.addEventListener("change", ()=>{
@@ -1532,7 +1527,6 @@ function criarDivRegistro(r){
     `;
   }
 
-  // binds botões
   const btnEditar = div.querySelector(".btn-editar");
   const btnExcluir = div.querySelector(".btn-excluir");
   const btnSalvar = div.querySelector(".btn-salvar");
