@@ -1,7 +1,6 @@
 import os
 import re
 from datetime import timedelta, date, datetime
-from decimal import Decimal, InvalidOperation
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from werkzeug.security import check_password_hash
@@ -86,44 +85,69 @@ def _posto_completo_por_id(cur, usuario_id: int, posto_id: int):
     return posto
 
 
+# =========================
+# ✅ CORREÇÃO DEFINITIVA DO ODÔMETRO
+# =========================
 def _odometro_to_int(odometro):
     """
-    ✅ Converte odômetro para inteiro (km), corrigindo o caso do banco vir como NUMERIC/DECIMAL:
-      - 580.00  -> 580  (não vira 58000)
-      - 580,00  -> 580
-      - "12.345" -> 12345 (milhar)
-      - "12,345" -> 12345 (se for usado como milhar)
-      - "12345 km" -> 12345
+    Normaliza odômetro para KM inteiro.
+
+    Corrige casos como:
+      - "000580" -> 580
+      - "580.00" -> 580   (evita virar 58000)
+      - "580,00" -> 580
+      - valores já salvos errados como 58000 (padrão x100) -> 580 (heurística)
     """
     if odometro is None:
         return None
 
-    # Se já vier numérico do banco (Decimal / int / float), trata corretamente
-    try:
-        if isinstance(odometro, bool):
+    # Se já for número (vindo do banco), trata também
+    if isinstance(odometro, (int, float)):
+        try:
+            n = int(odometro)
+        except Exception:
             return None
-        if isinstance(odometro, int):
-            return odometro
-        if isinstance(odometro, float):
-            return int(round(odometro))
-        if isinstance(odometro, Decimal):
-            # Decimal('580.00') -> 580
-            return int(odometro)
-    except Exception:
-        pass
+
+        # Heurística para corrigir bug x100 já salvo:
+        # Ex: 58000 (que era 580.00) -> 580
+        # Só aplica se for múltiplo de 100 e estiver em uma faixa "suspeita".
+        if n >= 10000 and n <= 999999 and (n % 100 == 0):
+            return n // 100
+
+        return n
 
     s = str(odometro).strip()
-    if not s:
+
+    # Caso venha como "580.00" ou "580,00"
+    m = re.match(r"^\s*(\d+)\s*([.,])\s*(\d{1,2})\s*$", s)
+    if m:
+        inteiro = m.group(1)
+        dec = m.group(3).ljust(2, "0")  # "5" -> "50"
+        # transforma em float seguro e arredonda para inteiro (km)
+        try:
+            val = float(f"{inteiro}.{dec}")
+            return int(round(val))
+        except Exception:
+            pass
+
+    # fallback: remove tudo que não for dígito
+    digits = re.sub(r"[^\d]", "", s)
+    if not digits:
         return None
 
-    # Se for "580.00" ou "580,00" (decimal com 1 ou 2 casas), pega só a parte inteira
-    m = re.match(r"^\s*(\d+)[\.,](\d{1,2})\s*$", s)
-    if m:
-        return int(m.group(1))
+    n = int(digits)
 
-    # Caso geral: remove tudo que não é dígito (mantém comportamento de "12.345" -> 12345)
-    odo_digits = re.sub(r"[^\d]", "", s)
-    return int(odo_digits) if odo_digits else None
+    # Heurística para corrigir bug x100 vindo como string sem separador:
+    # exemplo comum: "058000" (de "580.00") -> 580
+    if n >= 10000 and n <= 999999 and (n % 100 == 0):
+        # se tinha ponto/vírgula na string original, é quase certeza x100
+        if ("," in s) or ("." in s):
+            return n // 100
+        # ou se termina com "00" e tem cara de valor formatado indevidamente
+        # (muito comum em inputs mascarados)
+        return n // 100
+
+    return n
 
 
 def _odometro_to_str6(odometro):
