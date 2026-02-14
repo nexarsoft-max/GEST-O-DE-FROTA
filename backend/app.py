@@ -1,6 +1,7 @@
 import os
 import re
 from datetime import timedelta, date, datetime
+from decimal import Decimal, InvalidOperation
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from werkzeug.security import check_password_hash
@@ -86,8 +87,42 @@ def _posto_completo_por_id(cur, usuario_id: int, posto_id: int):
 
 
 def _odometro_to_int(odometro):
-    # aceita "12.345", "12,345", "12345 km" etc
-    odo_digits = re.sub(r"[^\d]", "", str(odometro or ""))
+    """
+    ✅ Converte odômetro para inteiro (km), corrigindo o caso do banco vir como NUMERIC/DECIMAL:
+      - 580.00  -> 580  (não vira 58000)
+      - 580,00  -> 580
+      - "12.345" -> 12345 (milhar)
+      - "12,345" -> 12345 (se for usado como milhar)
+      - "12345 km" -> 12345
+    """
+    if odometro is None:
+        return None
+
+    # Se já vier numérico do banco (Decimal / int / float), trata corretamente
+    try:
+        if isinstance(odometro, bool):
+            return None
+        if isinstance(odometro, int):
+            return odometro
+        if isinstance(odometro, float):
+            return int(round(odometro))
+        if isinstance(odometro, Decimal):
+            # Decimal('580.00') -> 580
+            return int(odometro)
+    except Exception:
+        pass
+
+    s = str(odometro).strip()
+    if not s:
+        return None
+
+    # Se for "580.00" ou "580,00" (decimal com 1 ou 2 casas), pega só a parte inteira
+    m = re.match(r"^\s*(\d+)[\.,](\d{1,2})\s*$", s)
+    if m:
+        return int(m.group(1))
+
+    # Caso geral: remove tudo que não é dígito (mantém comportamento de "12.345" -> 12345)
+    odo_digits = re.sub(r"[^\d]", "", s)
     return int(odo_digits) if odo_digits else None
 
 
