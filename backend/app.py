@@ -123,7 +123,6 @@ def _odometro_to_int(odometro):
     if m:
         inteiro = m.group(1)
         dec = m.group(3).ljust(2, "0")  # "5" -> "50"
-        # transforma em float seguro e arredonda para inteiro (km)
         try:
             val = float(f"{inteiro}.{dec}")
             return int(round(val))
@@ -140,11 +139,8 @@ def _odometro_to_int(odometro):
     # Heurística para corrigir bug x100 vindo como string sem separador:
     # exemplo comum: "058000" (de "580.00") -> 580
     if n >= 10000 and n <= 999999 and (n % 100 == 0):
-        # se tinha ponto/vírgula na string original, é quase certeza x100
         if ("," in s) or ("." in s):
             return n // 100
-        # ou se termina com "00" e tem cara de valor formatado indevidamente
-        # (muito comum em inputs mascarados)
         return n // 100
 
     return n
@@ -1643,20 +1639,42 @@ def _safe_float(x, default=0.0):
         return default
 
 
+# ✅✅✅ CORREÇÃO: km rodado (trechos) com proteção contra bug x100
 def _compute_trechos_por_veiculo(abastecs):
     por_veic = {}
     for a in abastecs:
         por_veic.setdefault(a["veiculoId"], []).append(a)
 
     trechos = []
+
+    def corrigir_km_suspeito(km: int) -> int:
+        """
+        Se der um salto absurdo (ex: 44000) e múltiplo de 100,
+        assume bug de escala x100 e corrige para 440.
+        """
+        if km is None:
+            return 0
+        try:
+            km = int(km)
+        except Exception:
+            return 0
+
+        # limite de segurança: trecho > 5000 km em um abastecimento é quase impossível
+        if km > 5000 and (km % 100 == 0):
+            return km // 100
+        return km
+
     for veic_id, lista in por_veic.items():
         lista_sorted = sorted(lista, key=lambda r: _dt_key(r.get("data", ""), r.get("hora", "")))
         prev_odo = None
+
         for r in lista_sorted:
             odo = _odometro_to_int(r.get("odometro"))
 
             if prev_odo is not None and odo is not None:
                 km = odo - prev_odo
+                km = corrigir_km_suspeito(km)
+
                 if km > 0:
                     trechos.append({
                         "veiculoId": veic_id,
@@ -1731,6 +1749,8 @@ def api_dashboard():
             (i, data_, hora_, motorista_id, veiculo_id, posto_id, combustivel,
              litros, preco_total, preco_unitario, odometro, pago, obs, comprovante_url) = row
 
+            # ✅✅✅ IMPORTANTE: no dashboard o odometro tem que estar como INT (para calcular)
+            # e se quiser exibir, use odometro_str
             abastecs.append({
                 "id": i,
                 "tipo": "abastecimento",
@@ -1743,7 +1763,8 @@ def api_dashboard():
                 "litros": float(litros) if litros is not None else 0.0,
                 "preco": float(preco_total) if preco_total is not None else 0.0,
                 "precoUnitario": float(preco_unitario) if preco_unitario is not None else 0.0,
-                "odometro": _odometro_to_str6(odometro),
+                "odometro": _odometro_to_int(odometro),       # usado pra calcular
+                "odometro_str": _odometro_to_str6(odometro),  # opcional p/ exibição
                 "pago": bool(pago),
                 "obs": obs,
                 "comprovante": comprovante_url
