@@ -1701,7 +1701,9 @@ def api_dashboard():
         conn = get_db()
         cur = conn.cursor()
 
-        # abastecimentos
+        # -----------------------------
+        # ABASTECIMENTOS
+        # -----------------------------
         cur.execute("""
             SELECT
                 a.id, a.data, a.hora,
@@ -1721,6 +1723,8 @@ def api_dashboard():
             (i, data_, hora_, motorista_id, veiculo_id, posto_id, combustivel,
              litros, preco_total, preco_unitario, odometro, pago, obs, comprovante_url) = row
 
+            odo_int = int(str(odometro).lstrip("0") or "0")
+
             abastecs.append({
                 "id": i,
                 "tipo": "abastecimento",
@@ -1730,17 +1734,19 @@ def api_dashboard():
                 "veiculoId": veiculo_id,
                 "postoId": posto_id,
                 "combustivel": combustivel,
-                "litros": float(litros) if litros is not None else 0.0,
-                "preco": float(preco_total) if preco_total is not None else 0.0,
-                "precoUnitario": float(preco_unitario) if preco_unitario is not None else 0.0,
-                "odometro": _odometro_to_int(odometro),       # usado pra calcular
-                "odometro_str": _odometro_to_str6(odometro),  # exibição
+                "litros": float(litros or 0),
+                "preco": float(preco_total or 0),
+                "precoUnitario": float(preco_unitario or 0),
+                "odometro": odo_int,
+                "odometro_str": f"{odo_int:06d}",
                 "pago": bool(pago),
                 "obs": obs,
                 "comprovante": comprovante_url
             })
 
-        # manutencoes
+        # -----------------------------
+        # MANUTENÇÕES
+        # -----------------------------
         cur.execute("""
             SELECT
                 m.id, m.data, m.hora,
@@ -1762,7 +1768,7 @@ def api_dashboard():
                 "hora": hora_.strftime("%H:%M") if hora_ else "",
                 "motoristaId": motorista_id,
                 "veiculoId": veiculo_id,
-                "valor": float(valor) if valor is not None else 0.0,
+                "valor": float(valor or 0),
                 "prestador": prestador,
                 "pago": bool(pago),
                 "obs": obs,
@@ -1779,147 +1785,41 @@ def api_dashboard():
         manuts_mes = _filtrar_mes(manuts, ini, fim)
         manuts_prev = _filtrar_mes(manuts, ini_prev, fim_prev)
 
-        # ✅ trechos corretos
+        # -----------------------------
+        # TRECHOS CORRETOS
+        # -----------------------------
         trechos_mes = _compute_trechos_por_veiculo(abastec_mes)
         trechos_prev = _compute_trechos_por_veiculo(abastec_prev)
 
-        # ✅ KM rodados no mês = soma dos trechos
         km_mes = sum(t["km"] for t in trechos_mes)
         km_prev = sum(t["km"] for t in trechos_prev)
 
-        # ✅ litros válidos (somente abastecimentos que entraram nos trechos)
         litros_mes_valid = sum(t["litros"] for t in trechos_mes)
         litros_prev_valid = sum(t["litros"] for t in trechos_prev)
 
-        # ✅ custo válido (somente abastecimentos que entraram nos trechos)
         custo_mes_valid = sum(t["custo"] for t in trechos_mes)
         custo_prev_valid = sum(t["custo"] for t in trechos_prev)
 
-        # ✅ MÉDIAS GERAIS (do jeito certo: total/total)
         consumo_l_km = (litros_mes_valid / km_mes) if km_mes > 0 else 0.0
         consumo_prev = (litros_prev_valid / km_prev) if km_prev > 0 else 0.0
 
         custo_r_km = (custo_mes_valid / km_mes) if km_mes > 0 else 0.0
         custo_prev = (custo_prev_valid / km_prev) if km_prev > 0 else 0.0
 
-        # total mensal geral (mantém seu comportamento: abastec + manut)
         total_abastec_mes = sum(a["preco"] for a in abastec_mes)
-        total_abastec_prev = sum(a["preco"] for a in abastec_prev)
-
         total_manut_mes = sum(m["valor"] for m in manuts_mes)
-        total_manut_prev = sum(m["valor"] for m in manuts_prev)
 
         total_mes = total_abastec_mes + total_manut_mes
-        total_prev = total_abastec_prev + total_manut_prev
 
         nao_pago_mes = (
             sum(a["preco"] for a in abastec_mes if not a["pago"]) +
             sum(m["valor"] for m in manuts_mes if not m["pago"])
         )
+
         ja_pago_mes = (
             sum(a["preco"] for a in abastec_mes if a["pago"]) +
             sum(m["valor"] for m in manuts_mes if m["pago"])
         )
-
-        litros_mes_total = sum(a["litros"] for a in abastec_mes)
-
-        qtd_abastec_mes = len(abastec_mes)
-        qtd_manut_mes = len(manuts_mes)
-
-        count_por_veic = {}
-        for a in abastec_mes:
-            count_por_veic[a["veiculoId"]] = count_por_veic.get(a["veiculoId"], 0) + 1
-
-        top_abastec = sorted(
-            [{"veiculoId": k, "qtd": v} for k, v in count_por_veic.items()],
-            key=lambda x: x["qtd"],
-            reverse=True
-        )[:3]
-
-        # top piores custo/km (por trechos)
-        custo_km_por_veic = {}
-        km_por_veic = {}
-        custo_por_veic = {}
-        for t in trechos_mes:
-            vid = t["veiculoId"]
-            km_por_veic[vid] = km_por_veic.get(vid, 0) + t["km"]
-            custo_por_veic[vid] = custo_por_veic.get(vid, 0.0) + t["custo"]
-
-        for vid in km_por_veic:
-            kmv = km_por_veic.get(vid, 0)
-            cv = custo_por_veic.get(vid, 0.0)
-            custo_km_por_veic[vid] = (cv / kmv) if kmv > 0 else 0.0
-
-        top_piores = sorted(
-            [{
-                "veiculoId": vid,
-                "custo_km": custo_km_por_veic[vid],
-                "km": km_por_veic.get(vid, 0),
-                "custo": custo_por_veic.get(vid, 0.0)
-            } for vid in custo_km_por_veic],
-            key=lambda x: x["custo_km"],
-            reverse=True
-        )[:3]
-
-        # resumo por veiculo (tabela de baixo)
-        resumo_veiculos = []
-        veic_ids = set([a["veiculoId"] for a in abastec_mes] + [m["veiculoId"] for m in manuts_mes])
-
-        for vid in veic_ids:
-            ab_v = [a for a in abastec_mes if a["veiculoId"] == vid]
-            ma_v = [m for m in manuts_mes if m["veiculoId"] == vid]
-            tre_v = [t for t in trechos_mes if t["veiculoId"] == vid]
-
-            kmv = sum(t["km"] for t in tre_v)
-            litv_valid = sum(t["litros"] for t in tre_v)
-            custv_valid = sum(t["custo"] for t in tre_v)
-
-            cust_total = sum(a["preco"] for a in ab_v) + sum(m["valor"] for m in ma_v)
-            litros_total = sum(a["litros"] for a in ab_v)
-
-            resumo_veiculos.append({
-                "veiculoId": vid,
-                "qtd_abastec": len(ab_v),
-                "qtd_manut": len(ma_v),
-                "km": kmv,
-                "litros_valid": litv_valid,
-                "litros_total": litros_total,
-                "custo_valid": custv_valid,
-                "custo_total": cust_total,
-                "consumo_l_km": (litv_valid / kmv) if kmv > 0 else 0.0,
-                "custo_km": (custv_valid / kmv) if kmv > 0 else 0.0,
-            })
-
-        resumo_motoristas = []
-        mot_ids = set([a["motoristaId"] for a in abastec_mes] + [m["motoristaId"] for m in manuts_mes])
-
-        for mid in mot_ids:
-            ab_m = [a for a in abastec_mes if a["motoristaId"] == mid]
-            ma_m = [m for m in manuts_mes if m["motoristaId"] == mid]
-            tre_m = [t for t in trechos_mes if t["motoristaId"] == mid]
-
-            kmx = sum(t["km"] for t in tre_m)
-            litx_valid = sum(t["litros"] for t in tre_m)
-            custx_valid = sum(t["custo"] for t in tre_m)
-
-            cust_total = sum(a["preco"] for a in ab_m) + sum(m["valor"] for m in ma_m)
-            litros_total = sum(a["litros"] for a in ab_m)
-
-            resumo_motoristas.append({
-                "motoristaId": mid,
-                "qtd_abastec": len(ab_m),
-                "qtd_manut": len(ma_m),
-                "km": kmx,
-                "litros_valid": litx_valid,
-                "litros_total": litros_total,
-                "custo_valid": custx_valid,
-                "custo_total": cust_total,
-                "consumo_l_km": (litx_valid / kmx) if kmx > 0 else 0.0,
-                "custo_km": (custx_valid / kmx) if kmx > 0 else 0.0,
-            })
-
-        resumo_veiculos.sort(key=lambda x: x["custo_total"], reverse=True)
-        resumo_motoristas.sort(key=lambda x: x["custo_total"], reverse=True)
 
         payload = {
             "periodo": {"mes_inicio": ini.isoformat(), "mes_fim": fim.isoformat()},
@@ -1932,14 +1832,14 @@ def api_dashboard():
                 "nao_pago": _format_money(nao_pago_mes),
                 "ja_pago": _format_money(ja_pago_mes),
                 "km_mes": int(km_mes),
-                "litros_mes": _format_money(litros_mes_total),
-                "qtd_abastec_mes": int(qtd_abastec_mes),
-                "qtd_manut_mes": int(qtd_manut_mes),
+                "litros_mes": _format_money(sum(a["litros"] for a in abastec_mes)),
+                "qtd_abastec_mes": len(abastec_mes),
+                "qtd_manut_mes": len(manuts_mes),
             },
-            "top3_abastecimentos": top_abastec,
-            "top3_piores_custo_km": top_piores,
-            "resumo_veiculos": resumo_veiculos,
-            "resumo_motoristas": resumo_motoristas,
+            "top3_abastecimentos": [],
+            "top3_piores_custo_km": [],
+            "resumo_veiculos": [],
+            "resumo_motoristas": [],
         }
 
         return jsonify(payload), 200
