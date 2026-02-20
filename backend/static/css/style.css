@@ -706,3 +706,131 @@ body{
   }
 }
 
+/* ===============================
+   CHAT IA NEXAR (FLUTUANTE)
+=================================*/
+
+/* Toggle escondido */
+#nexar-chat-toggle{
+  display:none;
+}
+
+/* Botão flutuante */
+.nexar-chat-button{
+  position:fixed;
+  bottom:25px;
+  right:25px;
+  width:64px;
+  height:64px;
+  border-radius:50%;
+  background:linear-gradient(135deg,var(--roxo1),var(--roxo2));
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#fff;
+  font-size:26px;
+  cursor:pointer;
+  box-shadow:0 12px 30px rgba(111,44,255,0.35);
+  transition:0.25s;
+  z-index:999;
+}
+
+.nexar-chat-button:hover{
+  transform:scale(1.08);
+}
+
+/* Janela do chat */
+.nexar-chat-container{
+  position:fixed;
+  bottom:110px;
+  right:25px;
+  width:360px;
+  height:520px;
+  background:#fff;
+  border-radius:22px;
+  box-shadow:0 25px 60px rgba(0,0,0,0.18);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  opacity:0;
+  transform:translateY(20px);
+  pointer-events:none;
+  transition:0.3s ease;
+  z-index:999;
+}
+
+/* Quando ativado */
+#nexar-chat-toggle:checked ~ .nexar-chat-container{
+  opacity:1;
+  transform:translateY(0);
+  pointer-events:auto;
+}
+
+/* Header */
+.nexar-chat-header{
+  background:linear-gradient(135deg,var(--roxo1),var(--roxo2));
+  padding:18px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  color:#fff;
+}
+
+.nexar-avatar{
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  background:#fff;
+}
+
+.nexar-chat-header h3{
+  font-size:16px;
+  font-weight:800;
+}
+
+.nexar-status{
+  font-size:12px;
+  opacity:0.9;
+}
+
+/* Corpo */
+.nexar-chat-body{
+  flex:1;
+  padding:18px;
+  background:#f6f6fb;
+  overflow-y:auto;
+}
+
+.nexar-message{
+  background:#fff;
+  padding:14px;
+  border-radius:16px;
+  font-size:14px;
+  line-height:1.5;
+  color:#333;
+  box-shadow:0 6px 18px rgba(0,0,0,0.05);
+}
+
+/* Input */
+.nexar-chat-input{
+  padding:14px;
+  border-top:1px solid var(--borda);
+  background:#fff;
+}
+
+.nexar-chat-input input{
+  width:100%;
+  padding:12px 14px;
+  border-radius:14px;
+  border:1px solid var(--borda);
+  font-size:14px;
+  background:var(--campo);
+  transition:0.2s;
+}
+
+.nexar-chat-input input:focus{
+  outline:none;
+  border-color:rgba(111,44,255,0.5);
+  box-shadow:0 0 0 3px rgba(111,44,255,0.15);
+  background:#fff;
+}

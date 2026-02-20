@@ -5,31 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestão de Frota</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-<style>
-  /* Mostrar tudo por padrão */
-  .barra-lateral, .conteudo {
-    display: block;
-  }
 
-  /* Só gráficos em celular */
-  @media (max-width: 768px) {
-    .barra-lateral {
-      display: none !important;
-    }
-
-    .conteudo {
-      display: block; /* mantém os gráficos visíveis */
-    }
-
-    .abas, .resumo, .secao-inferior {
-      display: none !important;
-    }
-
-    .graficos {
-      width: 100%;
-    }
-  }
-</style>
 </head>
 
 
@@ -215,6 +191,34 @@
   });
 </script>
 
+<input type="checkbox" id="nexar-chat-toggle">
+
+<label for="nexar-chat-toggle" class="nexar-chat-button">
+  💬
+</label>
+
+<div class="nexar-chat-container">
+
+  <div class="nexar-chat-header">
+    <div class="nexar-avatar"></div>
+    <div>
+      <h3>Nexar</h3>
+      <div class="nexar-status">● Assistente Inteligente</div>
+    </div>
+  </div>
+
+  <div class="nexar-chat-body">
+    <div class="nexar-message">
+      Olá! Sou a <strong>Nexar</strong>, sua assistente inteligente.<br>
+      Como posso ajudar você hoje?
+    </div>
+  </div>
+
+  <div class="nexar-chat-input">
+    <input type="text" placeholder="Digite sua dúvida...">
+  </div>
+
+</div>
 
 </body>
 
