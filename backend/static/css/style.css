@@ -710,8 +710,16 @@ body{
    CHAT IA NEXAR (FLUTUANTE)
 =================================*/
 
+/* Wrapper geral */
+.nexar-chat-wrapper{
+  position:fixed;
+  bottom:0;
+  right:0;
+  z-index:999;
+}
+
 /* Toggle escondido */
-#nexar-chat-toggle{
+.nexar-chat-wrapper #nexar-chat-toggle{
   display:none;
 }
 
@@ -760,6 +768,7 @@ body{
 }
 
 /* Quando ativado */
+.nexar-chat-wrapper 
 #nexar-chat-toggle:checked ~ .nexar-chat-container{
   opacity:1;
   transform:translateY(0);
@@ -786,6 +795,7 @@ body{
 .nexar-chat-header h3{
   font-size:16px;
   font-weight:800;
+  margin:0;
 }
 
 .nexar-status{
