@@ -145,9 +145,3 @@ body {
 body {
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
-
-.titulo-sistema{
-  font-size:24px;
-  font-weight:800;
-  color:#6f2cff;
-}

@@ -27,61 +27,77 @@ body{
 /* CONTAINER PRINCIPAL */
 /* ============================= */
 
-.container-principal {
-  display: flex;
-  height: 100vh;
+.container-principal{
+  display:flex;
+  min-height:100vh;
 }
 
-/* Sidebar */
-.barra-lateral {
-  width: 260px;
-  background: #ffffff;
-  padding: 20px;
-  border-right: 1px solid #e5e5ea;
-  height: 100vh;
-  position: sticky;
-  top: 0;
+/* ============================= */
+/* SIDEBAR */
+/* ============================= */
+
+.barra-lateral{
+  width:260px;
+  background:var(--card);
+  padding:20px;
+  border-right:1px solid var(--borda);
+  height:100vh;
+  position:sticky;
+  top:0;
 }
 
-/* Menu */
-.menu-novo {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 20px;
+.titulo-sistema{
+  font-size:22px;
+  letter-spacing:0.3px;
 }
 
-.item-menu {
-  text-decoration: none;
-  color: #222;
-  padding: 12px 14px;
-  border-radius: 12px;
-  font-size: 14px;
-  background: #f4f4f8;
-  transition: all 0.2s ease;
+.subtitulo{
+  color:var(--muted);
+  font-size:13px;
+  margin-top:6px;
 }
 
-.item-menu:hover {
-  background: linear-gradient(90deg, #6f2cff, #9b5cff);
-  color: white;
-  transform: translateX(4px);
+/* MENU */
+
+.menu-novo{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin-top:20px;
 }
 
-.item-menu.ativo {
-  background: linear-gradient(90deg, #6f2cff, #9b5cff);
-  color: white;
-  font-weight: bold;
+.item-menu{
+  text-decoration:none;
+  color:#222;
+  padding:12px 14px;
+  border-radius:12px;
+  font-size:14px;
+  background:#f4f4f8;
+  transition:all .2s ease;
 }
 
-.item-menu.sair {
-  margin-top: 12px;
-  background: #111;
-  color: white;
+.item-menu:hover{
+  background:linear-gradient(90deg,var(--roxo1),var(--roxo2));
+  color:white;
+  transform:translateX(4px);
 }
 
-.item-menu.sair:hover {
-  background: #000;
+.item-menu.ativo{
+  background:linear-gradient(90deg,var(--roxo1),var(--roxo2));
+  color:white;
+  font-weight:bold;
 }
+
+.item-menu.sair{
+  margin-top:12px;
+  background:#111;
+  color:white;
+}
+
+.item-menu.sair:hover{
+  background:#000;
+}
+
 /* ============================= */
 /* CONTEÚDO DIREITA */
 /* ============================= */

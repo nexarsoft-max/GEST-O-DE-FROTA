@@ -5,6 +5,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestão de Frota</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<style>
+  /* Mostrar tudo por padrão */
+  .barra-lateral, .conteudo {
+    display: block;
+  }
+
+  /* Só gráficos em celular */
+  @media (max-width: 768px) {
+    .barra-lateral {
+      display: none !important;
+    }
+
+    .conteudo {
+      display: block; /* mantém os gráficos visíveis */
+    }
+
+    .abas, .resumo, .secao-inferior {
+      display: none !important;
+    }
+
+    .graficos {
+      width: 100%;
+    }
+  }
+</style>
 </head>
 
 
@@ -16,13 +41,13 @@
 
 
   <aside class="barra-lateral">
-    <h2 class="titulo-sistema">Painel</h2>
+    <h2 class="titulo-sistema">Nexar</h2>
     <p class="subtitulo">Sistema de Frota</p>
 
     <nav class="menu-novo">
       <a href="{{ url_for('dashboard') }}" class="item-menu ativo">Executivo</a>
 
-      <!-- ✅ AQUI ERA O ERRO -->
+     
       <a href="{{ url_for('geral_informacao') }}" class="item-menu ">Registros</a>
 
       <a href="{{ url_for('abastecimento') }}" class="item-menu">Registrar abastecimento</a>

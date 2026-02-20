@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Cadastrar Veículo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+*{box-sizing:border-box;font-family:Arial, Helvetica, sans-serif;}
+body{background:#f3f4f6;margin:0;}
+.card{max-width:700px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,.08);overflow:hidden;}
+.card-header{background:linear-gradient(90deg,#6f2cff,#9b5cff);color:#fff;padding:18px 24px;display:flex;align-items:center;gap:14px;}
+.back-btn{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;cursor:pointer;}
+.card-body{padding:28px;}
+.form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:18px;}
+label{font-size:14px;font-weight:600;color:#374151;}
+input{height:44px;border-radius:10px;border:1px solid #e5e7eb;padding:0 14px;font-size:14px;}
+input:focus{outline:none;border-color:#8b1cf6;box-shadow:0 0 0 2px rgba(139,28,246,.15);}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.full{grid-column:span 2;}
+.actions{margin-top:28px;}
+button{width:100%;height:48px;border-radius:12px;border:none;cursor:pointer;font-size:15px;font-weight:600;background:#8b1cf6;color:#fff;}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-header">
+    <button class="back-btn" type="button" onclick="location.assign('/cadastro')">←</button>
+
+    <strong>Cadastrar Veículo</strong>
+  </div>
+
+  <div class="card-body">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Modelo *</label>
+        <input id="modelo" placeholder="Modelo do veículo" required>
+      </div>
+
+      <div class="form-group">
+        <label>Placa *</label>
+        <input id="placa" placeholder="ABC-1234" required>
+      </div>
+
+      <div class="form-group">
+        <label>Renavam</label>
+        <input id="renavam" placeholder="Opcional">
+      </div>
+
+      <div class="form-group full">
+        <label>Cidade *</label>
+        <input id="cidade" placeholder="Cidade de atuação" required>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="button" onclick="cadastrarVeiculo()">Cadastrar Veículo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+async function cadastrarVeiculo(){
+  const modelo = document.getElementById("modelo").value.trim();
+  const placa = document.getElementById("placa").value.trim();
+  const renavam = document.getElementById("renavam").value.trim();
+  const cidade = document.getElementById("cidade").value.trim();
+
+  if(!modelo || !placa || !cidade){
+    alert("Preencha Modelo, Placa e Cidade.");
+    return;
+  }
+
+  try{
+    const resp = await fetch("/api/veiculos", {
+      method: "POST",
+      headers: { "Content-Type":"application/json", "Accept":"application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ modelo, placa, renavam, cidade })
+    });
+
+    const data = await resp.json().catch(()=> ({}));
+
+    if(resp.status === 401){
+      alert("Sua sessão expirou. Faça login novamente.");
+      location.assign("/");
+      return;
+    }
+
+    if(!resp.ok){
+      alert(data.erro || `Erro ao cadastrar veículo (HTTP ${resp.status})`);
+      return;
+    }
+
+    alert("Veículo cadastrado com sucesso!");
+    location.assign("/dentroveiculo");
+  }catch(e){
+    console.error(e);
+    alert("Erro de conexão com o servidor");
+  }
+}
+window.cadastrarVeiculo = cadastrarVeiculo;
+</script>
+
+</body>
+</html>

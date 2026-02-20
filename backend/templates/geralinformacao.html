@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestão de Frota - Registros</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/geral.css') }}">
+</head>
+
+<body>
+
+<div class="container-principal">
+
+  <aside class="barra-lateral">
+    <h2 class="titulo-sistema"> Nexar </h2>
+    <p class="subtitulo">Sistema de Frota</p>
+
+    <nav class="menu-novo">
+      <a href="{{ url_for('dashboard') }}" class="item-menu">Executivo</a>
+
+      <!-- ✅ AQUI ERA O ERRO -->
+      <a href="{{ url_for('geral_informacao') }}" class="item-menu ativo">Registros</a>
+
+      <a href="{{ url_for('abastecimento') }}" class="item-menu">Registrar abastecimento</a>
+      <a href="{{ url_for('cadastro') }}" class="item-menu">Cadastrar</a>
+      <a href="{{ url_for('ajuda') }}" class="item-menu">Ajuda</a>
+      <a href="{{ url_for('logout') }}" class="item-menu sair">Sair</a>
+    </nav>
+  </aside>
+
+  <main class="conteudo">
+    <header class="topo-direita">
+      <h1>Registros</h1>
+      <p>Consulta e gerenciamento das informações do sistema</p>
+    </header>
+
+    <section class="cards-registros">
+
+      <div class="card-registro">
+        <h3>Postos</h3>
+        <p>Consultar postos cadastrados no sistema</p>
+        <button data-destino="{{ url_for('dentroposto') }}">Visualizar</button>
+      </div>
+
+      <div class="card-registro">
+        <h3>Veículos</h3>
+        <p>Consultar veículos cadastrados</p>
+        <button data-destino="{{ url_for('dentroveiculo') }}">Visualizar</button>
+      </div>
+
+      <div class="card-registro">
+        <h3>Motoristas</h3>
+        <p>Consultar motoristas cadastrados</p>
+        <button data-destino="{{ url_for('dentromotorista') }}">Visualizar</button>
+      </div>
+
+    </section>
+  </main>
+
+</div>
+
+<script>
+  document.querySelectorAll('.card-registro button').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const destino = e.currentTarget.dataset.destino;
+      document.body.classList.add("page-exit");
+      setTimeout(() => {
+        window.location.href = destino;
+      }, 150);
+    });
+  });
+</script>
+
+</body>
+</html>
