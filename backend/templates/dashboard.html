@@ -1,20 +1,16 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gestão de Frota</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestão de Frota</title>
 
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-
-
-
 
 <body>
 
 <div class="container-principal">
-
 
   <aside class="barra-lateral">
     <h2 class="titulo-sistema">Nexar</h2>
@@ -22,12 +18,9 @@
 
     <nav class="menu-novo">
       <a href="{{ url_for('dashboard') }}" class="item-menu ativo">Executivo</a>
-
-     
-      <a href="{{ url_for('geral_informacao') }}" class="item-menu ">Registros</a>
-
+      <a href="{{ url_for('geral_informacao') }}" class="item-menu">Registros</a>
       <a href="{{ url_for('abastecimento') }}" class="item-menu">Registrar abastecimento</a>
-      <a href="{{ url_for('cadastro') }}" class="item-menu ">Cadastrar</a>
+      <a href="{{ url_for('cadastro') }}" class="item-menu">Cadastrar</a>
       <a href="{{ url_for('ajuda') }}" class="item-menu">Ajuda</a>
       <a href="{{ url_for('logout') }}" class="item-menu sair">Sair</a>
     </nav>
@@ -150,7 +143,6 @@
       </div>
     </section>
 
-    <!-- ✅ INDIVIDUAL AGORA EM COLUNA (um abaixo do outro) -->
     <section class="secao-inferior">
       <div class="cartao-custos">
         <h3>Resumo mensal por Veículo</h3>
@@ -180,8 +172,8 @@
   </div>
 </div>
 
-<script src="/static/js/dashboard.js"></script>
-
+<!-- ✅ JS do dashboard (melhor com url_for no Render) -->
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 
 <script>
   window.addEventListener("pageshow", function (event) {
@@ -191,13 +183,12 @@
   });
 </script>
 
+<!-- ✅ CHAT IA NEXAR (tem que ficar ANTES do </body>) -->
 <div class="nexar-chat-wrapper">
 
   <input type="checkbox" id="nexar-chat-toggle">
 
-  <label for="nexar-chat-toggle" class="nexar-chat-button">
-    💬
-  </label>
+  <label for="nexar-chat-toggle" class="nexar-chat-button">💬</label>
 
   <div class="nexar-chat-container">
     <div class="nexar-chat-header">
@@ -223,6 +214,4 @@
 </div>
 
 </body>
-
-
 </html>

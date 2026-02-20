@@ -768,8 +768,7 @@ body{
 }
 
 /* Quando ativado */
-.nexar-chat-wrapper 
-#nexar-chat-toggle:checked ~ .nexar-chat-container{
+.nexar-chat-wrapper #nexar-chat-toggle:checked ~ .nexar-chat-container{
   opacity:1;
   transform:translateY(0);
   pointer-events:auto;
