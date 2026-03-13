@@ -7,14 +7,7 @@ from werkzeug.security import check_password_hash
 from psycopg2 import errors
 
 from conexao import get_db
-<<<<<<< HEAD
-from datetime import timedelta
-import os
 
-print("CHAVE DO OPENAI:", os.getenv("OPENAI_API_KEY"))
-=======
-
->>>>>>> d3f7ac6d2808f23817148b3bc5caa8713d277445
 print(">>> APP.PY CARREGADO:", __file__, flush=True)
 
 
@@ -1782,17 +1775,6 @@ def api_historico():
         print("ERRO api_historico:", e, flush=True)
         return jsonify({"sucesso": False, "erro": str(e)}), 500
     finally:
-<<<<<<< HEAD
-        if cur: cur.close()
-        if conn: conn.close()
-
-from datetime import date, datetime
-=======
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
->>>>>>> d3f7ac6d2808f23817148b3bc5caa8713d277445
 
 
 # =========================
@@ -2138,17 +2120,7 @@ def api_dashboard():
         if conn:
             conn.close()
 
-<<<<<<< HEAD
-@app.route("/monitoramento")
-def monitoramento():
-    return render_template("monitoramento.html")
 
-=======
-
-# =========================
-# START
-# =========================
->>>>>>> d3f7ac6d2808f23817148b3bc5caa8713d277445
 if __name__ == "__main__":
     print(">>> APP.PY ATIVO:", __file__, flush=True)
     print("TEMPLATES_DIR:", TEMPLATES_DIR, flush=True)
