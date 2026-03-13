@@ -4,23 +4,7 @@
 <meta charset="UTF-8">
 <title>Cadastrar Posto</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-*{box-sizing:border-box;font-family:Arial, Helvetica, sans-serif;}
-body{background:#f3f4f6;margin:0;}
-.card{max-width:700px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,.08);overflow:hidden;}
-.card-header{background:linear-gradient(90deg,#6f2cff,#9b5cff);color:#fff;padding:18px 24px;display:flex;align-items:center;gap:14px;}
-.back-btn{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;cursor:pointer;}
-.card-body{padding:28px;}
-.form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:18px;}
-label{font-size:14px;font-weight:600;color:#374151;}
-input{height:44px;border-radius:10px;border:1px solid #e5e7eb;padding:0 14px;font-size:14px;}
-input:focus{outline:none;border-color:#8b1cf6;box-shadow:0 0 0 2px rgba(139,28,246,.15);}
-fieldset{border:1px solid #e5e7eb;border-radius:12px;padding:18px;margin-top:10px;}
-legend{padding:0 8px;font-size:14px;font-weight:600;color:#6b7280;}
-.combustiveis{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:10px;}
-.actions{margin-top:28px;}
-button{width:100%;height:48px;border-radius:12px;border:none;cursor:pointer;font-size:15px;font-weight:600;background:#8b1cf6;color:#fff;}
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadastrarposto.css') }}">
 </head>
 <body>
 
@@ -67,42 +51,7 @@ button{width:100%;height:48px;border-radius:12px;border:none;cursor:pointer;font
   </div>
 </div>
 
-<script>
-document.getElementById("formPosto").addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  const nome = document.getElementById("nomePosto").value.trim();
-  const endereco = document.getElementById("enderecoPosto").value.trim();
-  const gasolina = parseFloat(document.getElementById("gasolina").value);
-  const etanol = parseFloat(document.getElementById("etanol").value);
-  const diesel = parseFloat(document.getElementById("diesel").value);
-
-  if(!nome || !endereco || isNaN(gasolina) || isNaN(etanol) || isNaN(diesel)){
-    alert("Preencha todos os campos corretamente.");
-    return;
-  }
-
-  try{
-    const resp = await fetch("/api/postos", {
-      method:"POST",
-      headers: {"Content-Type":"application/json", "Accept":"application/json"},
-      credentials: "same-origin",
-      body: JSON.stringify({nome, endereco, gasolina, etanol, diesel})
-    });
-
-    const data = await resp.json().catch(()=> ({}));
-    if(!resp.ok){
-      alert(data.erro || "Erro ao cadastrar posto");
-      return;
-    }
-
-    alert("Posto cadastrado com sucesso!");
-    location.assign("/dentroposto");
-  }catch{
-    alert("Erro de conexão com o servidor");
-  }
-});
-</script>
+<script src="{{ url_for('static', filename='js/cadastrarposto.js') }}"></script>
 
 </body>
 </html>

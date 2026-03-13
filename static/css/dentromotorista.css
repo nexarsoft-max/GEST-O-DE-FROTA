@@ -1,0 +1,7 @@
+*{box-sizing:border-box;font-family:Arial}
+body{background:#f3f4f6;margin:0}
+.header{height:70px;background:linear-gradient(90deg,#6f2cff,#9b5cff);display:flex;align-items:center;padding:0 24px;color:#fff}
+.back{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;cursor:pointer}
+.container{padding:40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:24px}
+.card{background:#fff;border-radius:18px;padding:24px;box-shadow:0 12px 28px rgba(0,0,0,.08)}
+.vazio{text-align:center;color:#666;grid-column:1/-1}

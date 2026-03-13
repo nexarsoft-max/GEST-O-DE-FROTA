@@ -1,0 +1,317 @@
+:root{
+  --roxo1:#6f2cff;
+  --roxo2:#9b5cff;
+  --bg:#f3f3f6;
+  --card:#ffffff;
+  --texto:#141420;
+  --muted:#6b6b75;
+  --borda:#e7e7ef;
+  --sombra: 0 18px 36px rgba(0,0,0,.08);
+
+  --green-bg: rgba(34,197,94,.12);
+  --green-bd: rgba(34,197,94,.35);
+  --green-tx: #15803d;
+
+  --amber-bg: rgba(245,158,11,.12);
+  --amber-bd: rgba(245,158,11,.35);
+  --amber-tx: #b45309;
+
+  --red-bg: rgba(239,68,68,.12);
+  --red-bd: rgba(239,68,68,.35);
+  --red-tx: #b91c1c;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family: Inter, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--texto);
+}
+
+.page{
+  max-width: 1280px;
+  margin: 22px auto 48px;
+  padding: 0 18px;
+}
+
+.topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding: 18px 8px 10px;
+}
+
+.back{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  text-decoration:none;
+  color: var(--roxo1);
+  font-weight: 700;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+.back:hover{ background: rgba(111,44,255,.06); }
+
+.vehicle-title{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  min-width: 340px;
+  justify-content:center;
+  flex:1;
+}
+.veh-icon{
+  width:44px;height:44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--roxo1), var(--roxo2));
+  color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow: 0 10px 22px rgba(111,44,255,.28);
+}
+.veh-text h1{
+  margin:0;
+  font-size: 24px;
+  line-height: 1.1;
+}
+.veh-text p{
+  margin:3px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.status-pill{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--borda);
+  background: #fff;
+  font-weight: 800;
+  min-width: 170px;
+  justify-content:center;
+}
+.status-pill .dot{
+  width:10px;height:10px;border-radius:999px;
+  background: #bbb;
+}
+
+.content{
+  display:grid;
+  grid-template-columns: 1.35fr .65fr;
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.map-card{
+  background: var(--card);
+  border: 1px solid var(--borda);
+  border-radius: 18px;
+  box-shadow: var(--sombra);
+  overflow:hidden;
+  min-height: 540px;
+}
+
+.map-area{
+  position:relative;
+  height: 540px;
+  background: radial-gradient(1200px 600px at 50% 40%, rgba(155,92,255,.18), rgba(17,24,39,.96));
+}
+
+#mapFrame{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  border:0;
+  filter: saturate(1.05) contrast(1.05);
+}
+
+.map-overlay{
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding: 22px;
+  pointer-events:none;
+}
+
+.map-pin{
+  width:54px;
+  height:54px;
+  border-radius: 18px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin-bottom: 18px;
+  box-shadow: 0 18px 34px rgba(0,0,0,.28);
+}
+
+.map-info{
+  text-align:center;
+  color:#fff;
+  max-width: 520px;
+}
+.map-info h2{
+  margin:0;
+  font-size: 18px;
+  letter-spacing:.2px;
+}
+.map-info p{
+  margin: 8px 0 0;
+  opacity: .92;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.coords{
+  margin: 16px auto 0;
+  width: fit-content;
+  min-width: 280px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(155,92,255,.45);
+  background: rgba(17,24,39,.35);
+  backdrop-filter: blur(10px);
+}
+.coords-title{
+  color: rgba(255,255,255,.85);
+  font-weight: 800;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.coords-value{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.side{
+  display:flex;
+  flex-direction:column;
+  gap: 14px;
+}
+
+.card{
+  background: var(--card);
+  border: 1px solid var(--borda);
+  border-radius: 18px;
+  box-shadow: var(--sombra);
+  padding: 16px;
+}
+
+.card h3{
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.info-row{
+  display:flex;
+  gap: 12px;
+  align-items:center;
+  padding: 12px;
+  border-radius: 14px;
+  background: #fafafe;
+  border: 1px solid rgba(231,231,239,.8);
+  margin-bottom: 10px;
+}
+.info-row.highlight{ background: #f8fffb; }
+.info-row.highlight.green{
+  background: rgba(34,197,94,.08);
+  border-color: rgba(34,197,94,.22);
+}
+.info-icon{
+  width:36px;height:36px;
+  border-radius: 12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size: 16px;
+  font-weight: 900;
+}
+.info-icon.purple{ background: rgba(111,44,255,.12); color: var(--roxo1); }
+.info-icon.green{ background: rgba(34,197,94,.14); color: #15803d; }
+
+.info-col{ display:flex; flex-direction:column; gap:2px; }
+.info-col.grow{ flex:1; width:100%; }
+.label{
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 800;
+}
+.value{
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--texto);
+}
+.value.big{ font-size: 18px; }
+.unit{ font-size: 12px; color: var(--muted); font-weight: 900; }
+
+.line{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+}
+
+.progress{
+  margin-top: 8px;
+  height: 10px;
+  background: rgba(17,24,39,.10);
+  border-radius: 999px;
+  overflow:hidden;
+}
+.progress .bar{
+  height:100%;
+  width:0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--roxo1), var(--roxo2));
+}
+
+.loc-row{
+  display:flex;
+  align-items:flex-start;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #fafafe;
+  border: 1px solid rgba(231,231,239,.8);
+}
+.loc-icon{
+  width:36px;height:36px;border-radius: 12px;
+  display:flex;align-items:center;justify-content:center;
+  background: rgba(111,44,255,.12);
+}
+
+.actions{
+  display:flex;
+  gap: 10px;
+  flex-direction:column;
+}
+.btn{
+  text-decoration:none;
+  font-weight: 900;
+  border-radius: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--borda);
+  display:flex; align-items:center; justify-content:center;
+}
+.btn.primary{
+  color:#fff;
+  border: 0;
+  background: linear-gradient(135deg, var(--roxo1), var(--roxo2));
+  box-shadow: 0 14px 30px rgba(111,44,255,.25);
+}
+.btn.ghost{
+  background: #fff;
+  color: var(--roxo1);
+}
+.btn.ghost:hover{ background: rgba(111,44,255,.06); }
+
+@media (max-width: 1020px){
+  .content{ grid-template-columns: 1fr; }
+  .vehicle-title{ justify-content:flex-start; }
+  .status-pill{ min-width: 150px; }
+}

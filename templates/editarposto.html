@@ -4,30 +4,7 @@
 <meta charset="UTF-8">
 <title>Editar Posto</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif;}
-body{background:#f3f4f6;margin:0;}
-.card{max-width:900px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,.08);}
-.card-header{background:linear-gradient(90deg,#6f2cff,#9b5cff);color:white;padding:18px 24px;display:flex;gap:14px;align-items:center;}
-.back-btn{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,0.15);border:none;color:white;font-size:22px;cursor:pointer;}
-.card-body{padding:24px;}
-label{font-size:14px;font-weight:600;color:#374151;display:block;margin-bottom:6px;}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
-.full{grid-column:span 2;}
-input{height:44px;border-radius:10px;border:1px solid #e5e7eb;padding:0 14px;width:100%;}
-input:focus{outline:none;border-color:#8b1cf6;box-shadow:0 0 0 2px rgba(139,28,246,.15);}
-.actions{display:flex;gap:12px;margin-top:28px;}
-.btn-save{flex:1;height:48px;border-radius:12px;border:none;cursor:pointer;background:#8b1cf6;color:white;font-size:15px;font-weight:600;}
-.btn-delete{background:#dc2626;}
-.mini-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
-.msg{margin-top:14px;color:#6b7280;font-size:13px;}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;z-index:9999;}
-.modal-box{background:white;padding:24px;border-radius:14px;max-width:360px;width:100%;text-align:center;}
-.modal-actions{display:flex;gap:10px;margin-top:20px;}
-.modal-actions button{flex:1;height:42px;border-radius:10px;border:none;cursor:pointer;font-size:14px;}
-.cancel{background:#e5e7eb;}
-.confirm{background:#dc2626;color:white;}
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/editarposto.css') }}">
 </head>
 
 <body data-posto-id="{{ posto_id }}">
@@ -79,104 +56,6 @@ input:focus{outline:none;border-color:#8b1cf6;box-shadow:0 0 0 2px rgba(139,28,2
   </div>
 </div>
 
-<script>
-const POSTO_ID = Number(document.body.dataset.postoId);
-
-function setMsg(t){ document.getElementById("msg").textContent = t || ""; }
-
-function precoDo(p, tipo){
-  const alvo = String(tipo||"").toLowerCase().trim();
-  const arr = Array.isArray(p.combustiveis) ? p.combustiveis : [];
-  const item = arr.find(c => String(c.tipo||"").toLowerCase().trim() === alvo);
-  return item ? (Number(item.preco || 0).toFixed(2)) : "0.00";
-}
-
-async function carregar(){
-  setMsg("Carregando...");
-  const resp = await fetch(`/api/postos/${POSTO_ID}`, { headers: { "Accept":"application/json" }});
-  const data = await resp.json().catch(()=> ({}));
-
-  if(resp.status === 401){
-    alert("Sessão expirada. Faça login novamente.");
-    location.assign("/");
-    return;
-  }
-  if(!resp.ok){
-    setMsg(data.erro || "Erro ao carregar posto");
-    return;
-  }
-
-  document.getElementById("nome").value = data.nome || "";
-  document.getElementById("endereco").value = data.endereco || "";
-  document.getElementById("gasolina").value = precoDo(data,"gasolina");
-  document.getElementById("etanol").value = precoDo(data,"etanol");
-  document.getElementById("diesel").value = precoDo(data,"diesel");
-  setMsg("");
-}
-
-async function salvar(){
-  const nome = document.getElementById("nome").value.trim();
-  const endereco = document.getElementById("endereco").value.trim();
-  const gasolina = document.getElementById("gasolina").value;
-  const etanol = document.getElementById("etanol").value;
-  const diesel = document.getElementById("diesel").value;
-
-  if(!nome || !endereco){
-    alert("Preencha Nome e Endereço.");
-    return;
-  }
-
-  setMsg("Salvando...");
-  const resp = await fetch(`/api/postos/${POSTO_ID}`, {
-    method: "PUT",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ nome, endereco, gasolina, etanol, diesel })
-  });
-  const data = await resp.json().catch(()=> ({}));
-
-  if(resp.status === 401){
-    alert("Sessão expirada. Faça login novamente.");
-    location.assign("/");
-    return;
-  }
-  if(!resp.ok){
-    setMsg("");
-    alert(data.erro || `Erro ao salvar (HTTP ${resp.status})`);
-    return;
-  }
-
-  setMsg("Salvo com sucesso!");
-  setTimeout(()=> location.assign("/dentroposto"), 300);
-}
-
-function abrirModal(){ document.getElementById("modal").style.display = "flex"; }
-function fecharModal(e){
-  if(!e || e.target.id === "modal"){
-    document.getElementById("modal").style.display = "none";
-  }
-}
-
-async function excluir(){
-  setMsg("Excluindo...");
-  const resp = await fetch(`/api/postos/${POSTO_ID}`, { method: "DELETE" });
-  const data = await resp.json().catch(()=> ({}));
-
-  if(resp.status === 401){
-    alert("Sessão expirada. Faça login novamente.");
-    location.assign("/");
-    return;
-  }
-  if(!resp.ok){
-    setMsg("");
-    alert(data.erro || `Erro ao excluir (HTTP ${resp.status})`);
-    return;
-  }
-
-  location.assign("/dentroposto");
-}
-
-carregar();
-</script>
-
+<script src="{{ url_for('static', filename='js/editarposto.js') }}"></script>
 </body>
 </html>

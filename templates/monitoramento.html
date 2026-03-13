@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitoramento - Gestão de Frota</title>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/monitoramento.css') }}">
+</head>
+
+<body>
+
+<div class="container-principal">
+
+  <aside class="barra-lateral">
+    <div class="logo">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo">
+    </div>
+
+    <nav class="menu-novo">
+      <a href="{{ url_for('dashboard') }}" class="item-menu">Executivo</a>
+      <a href="{{ url_for('geral_informacao') }}" class="item-menu">Registros</a>
+      <a href="{{ url_for('abastecimento') }}" class="item-menu">Registrar abastecimento</a>
+      <a href="{{ url_for('cadastro') }}" class="item-menu">Cadastrar</a>
+      <a href="{{ url_for('termos') }}" class="item-menu">Termos</a>
+      <a href="{{ url_for('logout') }}" class="item-menu sair">Sair</a>
+    </nav>
+  </aside>
+
+  <!-- Conteúdo -->
+  <main class="conteudo">
+
+    <header class="topo" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <h1>Monitoramento</h1>
+
+      <!-- Voltar ao dashboard -->
+      <a href="{{ url_for('dashboard') }}" class="btn ghost" style="text-decoration:none;">
+        ← Voltar para Executivo
+      </a>
+    </header>
+
+    <!-- ========================= -->
+    <!-- PAINEL MONITORAMENTO -->
+    <!-- ========================= -->
+    <div class="tab-painel ativo" id="tab-monitoramento">
+
+      <section class="monitor-resumo">
+        <div class="monitor-card total">
+          <div class="icon-bubble">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11l1.4-4.2A2 2 0 0 1 8.3 5h7.4a2 2 0 0 1 1.9 1.8L19 11m-14 0h14m-14 0a2 2 0 0 0-2 2v3h2m14-5a2 2 0 0 1 2 2v3h-2m-11 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/></svg>
+          </div>
+          <div class="mc-text">
+            <span>Total de Veículos</span>
+            <strong id="m_total">0</strong>
+          </div>
+        </div>
+
+        <div class="monitor-card moving">
+          <div class="icon-bubble">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 20-8-4-8 4 8-20zm0 6.5L9.8 14 12 13l2.2 1L12 8.5z"/></svg>
+          </div>
+          <div class="mc-text">
+            <span>Em Movimento</span>
+            <strong id="m_moving">0</strong>
+          </div>
+        </div>
+
+        <div class="monitor-card stopped">
+          <div class="icon-bubble">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-5.2 7-12A7 7 0 1 0 5 10c0 6.8 7 12 7 12zm0-9.5A2.5 2.5 0 1 0 12 7a2.5 2.5 0 0 0 0 5.5z"/></svg>
+          </div>
+          <div class="mc-text">
+            <span>Parados</span>
+            <strong id="m_stopped">0</strong>
+          </div>
+        </div>
+
+        <div class="monitor-card offline">
+          <div class="icon-bubble">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 3.5l18 18-1.3 1.3-2.3-2.3a9.8 9.8 0 0 1-5.2 1.5c-1.8 0-3.6-.5-5.2-1.5l2-2a7 7 0 0 0 8.9 0l-2.2-2.2a4 4 0 0 1-4.5 0l-2 2a9.7 9.7 0 0 1-2.8-3.2l2.3-2.3a7.2 7.2 0 0 0 4.1 2.4l-2-2a4.2 4.2 0 0 1-1.2-.7L3.5 4.8 2.8 3.5zm8.8 17.2l.4-.4.4.4-.8 0zM12 2c3.7 0 7.2 1.5 9.8 4.2l-2.3 2.3A10 10 0 0 0 12 6c-1.7 0-3.4.4-4.9 1.2L4.8 5A12 12 0 0 1 12 2z"/></svg>
+          </div>
+          <div class="mc-text">
+            <span>Offline</span>
+            <strong id="m_offline">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <div class="monitor-busca">
+        <div class="monitor-input">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 2a8 8 0 1 1 5.3 14l4.2 4.2-1.4 1.4-4.2-4.2A8 8 0 0 1 10 2zm0 2a6 6 0 1 0 0 12 6 6 0 0 0 0-12z"/></svg>
+          <input id="monitorSearch" type="text" placeholder="Buscar por veículo, placa ou motorista...">
+        </div>
+      </div>
+
+      <div class="monitor-titulo">
+        <h2>Frota Disponível</h2>
+        <span class="pill" id="m_pill">0 veículos</span>
+      </div>
+
+      <section class="monitor-grid" id="monitorGrid"></section>
+
+    </div>
+
+  </main>
+</div>
+
+<!-- CHAT IA -->
+<div class="nexar-chat-wrapper">
+  <input type="checkbox" id="nexar-chat-toggle">
+  <label for="nexar-chat-toggle" class="nexar-chat-button">💬</label>
+
+  <div class="nexar-chat-container">
+    <div class="nexar-chat-header">
+      <div class="nexar-avatar">
+        <img src="{{ url_for('static', filename='img/logo.png') }}">
+      </div>
+      <div>
+        <h3>Nexar</h3>
+        <div class="nexar-status">● Assistente Inteligente</div>
+      </div>
+    </div>
+
+    <div class="nexar-chat-body">
+      <div class="nexar-message">
+        Olá! Sou a <strong>Nexar</strong>, sua assistente inteligente.<br>
+        Como posso ajudar você hoje?
+      </div>
+    </div>
+
+    <div class="nexar-chat-input">
+      <input type="text" placeholder="Digite sua dúvida...">
+    </div>
+  </div>
+</div>
+
+<!-- scripts -->
+<script src="/static/js/monitoramento.js"></script>
+
+<script>
+  window.addEventListener("pageshow", function (event) {
+    if (event.persisted) window.location.reload();
+  });
+</script>
+
+</body>
+</html>

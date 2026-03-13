@@ -697,3 +697,96 @@ document.addEventListener("keydown", (e)=>{
     atualizarResumoMotoristas({ regMesAtual: at2, motoristas: m2 });
   });
 })();
+
+// ==============================
+// CHAT IA NEXAR (FINAL - SEM DUPLICAÇÃO)
+// ==============================
+
+document.addEventListener("DOMContentLoaded", () => {
+  const inputChat = document.querySelector(".nexar-chat-input input");
+  const chatBody = document.querySelector(".nexar-chat-body");
+
+  // Se não existir no DOM, não roda (evita erro no console)
+  if (!inputChat || !chatBody) return;
+
+  // adiciona mensagem no chat
+  function adicionarMensagem(texto, tipo) {
+    const div = document.createElement("div");
+    div.classList.add("nexar-message", tipo); // tipo: "user" ou "bot"
+    div.innerHTML = texto;
+    chatBody.appendChild(div);
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
+
+  // loader (bolinhas)
+  function mostrarLoading() {
+    if (document.getElementById("loading")) return;
+
+    const div = document.createElement("div");
+    div.classList.add("nexar-message", "bot");
+    div.id = "loading";
+    div.innerHTML = `
+      <div class="nexar-typing">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    `;
+    chatBody.appendChild(div);
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
+
+  function removerLoading() {
+    const loading = document.getElementById("loading");
+    if (loading) loading.remove();
+  }
+
+  // envia mensagem
+  async function enviarMensagem() {
+    const texto = (inputChat.value || "").trim();
+    if (!texto) return;
+
+    adicionarMensagem(texto, "user");
+    inputChat.value = "";
+
+    mostrarLoading();
+
+    try {
+      const response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: texto })
+      });
+
+      // tenta ler json mesmo se der erro HTTP
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (e) {
+        data = {};
+      }
+
+      removerLoading();
+
+      // se a API voltar algo do tipo Erro: 429... etc
+      if (!response.ok) {
+        const msg = data?.resposta || data?.erro || `Erro HTTP ${response.status}`;
+        adicionarMensagem(msg, "bot");
+        return;
+      }
+
+      adicionarMensagem(data.resposta || "Sem resposta do servidor.", "bot");
+    } catch (error) {
+      removerLoading();
+      adicionarMensagem("Erro ao conectar com o servidor.", "bot");
+    }
+  }
+
+  // ENTER envia
+  inputChat.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      enviarMensagem();
+    }
+  });
+});

@@ -1,0 +1,29 @@
+*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif;}
+body{background:#f3f4f6;margin:0;}
+.card{max-width:700px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,.08);overflow:hidden;}
+.card-header{background:linear-gradient(90deg,#6f2cff,#9b5cff);color:white;padding:18px 24px;display:flex;gap:14px;align-items:center;}
+.back-btn{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.15);border:none;color:white;font-size:22px;cursor:pointer;}
+.card-body{padding:28px;}
+.form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:18px;}
+label{font-size:14px;font-weight:600;color:#374151;}
+input{height:44px;border-radius:10px;border:1px solid #e5e7eb;padding:0 14px;font-size:14px;}
+input:focus{outline:none;border-color:#8b1cf6;box-shadow:0 0 0 2px rgba(139,28,246,.15);}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.full{grid-column:span 2;}
+.actions{display:flex;gap:12px;margin-top:28px;}
+.btn{flex:1;height:48px;border-radius:12px;border:none;cursor:pointer;color:white;font-size:15px;font-weight:600;}
+.salvar{background:#8b1cf6;}
+.excluir{background:#dc2626;}
+
+/* UPLOAD CNH */
+.upload-box{
+  border:2px dashed #cfcfe6;
+  border-radius:14px;
+  padding:16px;
+  text-align:center;
+  background:#faf9ff;
+  cursor:pointer;
+}
+.upload-box input{display:none;}
+.upload-box span{font-size:14px;color:#6b7280;}
+.upload-box img{max-width:100%;margin-top:12px;border-radius:10px;}

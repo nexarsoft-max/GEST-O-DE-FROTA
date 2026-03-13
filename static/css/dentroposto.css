@@ -1,13 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: 'Inter', Arial, sans-serif;
+  font-family: "Inter", sans-serif;
 }
 
 body {
   background: #f3f3f6;
   color: #222;
+  font-family: "Inter", sans-serif;
 }
 
 /* Header */

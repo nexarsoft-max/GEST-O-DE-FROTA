@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Termos de Uso – Nexar Software</title>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/termos.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="container-principal">
+
+  <aside class="barra-lateral">
+    <div class="logo">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo">
+    </div>
+
+    <nav class="menu-novo">
+      <a href="{{ url_for('dashboard') }}" class="item-menu">Executivo</a>
+      <a href="{{ url_for('geral_informacao') }}" class="item-menu">Registros</a>
+      <a href="{{ url_for('abastecimento') }}" class="item-menu">Registrar abastecimento</a>
+      <a href="{{ url_for('cadastro') }}" class="item-menu">Cadastrar</a>
+      <a href="{{ url_for('termos') }}" class="item-menu ativo">Termos</a>
+      <a href="{{ url_for('logout') }}" class="item-menu sair">Sair</a>
+    </nav>
+  </aside>
+
+  <main class="conteudo">
+    <header class="header">
+      <h1>TERMOS DE USO – <span>NEXAR SOFTWARE</span></h1>
+      <p class="atualizacao">Versão Atual: 10.01v</p>
+    </header>
+
+    <!-- OBJETO -->
+    <section class="card">
+      <h2>OBJETO</h2>
+      <p>
+        A <strong>NEXAR SOFTWARE</strong> disponibiliza uma plataforma tecnológica voltada à gestão de frotas, incluindo:
+      </p>
+      <ul>
+        <li>Controle de abastecimento;</li>
+        <li>Rastreamento de veículos;</li>
+        <li>Controle de checklist operacional;</li>
+        <li>Cadastro de motoristas e veículos;</li>
+        <li>Armazenamento de imagens (motoristas, placas e inspeções);</li>
+        <li>Monitoramento e relatórios operacionais.</li>
+      </ul>
+    </section>
+
+    <!-- CADASTRO -->
+    <section class="card">
+      <h2>CADASTRO E RESPONSABILIDADE</h2>
+      <p>O usuário é responsável por:</p>
+      <ul>
+        <li>Fornecer informações verdadeiras e atualizadas;</li>
+        <li>Garantir que possui autorização para cadastrar dados de terceiros;</li>
+        <li>Manter a confidencialidade de seu login e senha;</li>
+        <li>Utilizar o sistema de forma legal e ética.</li>
+      </ul>
+      <p>É <span class="highlight">proibido</span> utilizar a plataforma para fins ilícitos ou inserir informações falsas.</p>
+    </section>
+
+    <!-- DADOS -->
+    <section class="card">
+      <h2>DADOS E PRIVACIDADE</h2>
+      <p>A plataforma poderá coletar e armazenar:</p>
+      <ul>
+        <li>Dados de motoristas;</li>
+        <li>Dados de veículos e placas;</li>
+        <li>Informações de abastecimento;</li>
+        <li>Registros de localização vinculados à operação;</li>
+        <li>Imagens enviadas no sistema;</li>
+        <li>Informações técnicas de acesso.</li>
+      </ul>
+      <p>O tratamento de dados é realizado em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018).</p>
+      <p>Os dados são utilizados exclusivamente para execução dos serviços contratados, gestão operacional da frota e cumprimento de obrigações legais.</p>
+      <p>O titular poderá solicitar acesso, correção ou exclusão de dados através do e-mail: <strong>NexarAgencia@gmail.com</strong>.</p>
+    </section>
+
+    <!-- COMODATO -->
+    <section class="card">
+      <h2>EQUIPAMENTOS EM COMODATO</h2>
+      <p>
+        A <strong>NEXAR SOFTWARE</strong> poderá disponibilizar equipamentos em regime de
+        <span class="highlight">comodato</span> para utilização integrada à plataforma.
+      </p>
+      <p>Os equipamentos permanecem de propriedade exclusiva da NEXAR SOFTWARE.</p>
+      <p>O cliente compromete-se a:</p>
+      <ul>
+        <li>Utilizar os equipamentos exclusivamente para a finalidade contratada;</li>
+        <li>Zelar pela conservação e uso adequado;</li>
+        <li>Não realizar alterações técnicas sem autorização.</li>
+      </ul>
+      <p>Em caso de danos por mau uso, negligência, perda ou extravio, o cliente poderá ser responsabilizado pelo ressarcimento ou substituição do equipamento.</p>
+      <p>No encerramento do contrato, os equipamentos deverão ser devolvidos em condições adequadas, salvo desgaste natural.</p>
+    </section>
+
+    <!-- RESPONSABILIDADE -->
+    <section class="card">
+      <h2>LIMITAÇÃO DE RESPONSABILIDADE</h2>
+      <p>A NEXAR SOFTWARE não se responsabiliza por:</p>
+      <ul>
+        <li>Informações incorretas inseridas pelos usuários;</li>
+        <li>Decisões operacionais tomadas com base nos dados cadastrados;</li>
+        <li>Indisponibilidades temporárias decorrentes de manutenção ou fatores externos.</li>
+      </ul>
+    </section>
+
+    <!-- DISPONIBILIDADE -->
+    <section class="card">
+      <h2>DISPONIBILIDADE</h2>
+      <p>A plataforma poderá passar por atualizações, melhorias técnicas e manutenções programadas, podendo haver interrupções temporárias.</p>
+    </section>
+
+    <!-- CANCELAMENTO -->
+    <section class="card">
+      <h2>CANCELAMENTO</h2>
+      <p>O usuário poderá solicitar o cancelamento da conta através do e-mail <strong>NexarAgencia@gmail.com</strong>.</p>
+      <p>A NEXAR SOFTWARE poderá suspender contas que violem estes Termos.</p>
+    </section>
+
+    <footer class="footer">
+      © NEXAR SOFTWARE – Todos os direitos reservados
+    </footer>
+
+  </main>
+</div>
+
+</body>
+</html>

@@ -1,3 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+
 :root{
   --roxo1:#6f2cff;
   --roxo2:#9b5cff;
@@ -15,12 +18,13 @@
   margin:0;
   padding:0;
   box-sizing:border-box;
-  font-family: Arial, sans-serif;
+  font-family: "Inter", sans-serif;
 }
 
 body{
   background: var(--bg);
   color: var(--texto);
+  font-family: "Inter", sans-serif;
 }
 
 /* ============================= */
@@ -226,4 +230,13 @@ body{
   .caixa-cadastro{
     min-height:170px;
   }
+}
+
+.barra-lateral > img{
+  width: 100px;      /* ajuste aqui */
+  height: 10s0px;     /* ajuste aqui */
+  object-fit: contain;
+  display: block;
+  margin: 0 auto 8px; /* centraliza e dá espaço embaixo */
+  margin-left: 56px;
 }

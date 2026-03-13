@@ -5,7 +5,12 @@ from werkzeug.security import check_password_hash
 from psycopg2 import errors
 from conexao import get_db
 from datetime import timedelta
+import os
+
+print("CHAVE DO OPENAI:", os.getenv("OPENAI_API_KEY"))
 print(">>> APP.PY CARREGADO:", __file__, flush=True)
+
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
@@ -20,6 +25,212 @@ app.config["SESSION_COOKIE_SECURE"] = False  # localhost sem https
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=365)  # 1 ano, pode aumentar
 
 
+from flask import request, jsonify
+from openai import OpenAI
+import os
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+
+def pergunta_valida(pergunta):
+    palavras_permitidas = [
+        "abastecimento", "combustivel", "litros", "km", "odometro",
+        "veiculo", "motorista", "posto", "custo", "gasto",
+        "media", "dashboard", "consumo", "manutencao"
+    ]
+
+    pergunta = (pergunta or "").lower()
+    return any(p in pergunta for p in palavras_permitidas)
+
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    data = request.get_json(silent=True) or {}
+    pergunta = (data.get("message") or data.get("mensagem") or "").strip()
+
+    # ✅ Resposta simples para saudações
+    if pergunta.lower() in ("oi", "olá", "ola", "bom dia", "boa tarde", "boa noite"):
+        return jsonify({
+            "resposta": "Oi! 😊 Me diga sua dúvida sobre abastecimentos, veículos, motoristas, postos, manutenção ou dashboard."
+        })
+
+    # ❌ bloqueia perguntas fora do sistema
+    if not pergunta_valida(pergunta):
+        return jsonify({
+            "resposta": "Só posso ajudar com dados da frota (abastecimentos, veículos, motoristas, postos, manutenção e dashboard)."
+        })
+
+    def _cols(cur, table_name: str):
+        cur.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = %s
+            """,
+            (table_name,),
+        )
+        return {r[0] for r in cur.fetchall()}
+
+    def _pick(existing_cols, candidates, default=None):
+        for c in candidates:
+            if c in existing_cols:
+                return c
+        return default
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cols_ab = _cols(cur, "abastecimentos")
+        cols_v = _cols(cur, "veiculos")
+        cols_m = _cols(cur, "motoristas")
+        cols_p = _cols(cur, "postos")
+
+        # ✅ escolhe automaticamente os nomes reais das colunas
+        col_data = _pick(cols_ab, ["data", "criado_em"], default="criado_em")
+        col_litros = _pick(cols_ab, ["litros"], default=None)
+        col_valor = _pick(cols_ab, ["valor_total", "preco_total", "valor", "preco"], default=None)
+        col_comb = _pick(cols_ab, ["tipo_combustivel", "combustivel_tipo"], default=None)
+
+        # ids (pra fazer join)
+        col_veic_id = _pick(cols_ab, ["veiculo_id"], default=None)
+        col_mot_id = _pick(cols_ab, ["motorista_id"], default=None)
+        col_posto_id = _pick(cols_ab, ["posto_id"], default=None)
+
+        # nomes nas tabelas relacionadas
+        col_veic_nome = _pick(cols_v, ["nome", "modelo", "placa"], default=None)
+        col_mot_nome = _pick(cols_m, ["nome"], default=None)
+        col_posto_nome = _pick(cols_p, ["nome"], default=None)
+
+        # ✅ monta SELECT sem referenciar coluna que não existe
+        select_parts = [f"a.{col_data} AS data"]
+
+        # Veículo
+        if col_veic_id and col_veic_nome:
+            select_parts.append(f"COALESCE(v.{col_veic_nome}::text,'') AS veiculo")
+        else:
+            select_parts.append("'' AS veiculo")
+
+        # Motorista
+        if col_mot_id and col_mot_nome:
+            select_parts.append(f"COALESCE(m.{col_mot_nome}::text,'') AS motorista")
+        else:
+            select_parts.append("'' AS motorista")
+
+        # Posto
+        if col_posto_id and col_posto_nome:
+            select_parts.append(f"COALESCE(p.{col_posto_nome}::text,'') AS posto")
+        else:
+            select_parts.append("'' AS posto")
+
+        # Combustível
+        if col_comb:
+            select_parts.append(f"COALESCE(a.{col_comb}::text,'') AS combustivel")
+        else:
+            select_parts.append("'' AS combustivel")
+
+        # Litros
+        if col_litros:
+            select_parts.append(f"COALESCE(a.{col_litros},0) AS litros")
+        else:
+            select_parts.append("0 AS litros")
+
+        # Valor total
+        if col_valor:
+            select_parts.append(f"COALESCE(a.{col_valor},0) AS valor_total")
+        else:
+            select_parts.append("0 AS valor_total")
+
+        select_sql = ",\n                ".join(select_parts)
+
+        joins = []
+        if col_veic_id and col_veic_nome:
+            joins.append("LEFT JOIN veiculos v ON v.id = a.veiculo_id")
+        if col_mot_id and col_mot_nome:
+            joins.append("LEFT JOIN motoristas m ON m.id = a.motorista_id")
+        if col_posto_id and col_posto_nome:
+            joins.append("LEFT JOIN postos p ON p.id = a.posto_id")
+
+        joins_sql = "\n            ".join(joins)
+
+        sql = f"""
+            SELECT
+                {select_sql}
+            FROM abastecimentos a
+            {joins_sql}
+            ORDER BY a.id DESC
+            LIMIT 30
+        """
+
+        cur.execute(sql)
+        dados = cur.fetchall()
+
+        if not dados:
+            return jsonify({"resposta": "Ainda não existem abastecimentos cadastrados no sistema."})
+
+        contexto = "\n".join([
+            f"Data: {str(d[0])} | Veículo: {d[1]} | Motorista: {d[2]} | Posto: {d[3]} | Combustível: {d[4]} | Litros: {d[5]} | Valor: R$ {d[6]}"
+            for d in dados
+        ])
+
+        prompt = f"""
+Você é a assistente Nexar do sistema de gestão de frota.
+
+REGRAS (obrigatório):
+- Responda SOMENTE sobre o sistema (abastecimentos, veículos, motoristas, postos, manutenção, dashboard).
+- Use APENAS os dados fornecidos abaixo.
+- NÃO invente informações.
+- Se a pergunta não puder ser respondida com os dados, diga: "Não há dados suficientes para responder."
+
+DADOS DISPONÍVEIS (últimos 30 abastecimentos):
+{contexto}
+
+PERGUNTA DO USUÁRIO:
+{pergunta}
+"""
+
+        # ✅ CHAMADA OPENAI (com tratamento de erro)
+        try:
+            resposta = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "Responda apenas com base nos dados. Não invente nada."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2
+            )
+            return jsonify({"resposta": resposta.choices[0].message.content})
+
+        except Exception as e:
+            msg = str(e)
+
+            # ✅ 429 / sem créditos / quota
+            if ("Error code: 429" in msg) or ("insufficient_quota" in msg) or ("quota" in msg.lower()):
+                return jsonify({
+                    "resposta": "Seu Assistente de métricas está indisponível no momento, entre em contato com o suporte."
+                })
+
+            # ✅ 401 / chave inválida
+            if ("401" in msg) or ("authentication" in msg.lower()) or ("api key" in msg.lower()):
+                return jsonify({
+                    "resposta": "Seu Assistente de métricas está indisponível no momento, entre em contato com o suporte."
+                })
+
+            # ✅ qualquer outro erro da IA
+            return jsonify({
+                "resposta": "Seu Assistente de métricas está indisponível no momento, entre em contato com o suporte."
+            })
+
+    except Exception as e:
+        # erro geral (banco/sql/etc)
+        return jsonify({"resposta": f"Erro: {str(e)}"})
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 # =========================
 # LOG
 # =========================
@@ -189,6 +400,7 @@ def geral_informacao_alias():
         return r
     return redirect("/geralinformacao")
 
+
 @app.get("/editarmotorista/<int:motorista_id>")
 def editarmotorista(motorista_id):
     r = proteger_pagina()
@@ -196,12 +408,15 @@ def editarmotorista(motorista_id):
         return r
     return render_template("editarmotorista.html", motorista_id=motorista_id)
 
+
 @app.get("/abastecimento")
 def abastecimento():
     r = proteger_pagina()
     if r:
         return r
     return render_template("abastecimento.html")
+
+
 @app.get("/editarveiculo/<int:veiculo_id>")
 def editarveiculo(veiculo_id):
     r = proteger_pagina()
@@ -283,6 +498,15 @@ def editarposto(posto_id: int):
     return render_template("editarposto.html", posto_id=posto_id)
 
 
+# ✅✅✅ CORREÇÃO DO ERRO: endpoint "termos" EXISTE AGORA
+@app.get("/termos")
+def termos():
+    r = proteger_pagina()
+    if r:
+        return r
+    return render_template("termos.html")
+
+
 # =========================
 # ✅ API REGISTROS (AGORA REAL) - OPÇÃO A
 # =========================
@@ -293,7 +517,6 @@ def api_registros_get():
         return r
     # compat: retorna exatamente o histórico completo (abastec + manut)
     return api_historico()
-
 
 
 # =========================
@@ -1063,6 +1286,7 @@ def api_abastecimentos():
         if conn: conn.close()
 
 
+
 # =========================
 # ✅ API - MANUTENÇÕES
 # =========================
@@ -1457,6 +1681,7 @@ def api_manutencao_por_id(manutencao_id: int):
         if cur: cur.close()
         if conn: conn.close()
 
+
 # =========================
 # ✅ API - HISTÓRICO (ABAST + MANUT)
 # =========================
@@ -1548,6 +1773,7 @@ def api_historico():
     finally:
         if cur: cur.close()
         if conn: conn.close()
+
 from datetime import date, datetime
 
 def _month_bounds(d: date):
@@ -1909,9 +2135,14 @@ def api_dashboard():
         if cur: cur.close()
         if conn: conn.close()
 
+@app.route("/monitoramento")
+def monitoramento():
+    return render_template("monitoramento.html")
+
 if __name__ == "__main__":
     print(">>> APP.PY ATIVO:", __file__, flush=True)
     print("TEMPLATES_DIR:", TEMPLATES_DIR, flush=True)
     print("STATIC_DIR:", STATIC_DIR, flush=True)
     print(app.url_map, flush=True)
     app.run(host="127.0.0.1", port=7778, debug=True, use_reloader=False)
+    
