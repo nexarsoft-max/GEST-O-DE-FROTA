@@ -5,25 +5,494 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Registro de Abastecimento e Manutenção</title>
 
-<!-- ✅ CSS AGORA EXTERNO (por causa da separação) -->
-<link rel="stylesheet" href="{{ url_for('static', filename='css/abastecimento.css') }}">
+<style>
+:root{
+  --roxo1:#6f2cff;
+  --roxo2:#9b5cff;
+  --bg:#f3f3f6;
+  --card:#ffffff;
+  --texto:#1f1f27;
+  --muted:#6b6b75;
+  --borda:#e7e7ef;
+  --campo:#f7f7fb;
+  --sombra: 0 14px 30px rgba(0,0,0,0.07);
+  --sombra2: 0 10px 24px rgba(0,0,0,0.06);
+}
+*{ margin:0; padding:0; box-sizing:border-box; font-family:Arial, sans-serif; }
+body{ background:var(--bg); color:var(--texto); }
+.container-principal{ display:flex; height:100vh; }
 
+/* Sidebar */
+.barra-lateral {
+  width: 260px;
+  background: #ffffff;
+  padding: 20px;
+  border-right: 1px solid #e5e5ea;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+}
+
+/* Menu */
+.menu-novo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.item-menu {
+  text-decoration: none;
+  color: #222;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  background: #f4f4f8;
+  transition: all 0.2s ease;
+}
+
+.item-menu:hover {
+  background: linear-gradient(90deg, #6f2cff, #9b5cff);
+  color: white;
+  transform: translateX(4px);
+}
+
+.item-menu.ativo {
+  background: linear-gradient(90deg, #6f2cff, #9b5cff);
+  color: white;
+  font-weight: bold;
+}
+
+.item-menu.sair {
+  margin-top: 12px;
+  background: #111;
+  color: white;
+}
+
+.item-menu.sair:hover {
+  background: #000;
+}
+
+
+/* CONTEÚDO */
+.conteudo{ flex:1; padding:32px; overflow-y:auto; }
+.topo{
+  display:flex; align-items:center;
+  margin-bottom:18px;
+  background:var(--card);
+  border:1px solid var(--borda);
+  border-radius:18px;
+  padding:18px 20px;
+  box-shadow:var(--sombra2);
+}
+.topo .lado-esq{ display:flex; align-items:center; gap:14px; }
+.topo h1{ font-size:20px; }
+
+/* ABAS */
+.abas{ display:flex; gap:12px; margin:18px 0; }
+.aba{
+  padding:12px 18px;
+  border-radius:14px;
+  border:1px solid var(--borda);
+  background:var(--card);
+  cursor:pointer;
+  font-weight:600;
+  transition:all 0.25s;
+  box-shadow:0 8px 18px rgba(0,0,0,0.04);
+}
+.aba:hover{ transform:translateY(-1px); border-color:rgba(111,44,255,0.25); }
+.aba.ativa{
+  background:linear-gradient(90deg,var(--roxo1),var(--roxo2));
+  color:white;
+  box-shadow:0 12px 22px rgba(111,44,255,0.25);
+}
+
+/* CARD */
+.card{
+  background:var(--card);
+  border-radius:22px;
+  border:1px solid var(--borda);
+  padding:26px;
+  box-shadow:var(--sombra);
+  margin-bottom:22px;
+  position:relative;
+  overflow:hidden;
+}
+.card::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  height:4px;
+  background:linear-gradient(90deg,var(--roxo1),var(--roxo2));
+  opacity:0.65;
+}
+.oculto{ display:none; }
+
+/* FORM */
+.form{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:18px;
+  margin-top:6px;
+}
+.form input,
+.form select,
+.form textarea{
+  width:100%;
+  margin-top:6px;
+  padding:14px;
+  border-radius:16px;
+  border:1px solid var(--borda);
+  background:var(--campo);
+  font-size:14px;
+  transition:all 0.2s;
+}
+.form input:focus,
+.form select:focus,
+.form textarea:focus{
+  outline:none;
+  border-color:rgba(111,44,255,0.55);
+  box-shadow:0 0 0 3px rgba(111,44,255,0.14);
+  background:#fff;
+}
+.form textarea{
+  grid-column:span 3;
+  height:120px;
+  resize:none;
+}
+
+/* CHECKBOX "JÁ PAGO" */
+.check-ja-pago{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:14px;
+  border-radius:16px;
+  border:1px solid var(--borda);
+  background:var(--campo);
+  margin-top:6px;
+  font-size:14px;
+  cursor:pointer;
+  user-select:none;
+  transition:0.2s;
+}
+.check-ja-pago:hover{ border-color:rgba(111,44,255,0.25); transform:translateY(-1px); }
+.check-ja-pago input{ width:18px; height:18px; margin:0; accent-color:var(--roxo1); }
+
+/* UPLOAD */
+.upload-wrap{ grid-column:span 3; display:flex; flex-direction:column; }
+.upload-titulo{
+  font-size:14px;
+  font-weight:700;
+  color:#374151;
+  margin:6px 0 10px;
+}
+.upload-box{
+  border:2px dashed #cfcfe6;
+  border-radius:16px;
+  padding:16px;
+  text-align:center;
+  background:#faf9ff;
+  cursor:pointer;
+  transition:0.2s;
+}
+.upload-box:hover{
+  border-color:rgba(111,44,255,0.40);
+  background:#f5f1ff;
+  transform:translateY(-1px);
+}
+.upload-box input{ display:none; }
+.upload-box span{ font-size:14px; color:#6b7280; }
+.upload-box img{
+  max-width:100%;
+  margin-top:12px;
+  border-radius:10px;
+  display:none;
+}
+
+/* BOTÕES */
+.acoes{ display:flex; justify-content:flex-end; gap:12px; margin-top:22px; }
+.btn{
+  padding:12px 18px;
+  border-radius:14px;
+  border:none;
+  cursor:pointer;
+  font-weight:700;
+  transition:all 0.25s;
+}
+.btn.cancelar{ background:#ececf2; color:#2a2a35; }
+.btn.cancelar:hover{ background:#dcdbea; transform:translateY(-1px); }
+.btn.roxo{
+  background:linear-gradient(90deg,var(--roxo1),var(--roxo2));
+  color:white;
+  box-shadow:0 12px 22px rgba(111,44,255,0.22);
+}
+.btn.roxo:hover{ opacity:0.92; transform:translateY(-1px); }
+
+/* HISTÓRICO */
+.card-interno{
+  background:var(--card);
+  border-radius:22px;
+  border:1px solid var(--borda);
+  padding:18px;
+  box-shadow:var(--sombra);
+  position:relative;
+  overflow:hidden;
+}
+.card-interno::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  height:4px;
+  background:linear-gradient(90deg,var(--roxo1),var(--roxo2));
+  opacity:0.65;
+}
+.filtros{
+  display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+  margin:6px 0 16px;
+}
+.filtros select, .filtros input[type="date"]{
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid var(--borda);
+  font-size:14px;
+  background:var(--campo);
+  cursor:pointer;
+}
+.filtros button{
+  background:linear-gradient(90deg,var(--roxo1),var(--roxo2));
+  color:white;
+  border:none;
+  border-radius:14px;
+  padding:10px 16px;
+  cursor:pointer;
+  font-weight:800;
+  transition:0.25s;
+}
+.filtros button:hover{ opacity:0.92; transform:translateY(-1px); }
+.btn-limpar{
+  background:#ececf2 !important;
+  color:#2a2a35 !important;
+}
+
+/* REGISTRO */
+.registro{
+  border:1px solid var(--borda);
+  border-radius:18px;
+  padding:16px;
+  margin-bottom:14px;
+  background:var(--campo);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.registro-grid{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  align-items:flex-start;
+}
+.registro-grid > div{ flex:1 1 180px; font-size:14px; min-width:180px; }
+.registro strong{ color:#2a2a35; }
+
+.registro input[readonly]{
+  background:transparent; border:none; padding:0; width:100%;
+}
+
+.registro .acoes-registro{
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+
+.btn-peq{
+  padding:10px 14px;
+  border-radius:12px;
+  border:none;
+  cursor:pointer;
+  font-weight:800;
+  transition:0.2s;
+}
+.btn-editar{
+  background:#e9e5ff;
+  color:#2a2a35;
+}
+.btn-editar:hover{ transform:translateY(-1px); }
+.btn-excluir{
+  background:#111;
+  color:#fff;
+}
+.btn-excluir:hover{ background:#000; transform:translateY(-1px); }
+
+.btn-salvar{
+  background:linear-gradient(90deg,var(--roxo1),var(--roxo2));
+  color:white;
+}
+.btn-salvar:hover{ opacity:0.92; transform:translateY(-1px); }
+
+.btn-cancelar-edicao{
+  background:#ececf2;
+  color:#2a2a35;
+}
+.btn-cancelar-edicao:hover{ background:#dcdbea; transform:translateY(-1px); }
+
+.comprovante-area{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.comprovante-area .titulo{
+  font-size:13px;
+  font-weight:800;
+  color:#374151;
+}
+.comprovante-img{
+  width:100%;
+  max-width:520px;
+  height:180px;
+  object-fit:cover;
+  border-radius:12px;
+  border:1px solid rgba(0,0,0,0.08);
+  background:#fff;
+  cursor:pointer;
+}
+
+/* ✅ inputs quando em edição */
+.registro input.editavel{
+  background:#fff;
+  border:1px solid rgba(111,44,255,0.25);
+  padding:8px 10px;
+  border-radius:10px;
+}
+
+/* ✅ selects quando em edição */
+.registro select.editavel{
+  width:100%;
+  margin-top:6px;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid rgba(111,44,255,0.25);
+  background:#fff;
+  font-size:14px;
+}
+
+/* ========= MODAL ========= */
+.modal-comprovante{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.65);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:22px;
+  z-index:9999;
+}
+.modal-comprovante.ativo{ display:flex; }
+
+.modal-caixa{
+  width:min(1100px, 96vw);
+  height:min(760px, 92vh);
+  background:#0b0b0f;
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,0.12);
+  overflow:hidden;
+  box-shadow:0 30px 80px rgba(0,0,0,0.45);
+  display:flex;
+  flex-direction:column;
+}
+.modal-topo{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px 14px;
+  background:rgba(255,255,255,0.06);
+  border-bottom:1px solid rgba(255,255,255,0.12);
+}
+.modal-topo .titulo{
+  color:#fff;
+  font-weight:800;
+  font-size:14px;
+  opacity:0.92;
+}
+.modal-topo .botoes{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.modal-btn{
+  border:none;
+  cursor:pointer;
+  padding:10px 12px;
+  border-radius:12px;
+  font-weight:900;
+  background:rgba(255,255,255,0.10);
+  color:#fff;
+  transition:0.2s;
+}
+.modal-btn:hover{ background:rgba(255,255,255,0.16); transform:translateY(-1px); }
+.modal-btn.fechar{ background:rgba(255,255,255,0.14); }
+
+.modal-view{
+  flex:1;
+  position:relative;
+  overflow:hidden;
+  background:#000;
+  user-select:none;
+  cursor:grab;
+}
+.modal-view.arrastando{ cursor:grabbing; }
+
+.modal-img{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%) scale(1);
+  transform-origin:center;
+  max-width:none;
+  max-height:none;
+  width:auto;
+  height:auto;
+  will-change:transform;
+}
+
+/* RESPONSIVO */
+@media (max-width: 980px){
+  .form{ grid-template-columns:repeat(2,1fr); }
+  .form textarea{ grid-column:span 2; }
+  .upload-wrap{ grid-column:span 2; }
+}
+@media (max-width: 640px){
+  .barra-lateral{ display:none; }
+  .conteudo{ padding:18px; }
+  .form{ grid-template-columns:1fr; }
+  .form textarea{ grid-column:span 1; }
+  .upload-wrap{ grid-column:span 1; }
+  .topo{ flex-direction:column; align-items:flex-start; gap:10px; }
+  .registro-grid > div{ min-width:140px; }
+  .comprovante-img{ max-width:100%; height:160px; }
+}
+</style>
 </head>
 
 <body>
 
+<!-- ✅ APENAS 1 container-principal (FLEX correto) -->
 <div class="container-principal">
 
   <aside class="barra-lateral">
-    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo">
-    
+    <h2 class="titulo-sistema">Painel</h2>
+    <p class="subtitulo">Sistema de Frota</p>
 
     <nav class="menu-novo">
       <a href="{{ url_for('dashboard') }}" class="item-menu">Executivo</a>
-      <a href="{{ url_for('geral_informacao') }}" class="item-menu">Registros</a>
+
+      <!-- ✅ AQUI ERA O ERRO -->
+      <a href="{{ url_for('geral_informacao') }}" class="item-menu ">Registros</a>
+
       <a href="{{ url_for('abastecimento') }}" class="item-menu ativo">Registrar abastecimento</a>
       <a href="{{ url_for('cadastro') }}" class="item-menu">Cadastrar</a>
-      <a href="{{ url_for('termos') }}" class="item-menu">Termos</a>
+      <a href="{{ url_for('ajuda') }}" class="item-menu">Ajuda</a>
       <a href="{{ url_for('logout') }}" class="item-menu sair">Sair</a>
     </nav>
   </aside>
@@ -148,10 +617,8 @@
   </main>
 
 </div>
-<<<<<<< HEAD
 <!-- ✅ FECHA o container-principal ANTES do modal -->
-=======
->>>>>>> d3f7ac6d2808f23817148b3bc5caa8713d277445
+
 
 <!-- ✅ MODAL -->
 <div id="modalComprovante" class="modal-comprovante" onclick="fecharModalSeFundo(event)">
@@ -171,10 +638,6 @@
   </div>
 </div>
 
-<<<<<<< HEAD
-<!-- ✅ JS EXTERNO (no final do body) -->
-<script src="{{ url_for('static', filename='js/abastecimento.js') }}"></script>
-=======
 <script>
 /* ===== ABAS ===== */
 function trocarAba(id, botao){
@@ -191,7 +654,7 @@ let veiculos = [];
 let postos = [];
 
 /* =========================================================
-   ✅ ODOMETRO: FIX DEFINITIVO (não deixar "580.00" virar "58000")
+   ✅ ODOMETRO: "0" inicial + normalização por veículo
    ========================================================= */
 const KEY_ODO_DIGITS = "odometro_digits_por_veiculo";
 
@@ -202,32 +665,7 @@ function getOdoDigitsMap(){
 function setOdoDigitsMap(map){
   localStorage.setItem(KEY_ODO_DIGITS, JSON.stringify(map));
 }
-
-/**
- * ✅ Extrai KM correto:
- * - Se vier "580.00" ou "580,00" -> "580"
- * - Se vier "12.345" (milhar) -> "12345"
- * - Se vier "000580" -> "000580"
- * - Se vier "58000" -> "58000" (não inventa, só limpa)
- */
-function apenasDigitosKm(valor){
-  const s = String(valor ?? "").trim();
-  if(!s) return "";
-
-  // decimal exatamente com 2 casas (caso típico de numeric do banco: 580.00)
-  const m = s.match(/^(\d+)[\.,](\d{2})$/);
-  if(m) return m[1];
-
-  // fallback: remove tudo que não é dígito
-  return s.replace(/[^\d]/g, "");
-}
-
-/* ✅ Sempre exibir odômetro com 6 dígitos (e corrigir caso venha "580.00") */
-function formatarOdometro6(valor){
-  const dig = apenasDigitosKm(valor);
-  if(!dig) return "";
-  return dig.padStart(6, "0");
-}
+function onlyDigits(s){ return String(s ?? "").replace(/[^\d]/g, ""); }
 
 function getDigitsForVehicle(veiculoId){
   const map = getOdoDigitsMap();
@@ -245,14 +683,13 @@ function updateDigitsForVehicle(veiculoId, digits){
 }
 
 function normalizarOdometroStr(odometroDigitado, veiculoId){
-  const dig = apenasDigitosKm(odometroDigitado);
+  const dig = onlyDigits(odometroDigitado);
   if(!dig) return "";
-  const pad = Math.max(getDigitsForVehicle(veiculoId), dig.length, 6);
+  const pad = Math.max(getDigitsForVehicle(veiculoId), dig.length);
   updateDigitsForVehicle(veiculoId, pad);
   return dig.padStart(pad, "0");
 }
 
-/* ✅ Aplica comportamento de "só dígitos" + pad no input principal */
 (function setupOdometerInput(){
   const input = document.getElementById("odometro");
   const selVeiculo = document.getElementById("selectVeiculo");
@@ -266,7 +703,7 @@ function normalizarOdometroStr(odometroDigitado, veiculoId){
   });
 
   input.addEventListener("input", () => {
-    input.value = input.value.replace(/[^\d]/g, "");
+    input.value = onlyDigits(input.value);
   });
 
   input.addEventListener("blur", () => {
@@ -276,28 +713,6 @@ function normalizarOdometroStr(odometroDigitado, veiculoId){
     input.value = norm;
   });
 })();
-
-/* ✅ Aplica o mesmo comportamento nos inputs de odômetro do HISTÓRICO (edição) */
-function aplicarMascaraOdometroEmInput(inputEl, getVeiculoIdFn){
-  if(!inputEl) return;
-
-  inputEl.addEventListener("input", () => {
-    inputEl.value = inputEl.value.replace(/[^\d]/g, "");
-  });
-
-  inputEl.addEventListener("blur", () => {
-    const veiculoId = Number(getVeiculoIdFn?.() || 0);
-    if(!veiculoId) return;
-    inputEl.value = normalizarOdometroStr(inputEl.value, veiculoId);
-  });
-
-  const veiculoId0 = Number(getVeiculoIdFn?.() || 0);
-  if(veiculoId0){
-    inputEl.value = normalizarOdometroStr(inputEl.value, veiculoId0);
-  }else{
-    inputEl.value = formatarOdometro6(inputEl.value);
-  }
-}
 
 /* ===== ORDENAR POR DATA/HORA ===== */
 function ordenarMaisRecentePrimeiro(lista){
@@ -768,9 +1183,7 @@ async function salvarEdicaoNoBanco(div, r){
     const combustivel = div.querySelector('[data-e="combustivel"]').value;
 
     const litros = parseFloat(div.querySelector('[data-e="litros"]').value);
-
-    const odoEl = div.querySelector('[data-e="odometro"]');
-    const odometroRaw = (odoEl?.value || "").trim();
+    const odometroRaw = (div.querySelector('[data-e="odometro"]').value || "").trim();
     const odometro = normalizarOdometroStr(odometroRaw, veiculo_id);
 
     const pago = div.querySelector('[data-e="pago"]').checked;
@@ -938,8 +1351,8 @@ function criarDivRegistro(r){
 
         <div>
           <strong>Odômetro:</strong>
-          <input data-view value="${formatarOdometro6(r.odometro)}" readonly>
-          <input data-edit data-e="odometro" class="editavel" value="${formatarOdometro6(r.odometro)}" style="display:none;">
+          <input data-view value="${r.odometro || ''}" readonly>
+          <input data-edit data-e="odometro" class="editavel" value="${r.odometro || ''}" style="display:none;">
         </div>
 
         <div>
@@ -971,6 +1384,7 @@ function criarDivRegistro(r){
       </div>
     `;
 
+    // montar combustível conforme o posto atual (edição)
     const selPosto = div.querySelector('[data-e="posto"]');
     const selComb = div.querySelector('[data-e="combustivel"]');
     const montar = ()=>{
@@ -978,17 +1392,6 @@ function criarDivRegistro(r){
     };
     montar();
     selPosto.addEventListener("change", montar);
-
-    const odoEdit = div.querySelector('[data-e="odometro"]');
-    const getVeiculoAtual = () => Number(div.querySelector('[data-e="veiculo"]')?.value || r.veiculoId);
-    aplicarMascaraOdometroEmInput(odoEdit, getVeiculoAtual);
-
-    const selVeicEdit = div.querySelector('[data-e="veiculo"]');
-    if(selVeicEdit){
-      selVeicEdit.addEventListener("change", ()=>{
-        aplicarMascaraOdometroEmInput(odoEdit, getVeiculoAtual);
-      });
-    }
 
   } else {
     const motoristaNome = (motoristas.find(m=>m.id===r.motoristaId)?.nome) || "-";
@@ -1070,6 +1473,7 @@ function criarDivRegistro(r){
     `;
   }
 
+  // binds botões
   const btnEditar = div.querySelector(".btn-editar");
   const btnExcluir = div.querySelector(".btn-excluir");
   const btnSalvar = div.querySelector(".btn-salvar");
@@ -1203,7 +1607,6 @@ async function init(){
 
 init();
 </script>
->>>>>>> d3f7ac6d2808f23817148b3bc5caa8713d277445
 
 </body>
 </html>

@@ -1,0 +1,193 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+  min-height: 100vh;
+  background: radial-gradient(circle at left, #0f172a, #020617);
+  display: flex;
+  justify-content: flex-end; 
+  align-items: center;
+  padding-right: 80px;
+  color: white;
+}
+
+
+main {
+  width: 380px;
+  background: linear-gradient(180deg, #0b1220, #020617);
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow: 0 0 40px rgba(146, 63, 255, 0.15);
+}
+
+
+.titulocadastro h1 {
+  text-align: center;
+  font-size: 26px;
+}
+
+.subtitulo1 {
+  text-align: center;
+  font-size: 14px;
+  color: #9ca3af;
+  margin-top: 6px;
+}
+
+
+.inputs {
+
+    margin-top: 30px; 
+
+}
+
+.campo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.campo input {
+  width: 100%;
+  padding: 14px 12px;
+  background: transparent;
+  border: 1.5px solid #1f2933;
+  color: white;
+  outline: none;
+
+}
+
+.campo input:focus {
+  border-color:  #8f5ac2;
+}
+
+
+.campo label {
+  position: absolute;
+  left: 12px;
+  background: #0b1220;
+  padding: 0 6px;
+  font-size: 12px;
+  color:  #8f5ac2;
+}
+
+.campo label:nth-child(1) {
+  top: -8px;
+}
+
+.campo label:nth-child(3) {
+  top: 70px;
+}
+
+
+.check {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-top: 15px;
+  color: #9ca3af;
+  margin-left: 10px;
+}
+
+
+.botão {
+  margin-top: 25px;
+}
+
+.Entrar-btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-weight: bold;
+  color: rgb(255, 255, 255);
+  cursor: pointer;
+  background: linear-gradient(90deg,  #8f5ac2,  #7b27c9);
+  transition: 0.3s;
+}
+
+.Entrar-btn:hover {
+  opacity: 0.9;
+}
+
+
+.ou {
+  text-align: center;
+  margin: 25px 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+
+.googlesocial,
+.applesocial {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  background: #333333;
+ color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.googlesocial img,
+.applesocial img {
+  width: 18px;
+}
+
+
+.criar {
+  text-align: center;
+  margin-top: 15px;
+  font-size: 12px;
+}
+
+.criar a {
+  color: #8f5ac2;
+  text-decoration: none;
+}
+
+.check a{
+ color: #8f5ac2;
+  text-decoration: none;
+
+}
+
+.mod {
+
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+
+}
+
+.logo img {
+
+margin-right: 400px;
+width: 900px;
+
+
+}
+
+.check label {
+
+margin-right: 120px;
+color: white;
+
+
+}
+
+.mod ::placeholder{
+
+color: white;
+
+}

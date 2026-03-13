@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestão de Frota - Cadastro</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadastro.css') }}">
+</head>
+
+<body>
+
+<div class="container-principal">
+
+  <aside class="barra-lateral">
+    <h2 class="titulo-sistema">Nexar</h2>
+    <p class="subtitulo">Sistema de Frota</p>
+
+    <nav class="menu-novo">
+      <a href="{{ url_for('dashboard') }}" class="item-menu">Executivo</a>
+
+      <!-- ✅ AQUI ERA O ERRO -->
+      <a href="{{ url_for('geral_informacao') }}" class="item-menu ">Registros</a>
+
+      <a href="{{ url_for('abastecimento') }}" class="item-menu">Registrar abastecimento</a>
+      <a href="{{ url_for('cadastro') }}" class="item-menu ativo">Cadastrar</a>
+      <a href="{{ url_for('ajuda') }}" class="item-menu">Ajuda</a>
+      <a href="{{ url_for('logout') }}" class="item-menu sair">Sair</a>
+    </nav>
+  </aside>
+
+  <main class="conteudo">
+
+    <header class="topo-direita">
+      <div class="topo-textos">
+        <h1>Cadastro</h1>
+        <p>Cadastre as principais informações do sistema</p>
+      </div>
+    </header>
+
+    <section class="grid-cadastros">
+
+      <div class="caixa-cadastro">
+        <div class="texto-cadastro">
+          <h2>Motoristas</h2>
+          <p>Cadastrar e gerenciar motoristas do sistema.</p>
+        </div>
+
+        <a class="botao-cadastrar"
+           href="{{ url_for('cadastrarmotorista') }}"
+           data-destino="{{ url_for('cadastrarmotorista') }}">Cadastrar</a>
+      </div>
+
+      <div class="caixa-cadastro">
+        <div class="texto-cadastro">
+          <h2>Veículos</h2>
+          <p>Cadastrar e gerenciar veículos da frota.</p>
+        </div>
+
+        <a class="botao-cadastrar"
+           href="{{ url_for('cadastrarveiculo') }}"
+           data-destino="{{ url_for('cadastrarveiculo') }}">Cadastrar</a>
+      </div>
+
+      <div class="caixa-cadastro">
+        <div class="texto-cadastro">
+          <h2>Postos</h2>
+          <p>Cadastrar e gerenciar postos parceiros.</p>
+        </div>
+
+        <a class="botao-cadastrar"
+           href="{{ url_for('cadastrarposto') }}"
+           data-destino="{{ url_for('cadastrarposto') }}">Cadastrar</a>
+      </div>
+
+    </section>
+
+  </main>
+
+</div>
+
+<script>
+  // Anti-conflito: captura o clique e força o destino certo,
+  // impedindo qualquer JS externo de redirecionar para outra rota.
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest("a.botao-cadastrar");
+    if (!a) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const destino = a.getAttribute("data-destino") || a.getAttribute("href");
+    document.body.classList.add("page-exit");
+
+    setTimeout(() => window.location.assign(destino), 150);
+  }, true);
+</script>
+
+</body>
+</html>

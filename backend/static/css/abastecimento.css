@@ -1,0 +1,245 @@
+:root{
+  --roxo1:#6f2cff;
+  --roxo2:#9b5cff;
+  --bg:#f3f3f6;
+  --card:#ffffff;
+  --texto:#1f1f27;
+  --muted:#6b6b75;
+  --borda:#e7e7ef;
+  --campo:#f7f7fb;
+  --sombra: 0 14px 30px rgba(0,0,0,0.07);
+  --sombra2: 0 10px 24px rgba(17, 17, 26, 0.08);
+}
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family: Arial, sans-serif;
+}
+
+body{
+  background: var(--bg);
+  color: var(--texto);
+}
+
+/* ============================= */
+/* CONTAINER PRINCIPAL */
+/* ============================= */
+
+.container-principal{
+  display:flex;
+  min-height:100vh;
+}
+
+/* ============================= */
+/* SIDEBAR */
+/* ============================= */
+
+.barra-lateral{
+  width:260px;
+  background:var(--card);
+  padding:20px;
+  border-right:1px solid var(--borda);
+  height:100vh;
+  position:sticky;
+  top:0;
+}
+
+.titulo-sistema{
+  font-size:22px;
+  letter-spacing:0.3px;
+}
+
+.subtitulo{
+  color:var(--muted);
+  font-size:13px;
+  margin-top:6px;
+}
+
+/* MENU */
+
+.menu-novo{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin-top:20px;
+}
+
+.item-menu{
+  text-decoration:none;
+  color:#222;
+  padding:12px 14px;
+  border-radius:12px;
+  font-size:14px;
+  background:#f4f4f8;
+  transition:all .2s ease;
+}
+
+.item-menu:hover{
+  background:linear-gradient(90deg,var(--roxo1),var(--roxo2));
+  color:white;
+  transform:translateX(4px);
+}
+
+.item-menu.ativo{
+  background:linear-gradient(90deg,var(--roxo1),var(--roxo2));
+  color:white;
+  font-weight:bold;
+}
+
+.item-menu.sair{
+  margin-top:12px;
+  background:#111;
+  color:white;
+}
+
+.item-menu.sair:hover{
+  background:#000;
+}
+
+/* ============================= */
+/* CONTEÚDO DIREITA */
+/* ============================= */
+
+.conteudo{
+  flex:1;
+  padding:28px;
+}
+
+/* TOPO */
+
+.topo-direita{
+  background:var(--card);
+  border:1px solid var(--borda);
+  border-radius:16px;
+  padding:18px 20px;
+  box-shadow:var(--sombra2);
+  margin-bottom:20px;
+}
+
+.topo-direita h1{
+  font-size:22px;
+  margin-bottom:4px;
+}
+
+.topo-direita p{
+  font-size:13px;
+  color:var(--muted);
+}
+
+/* ============================= */
+/* GRID CADASTROS */
+/* ============================= */
+
+.grid-cadastros{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(260px, 1fr));
+  gap:20px;
+}
+
+/* ============================= */
+/* CAIXAS */
+/* ============================= */
+
+.caixa-cadastro{
+  background:var(--card);
+  border:1px solid var(--borda);
+  border-radius:18px;
+  padding:30px;
+  box-shadow:var(--sombra2);
+  min-height:200px;
+
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+
+  transition:transform .18s ease,
+             border-color .18s ease,
+             box-shadow .18s ease;
+}
+
+.caixa-cadastro:hover{
+  transform:translateY(-3px);
+  border-color:rgba(111,44,255,0.25);
+  box-shadow:0 18px 36px rgba(17,17,26,0.10);
+}
+
+.texto-cadastro h2{
+  font-size:18px;
+  margin-bottom:8px;
+}
+
+.texto-cadastro p{
+  font-size:13px;
+  color:var(--muted);
+  line-height:1.4;
+  max-width:360px;
+}
+
+/* ============================= */
+/* BOTÃO CADASTRAR */
+/* ============================= */
+
+.botao-cadastrar{
+  margin-top:18px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+
+  height:46px;
+  padding:0 22px;
+  border-radius:12px;
+  text-decoration:none;
+  font-weight:700;
+  font-size:14px;
+
+  background:linear-gradient(90deg,var(--roxo1),var(--roxo2));
+  color:#fff;
+
+  transition:transform .15s ease,
+             filter .15s ease;
+  width:fit-content;
+}
+
+.botao-cadastrar:hover{
+  transform:translateY(-1px);
+  filter:brightness(1.05);
+}
+
+/* ============================= */
+/* RESPONSIVO */
+/* ============================= */
+
+@media (max-width:1050px){
+  .grid-cadastros{
+    grid-template-columns:repeat(2, minmax(260px, 1fr));
+  }
+}
+
+@media (max-width:720px){
+
+  .container-principal{
+    flex-direction:column;
+  }
+
+  .barra-lateral{
+    width:100%;
+    height:auto;
+    position:relative;
+    border-right:0;
+    border-bottom:1px solid var(--borda);
+  }
+
+  .conteudo{
+    padding:18px;
+  }
+
+  .grid-cadastros{
+    grid-template-columns:1fr;
+  }
+
+  .caixa-cadastro{
+    min-height:170px;
+  }
+}

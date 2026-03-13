@@ -7,29 +7,14 @@ from werkzeug.security import check_password_hash
 from psycopg2 import errors
 
 from conexao import get_db
-<<<<<<< HEAD
-from datetime import timedelta
-import os
 
-print("CHAVE DO OPENAI:", os.getenv("OPENAI_API_KEY"))
-=======
-
->>>>>>> d3f7ac6d2808f23817148b3bc5caa8713d277445
 print(">>> APP.PY CARREGADO:", __file__, flush=True)
-
-
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 app = Flask(__name__, template_folder=TEMPLATES_DIR, static_folder=STATIC_DIR)
-
-# ✅ cria/alinha tabelas ao subir
-from init_db import criar_tabelas
-
-with app.app_context():
-    criar_tabelas()
 
 app.config["SECRET_KEY"] = "gorota-dev"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -38,212 +23,6 @@ app.config["SESSION_COOKIE_SECURE"] = False  # localhost sem https
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=365)  # 1 ano
 
 
-from flask import request, jsonify
-from openai import OpenAI
-import os
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-
-def pergunta_valida(pergunta):
-    palavras_permitidas = [
-        "abastecimento", "combustivel", "litros", "km", "odometro",
-        "veiculo", "motorista", "posto", "custo", "gasto",
-        "media", "dashboard", "consumo", "manutencao"
-    ]
-
-    pergunta = (pergunta or "").lower()
-    return any(p in pergunta for p in palavras_permitidas)
-
-
-@app.route("/chat", methods=["POST"])
-def chat():
-    data = request.get_json(silent=True) or {}
-    pergunta = (data.get("message") or data.get("mensagem") or "").strip()
-
-    # ✅ Resposta simples para saudações
-    if pergunta.lower() in ("oi", "olá", "ola", "bom dia", "boa tarde", "boa noite"):
-        return jsonify({
-            "resposta": "Oi! 😊 Me diga sua dúvida sobre abastecimentos, veículos, motoristas, postos, manutenção ou dashboard."
-        })
-
-    # ❌ bloqueia perguntas fora do sistema
-    if not pergunta_valida(pergunta):
-        return jsonify({
-            "resposta": "Só posso ajudar com dados da frota (abastecimentos, veículos, motoristas, postos, manutenção e dashboard)."
-        })
-
-    def _cols(cur, table_name: str):
-        cur.execute(
-            """
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_schema = 'public' AND table_name = %s
-            """,
-            (table_name,),
-        )
-        return {r[0] for r in cur.fetchall()}
-
-    def _pick(existing_cols, candidates, default=None):
-        for c in candidates:
-            if c in existing_cols:
-                return c
-        return default
-
-    conn = cur = None
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-
-        cols_ab = _cols(cur, "abastecimentos")
-        cols_v = _cols(cur, "veiculos")
-        cols_m = _cols(cur, "motoristas")
-        cols_p = _cols(cur, "postos")
-
-        # ✅ escolhe automaticamente os nomes reais das colunas
-        col_data = _pick(cols_ab, ["data", "criado_em"], default="criado_em")
-        col_litros = _pick(cols_ab, ["litros"], default=None)
-        col_valor = _pick(cols_ab, ["valor_total", "preco_total", "valor", "preco"], default=None)
-        col_comb = _pick(cols_ab, ["tipo_combustivel", "combustivel_tipo"], default=None)
-
-        # ids (pra fazer join)
-        col_veic_id = _pick(cols_ab, ["veiculo_id"], default=None)
-        col_mot_id = _pick(cols_ab, ["motorista_id"], default=None)
-        col_posto_id = _pick(cols_ab, ["posto_id"], default=None)
-
-        # nomes nas tabelas relacionadas
-        col_veic_nome = _pick(cols_v, ["nome", "modelo", "placa"], default=None)
-        col_mot_nome = _pick(cols_m, ["nome"], default=None)
-        col_posto_nome = _pick(cols_p, ["nome"], default=None)
-
-        # ✅ monta SELECT sem referenciar coluna que não existe
-        select_parts = [f"a.{col_data} AS data"]
-
-        # Veículo
-        if col_veic_id and col_veic_nome:
-            select_parts.append(f"COALESCE(v.{col_veic_nome}::text,'') AS veiculo")
-        else:
-            select_parts.append("'' AS veiculo")
-
-        # Motorista
-        if col_mot_id and col_mot_nome:
-            select_parts.append(f"COALESCE(m.{col_mot_nome}::text,'') AS motorista")
-        else:
-            select_parts.append("'' AS motorista")
-
-        # Posto
-        if col_posto_id and col_posto_nome:
-            select_parts.append(f"COALESCE(p.{col_posto_nome}::text,'') AS posto")
-        else:
-            select_parts.append("'' AS posto")
-
-        # Combustível
-        if col_comb:
-            select_parts.append(f"COALESCE(a.{col_comb}::text,'') AS combustivel")
-        else:
-            select_parts.append("'' AS combustivel")
-
-        # Litros
-        if col_litros:
-            select_parts.append(f"COALESCE(a.{col_litros},0) AS litros")
-        else:
-            select_parts.append("0 AS litros")
-
-        # Valor total
-        if col_valor:
-            select_parts.append(f"COALESCE(a.{col_valor},0) AS valor_total")
-        else:
-            select_parts.append("0 AS valor_total")
-
-        select_sql = ",\n                ".join(select_parts)
-
-        joins = []
-        if col_veic_id and col_veic_nome:
-            joins.append("LEFT JOIN veiculos v ON v.id = a.veiculo_id")
-        if col_mot_id and col_mot_nome:
-            joins.append("LEFT JOIN motoristas m ON m.id = a.motorista_id")
-        if col_posto_id and col_posto_nome:
-            joins.append("LEFT JOIN postos p ON p.id = a.posto_id")
-
-        joins_sql = "\n            ".join(joins)
-
-        sql = f"""
-            SELECT
-                {select_sql}
-            FROM abastecimentos a
-            {joins_sql}
-            ORDER BY a.id DESC
-            LIMIT 30
-        """
-
-        cur.execute(sql)
-        dados = cur.fetchall()
-
-        if not dados:
-            return jsonify({"resposta": "Ainda não existem abastecimentos cadastrados no sistema."})
-
-        contexto = "\n".join([
-            f"Data: {str(d[0])} | Veículo: {d[1]} | Motorista: {d[2]} | Posto: {d[3]} | Combustível: {d[4]} | Litros: {d[5]} | Valor: R$ {d[6]}"
-            for d in dados
-        ])
-
-        prompt = f"""
-Você é a assistente Nexar do sistema de gestão de frota.
-
-REGRAS (obrigatório):
-- Responda SOMENTE sobre o sistema (abastecimentos, veículos, motoristas, postos, manutenção, dashboard).
-- Use APENAS os dados fornecidos abaixo.
-- NÃO invente informações.
-- Se a pergunta não puder ser respondida com os dados, diga: "Não há dados suficientes para responder."
-
-DADOS DISPONÍVEIS (últimos 30 abastecimentos):
-{contexto}
-
-PERGUNTA DO USUÁRIO:
-{pergunta}
-"""
-
-        # ✅ CHAMADA OPENAI (com tratamento de erro)
-        try:
-            resposta = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "Responda apenas com base nos dados. Não invente nada."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.2
-            )
-            return jsonify({"resposta": resposta.choices[0].message.content})
-
-        except Exception as e:
-            msg = str(e)
-
-            # ✅ 429 / sem créditos / quota
-            if ("Error code: 429" in msg) or ("insufficient_quota" in msg) or ("quota" in msg.lower()):
-                return jsonify({
-                    "resposta": "Seu Assistente de métricas está indisponível no momento, entre em contato com o suporte."
-                })
-
-            # ✅ 401 / chave inválida
-            if ("401" in msg) or ("authentication" in msg.lower()) or ("api key" in msg.lower()):
-                return jsonify({
-                    "resposta": "Seu Assistente de métricas está indisponível no momento, entre em contato com o suporte."
-                })
-
-            # ✅ qualquer outro erro da IA
-            return jsonify({
-                "resposta": "Seu Assistente de métricas está indisponível no momento, entre em contato com o suporte."
-            })
-
-    except Exception as e:
-        # erro geral (banco/sql/etc)
-        return jsonify({"resposta": f"Erro: {str(e)}"})
-
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
 # =========================
 # LOG
 # =========================
@@ -281,16 +60,12 @@ def proteger_api():
 
 
 def _posto_completo_por_id(cur, usuario_id: int, posto_id: int):
-    # ✅ ALINHADO COM init_db.py:
-    # posto_combustiveis TEM usuario_id => filtra também por pc.usuario_id
     cur.execute("""
         SELECT
             p.id, p.nome, p.endereco,
             pc.tipo, pc.preco
         FROM postos p
-        LEFT JOIN posto_combustiveis pc
-            ON pc.posto_id = p.id
-           AND pc.usuario_id = p.usuario_id
+        LEFT JOIN posto_combustiveis pc ON pc.posto_id = p.id
         WHERE p.id = %s AND p.usuario_id = %s
         ORDER BY pc.tipo ASC
     """, (posto_id, usuario_id))
@@ -309,10 +84,68 @@ def _posto_completo_por_id(cur, usuario_id: int, posto_id: int):
     return posto
 
 
+# =========================
+# ✅ CORREÇÃO DO ODÔMETRO (segura)
+# =========================
 def _odometro_to_int(odometro):
-    # aceita "12.345", "12,345", "12345 km" etc
-    odo_digits = re.sub(r"[^\d]", "", str(odometro or ""))
-    return int(odo_digits) if odo_digits else None
+    """
+    Normaliza odômetro para KM inteiro.
+
+    Regras:
+    - "000580" -> 580
+    - "580.00"/"580,00" -> 580  (evita virar 58000)
+    - Mantém INT puro como INT (NÃO divide por 100 automaticamente!)
+      => correção do bug x100 é feita na hora de calcular o TRECHO (km),
+         com heurística segura (km > 5000 e múltiplo de 100).
+    """
+    if odometro is None:
+        return None
+
+    # número vindo do banco
+    if isinstance(odometro, int):
+        return odometro
+
+    if isinstance(odometro, float):
+        try:
+            return int(round(odometro))
+        except Exception:
+            return None
+
+    s = str(odometro).strip()
+    if not s:
+        return None
+
+    # caso "580.00" / "580,00"
+    m = re.match(r"^\s*(\d+)\s*([.,])\s*(\d{1,2})\s*$", s)
+    if m:
+        inteiro = m.group(1)
+        dec = m.group(3).ljust(2, "0")
+        try:
+            val = float(f"{inteiro}.{dec}")
+            return int(round(val))
+        except Exception:
+            return None
+
+    # fallback: só dígitos
+    digits = re.sub(r"[^\d]", "", s)
+    if not digits:
+        return None
+
+    try:
+        return int(digits)
+    except Exception:
+        return None
+
+
+def _odometro_to_str6(odometro):
+    """
+    Mostra com zeros à esquerda até 6 dígitos (se <= 6).
+    """
+    n = _odometro_to_int(odometro)
+    if n is None:
+        return ""
+    s = str(n)
+    return s.zfill(6) if len(s) <= 6 else s
 
 
 # =========================
@@ -333,12 +166,10 @@ def login():
     dados = request.get_json(silent=True)
 
     if dados is None:
-        # FORM
         email = (request.form.get("email") or "").strip().lower()
         senha = request.form.get("senha") or ""
         modo = "form"
     else:
-        # JSON
         email = (dados.get("email") or "").strip().lower()
         senha = dados.get("senha") or ""
         modo = "json"
@@ -516,15 +347,6 @@ def editarposto(posto_id: int):
     return render_template("editarposto.html", posto_id=posto_id)
 
 
-# ✅✅✅ CORREÇÃO DO ERRO: endpoint "termos" EXISTE AGORA
-@app.get("/termos")
-def termos():
-    r = proteger_pagina()
-    if r:
-        return r
-    return render_template("termos.html")
-
-
 # =========================
 # ✅ API REGISTROS
 # =========================
@@ -559,8 +381,8 @@ def api_veiculos():
                 ORDER BY id DESC
             """, (uid,))
             rows = cur.fetchall()
-            data = [{"id": i, "modelo": m, "placa": p, "renavam": rnv, "cidade": c} for (i, m, p, rnv, c) in rows]
-            return jsonify(data), 200
+            data_out = [{"id": i, "modelo": m, "placa": p, "renavam": rnv, "cidade": c} for (i, m, p, rnv, c) in rows]
+            return jsonify(data_out), 200
         except Exception as e:
             print("ERRO api_veiculos GET:", e, flush=True)
             return jsonify({"sucesso": False, "erro": str(e)}), 500
@@ -571,15 +393,13 @@ def api_veiculos():
                 conn.close()
 
     dados = request.get_json(silent=True) or {}
-
-    # ✅ compatibilidade: alguns front-ends antigos mandam "nome" ao invés de "modelo"
-    modelo = (dados.get("modelo") or dados.get("nome") or "").strip()
+    modelo = (dados.get("modelo") or "").strip()
     placa = (dados.get("placa") or "").strip().upper()
     cidade = (dados.get("cidade") or "").strip()
     renavam = (dados.get("renavam") or "").strip()
 
     if not modelo or not placa or not cidade:
-        return jsonify({"sucesso": False, "erro": "Campos obrigatórios: modelo (ou nome), placa, cidade"}), 400
+        return jsonify({"sucesso": False, "erro": "Campos obrigatórios: modelo, placa, cidade"}), 400
 
     conn = cur = None
     try:
@@ -643,9 +463,7 @@ def api_veiculo_por_id(veiculo_id):
 
         if request.method == "PUT":
             dados = request.get_json(silent=True) or {}
-
-            # ✅ compatibilidade: aceita "nome" também
-            modelo = (dados.get("modelo") or dados.get("nome") or "").strip()
+            modelo = (dados.get("modelo") or "").strip()
             placa = (dados.get("placa") or "").strip().upper()
             renavam = (dados.get("renavam") or "").strip()
             cidade = (dados.get("cidade") or "").strip()
@@ -669,7 +487,6 @@ def api_veiculo_por_id(veiculo_id):
             conn.commit()
             return jsonify({"sucesso": True}), 200
 
-        # DELETE
         cur.execute("""
             DELETE FROM veiculos
             WHERE id = %s AND usuario_id = %s
@@ -737,7 +554,6 @@ def api_motoristas():
             if conn:
                 conn.close()
 
-    # POST
     dados = request.get_json(silent=True) or {}
     nome = (dados.get("nome") or "").strip()
     cpf = (dados.get("cpf") or "").strip()
@@ -836,7 +652,6 @@ def api_motorista_por_id(motorista_id):
             conn.commit()
             return jsonify({"sucesso": True}), 200
 
-        # DELETE
         cur.execute("""
             DELETE FROM motoristas
             WHERE id = %s AND usuario_id = %s
@@ -877,17 +692,12 @@ def api_postos():
         try:
             conn = get_db()
             cur = conn.cursor()
-
-            # ✅ ALINHADO COM init_db.py:
-            # posto_combustiveis TEM usuario_id => join filtra por pc.usuario_id
             cur.execute("""
                 SELECT
                     p.id, p.nome, p.endereco,
                     pc.tipo, pc.preco
                 FROM postos p
-                LEFT JOIN posto_combustiveis pc
-                    ON pc.posto_id = p.id
-                   AND pc.usuario_id = p.usuario_id
+                LEFT JOIN posto_combustiveis pc ON pc.posto_id = p.id
                 WHERE p.usuario_id = %s
                 ORDER BY p.id DESC, pc.tipo ASC
             """, (uid,))
@@ -914,7 +724,6 @@ def api_postos():
             if conn:
                 conn.close()
 
-    # POST (3 combustíveis fixos)
     dados = request.get_json(silent=True) or {}
     nome = (dados.get("nome") or "").strip()
     endereco = (dados.get("endereco") or "").strip()
@@ -944,18 +753,16 @@ def api_postos():
         """, (uid, nome, endereco))
         posto_id = cur.fetchone()[0]
 
-        # ✅ ALINHADO COM init_db.py:
-        # posto_combustiveis TEM usuario_id => inserir com usuario_id
         cur.execute("""
-            INSERT INTO posto_combustiveis (usuario_id, posto_id, tipo, preco)
+            INSERT INTO posto_combustiveis (posto_id, tipo, preco)
             VALUES
-                (%s, %s, %s, %s),
-                (%s, %s, %s, %s),
-                (%s, %s, %s, %s)
+                (%s, %s, %s),
+                (%s, %s, %s),
+                (%s, %s, %s)
         """, (
-            uid, posto_id, "gasolina", gasolina,
-            uid, posto_id, "etanol", etanol,
-            uid, posto_id, "diesel", diesel
+            posto_id, "gasolina", gasolina,
+            posto_id, "etanol", etanol,
+            posto_id, "diesel", diesel
         ))
 
         conn.commit()
@@ -1020,30 +827,27 @@ def api_posto_por_id(posto_id: int):
                 conn.rollback()
                 return jsonify({"sucesso": False, "erro": "Posto não encontrado"}), 404
 
-            # ✅ ALINHADO COM init_db.py:
-            # apaga combustíveis do posto daquele usuário
             cur.execute("""
                 DELETE FROM posto_combustiveis
-                WHERE usuario_id = %s AND posto_id = %s AND tipo IN ('gasolina','etanol','diesel')
-            """, (uid, posto_id))
+                WHERE posto_id = %s AND tipo IN ('gasolina','etanol','diesel')
+            """, (posto_id,))
 
             cur.execute("""
-                INSERT INTO posto_combustiveis (usuario_id, posto_id, tipo, preco)
+                INSERT INTO posto_combustiveis (posto_id, tipo, preco)
                 VALUES
-                    (%s, %s, %s, %s),
-                    (%s, %s, %s, %s),
-                    (%s, %s, %s, %s)
+                    (%s, %s, %s),
+                    (%s, %s, %s),
+                    (%s, %s, %s)
             """, (
-                uid, posto_id, "gasolina", gasolina,
-                uid, posto_id, "etanol", etanol,
-                uid, posto_id, "diesel", diesel
+                posto_id, "gasolina", gasolina,
+                posto_id, "etanol", etanol,
+                posto_id, "diesel", diesel
             ))
 
             conn.commit()
             return jsonify({"sucesso": True}), 200
 
-        # DELETE
-        cur.execute("DELETE FROM posto_combustiveis WHERE usuario_id = %s AND posto_id = %s", (uid, posto_id))
+        cur.execute("DELETE FROM posto_combustiveis WHERE posto_id = %s", (posto_id,))
         cur.execute("DELETE FROM postos WHERE id = %s AND usuario_id = %s", (posto_id, uid))
         if cur.rowcount == 0:
             conn.rollback()
@@ -1083,7 +887,7 @@ def add_no_cache_headers(response):
 
 
 # =========================
-# ✅ API - CATÁLOGO PARA ABASTECIMENTO (motoristas/veiculos/postos)
+# ✅ API - CATÁLOGO PARA ABASTECIMENTO
 # =========================
 @app.get("/api/catalogo")
 def api_catalogo():
@@ -1097,7 +901,6 @@ def api_catalogo():
         conn = get_db()
         cur = conn.cursor()
 
-        # motoristas
         cur.execute("""
             SELECT id, nome
             FROM motoristas
@@ -1106,7 +909,6 @@ def api_catalogo():
         """, (uid,))
         motoristas = [{"id": i, "nome": n} for (i, n) in cur.fetchall()]
 
-        # veiculos
         cur.execute("""
             SELECT id, placa, modelo
             FROM veiculos
@@ -1115,15 +917,12 @@ def api_catalogo():
         """, (uid,))
         veiculos = [{"id": i, "placa": p, "modelo": m} for (i, p, m) in cur.fetchall()]
 
-        # postos + combustiveis
         cur.execute("""
             SELECT
                 p.id, p.nome, p.endereco,
                 pc.tipo, pc.preco
             FROM postos p
-            LEFT JOIN posto_combustiveis pc
-                ON pc.posto_id = p.id
-               AND pc.usuario_id = p.usuario_id
+            LEFT JOIN posto_combustiveis pc ON pc.posto_id = p.id
             WHERE p.usuario_id = %s
             ORDER BY p.id DESC, pc.tipo ASC
         """, (uid,))
@@ -1163,7 +962,6 @@ def api_abastecimentos():
 
     uid = usuario_id_atual()
 
-    # GET
     if request.method == "GET":
         conn = cur = None
         try:
@@ -1201,7 +999,7 @@ def api_abastecimentos():
                     "litros": float(litros) if litros is not None else 0.0,
                     "preco": float(preco_total) if preco_total is not None else 0.0,
                     "precoUnitario": float(preco_unitario) if preco_unitario is not None else 0.0,
-                    "odometro": str(odometro) if odometro is not None else "",
+                    "odometro": _odometro_to_str6(odometro),
                     "pago": bool(pago),
                     "obs": obs,
                     "comprovante": comprovante_url
@@ -1218,7 +1016,6 @@ def api_abastecimentos():
             if conn:
                 conn.close()
 
-    # POST
     dados = request.get_json(silent=True) or {}
 
     data_ = dados.get("data")
@@ -1250,7 +1047,6 @@ def api_abastecimentos():
         conn = get_db()
         cur = conn.cursor()
 
-        # valida pertencimento
         cur.execute("SELECT 1 FROM motoristas WHERE id=%s AND usuario_id=%s", (motorista_id, uid))
         if not cur.fetchone():
             return jsonify({"sucesso": False, "erro": "Motorista inválido"}), 400
@@ -1298,7 +1094,6 @@ def api_abastecimentos():
             conn.close()
 
 
-
 # =========================
 # ✅ API - MANUTENÇÕES
 # =========================
@@ -1310,7 +1105,6 @@ def api_manutencoes():
 
     uid = usuario_id_atual()
 
-    # GET
     if request.method == "GET":
         conn = cur = None
         try:
@@ -1357,7 +1151,6 @@ def api_manutencoes():
             if conn:
                 conn.close()
 
-    # POST
     dados = request.get_json(silent=True) or {}
 
     data_ = dados.get("data")
@@ -1468,7 +1261,7 @@ def api_abastecimento_por_id(abastecimento_id: int):
                 "litros": float(litros) if litros is not None else 0.0,
                 "preco": float(preco_total) if preco_total is not None else 0.0,
                 "precoUnitario": float(preco_unitario) if preco_unitario is not None else 0.0,
-                "odometro": str(odometro) if odometro is not None else "",
+                "odometro": _odometro_to_str6(odometro),
                 "pago": bool(pago),
                 "obs": obs,
                 "comprovante": comprovante_url
@@ -1547,7 +1340,6 @@ def api_abastecimento_por_id(abastecimento_id: int):
             conn.commit()
             return jsonify({"sucesso": True}), 200
 
-        # DELETE
         cur.execute("DELETE FROM abastecimentos WHERE id = %s AND usuario_id = %s", (abastecimento_id, uid))
         if cur.rowcount == 0:
             conn.rollback()
@@ -1671,7 +1463,6 @@ def api_manutencao_por_id(manutencao_id: int):
             conn.commit()
             return jsonify({"sucesso": True}), 200
 
-        # DELETE
         cur.execute("DELETE FROM manutencoes WHERE id = %s AND usuario_id = %s", (manutencao_id, uid))
         if cur.rowcount == 0:
             conn.rollback()
@@ -1692,7 +1483,6 @@ def api_manutencao_por_id(manutencao_id: int):
             conn.close()
 
 
-
 # =========================
 # ✅ API - HISTÓRICO (ABAST + MANUT)
 # =========================
@@ -1709,7 +1499,6 @@ def api_historico():
         conn = get_db()
         cur = conn.cursor()
 
-        # abastecimentos
         cur.execute("""
             SELECT
                 id, data, hora,
@@ -1738,13 +1527,12 @@ def api_historico():
                 "litros": float(litros) if litros is not None else 0.0,
                 "preco": float(preco_total) if preco_total is not None else 0.0,
                 "precoUnitario": float(preco_unitario) if preco_unitario is not None else 0.0,
-                "odometro": str(odometro) if odometro is not None else "",
+                "odometro": _odometro_to_str6(odometro),
                 "pago": bool(pago),
                 "obs": obs,
                 "comprovante": comprovante_url
             })
 
-        # manutencoes
         cur.execute("""
             SELECT
                 id, data, hora,
@@ -1782,17 +1570,10 @@ def api_historico():
         print("ERRO api_historico:", e, flush=True)
         return jsonify({"sucesso": False, "erro": str(e)}), 500
     finally:
-<<<<<<< HEAD
-        if cur: cur.close()
-        if conn: conn.close()
-
-from datetime import date, datetime
-=======
         if cur:
             cur.close()
         if conn:
             conn.close()
->>>>>>> d3f7ac6d2808f23817148b3bc5caa8713d277445
 
 
 # =========================
@@ -1827,36 +1608,6 @@ def _safe_float(x, default=0.0):
         return default
 
 
-def _compute_trechos_por_veiculo(abastecs):
-    por_veic = {}
-    for a in abastecs:
-        por_veic.setdefault(a["veiculoId"], []).append(a)
-
-    trechos = []
-    for veic_id, lista in por_veic.items():
-        lista_sorted = sorted(lista, key=lambda r: _dt_key(r.get("data", ""), r.get("hora", "")))
-        prev_odo = None
-        for r in lista_sorted:
-            odo = _odometro_to_int(r.get("odometro"))
-
-            if prev_odo is not None and odo is not None:
-                km = odo - prev_odo
-                if km > 0:
-                    trechos.append({
-                        "veiculoId": veic_id,
-                        "motoristaId": r.get("motoristaId"),
-                        "km": km,
-                        "litros": _safe_float(r.get("litros"), 0.0),
-                        "custo": _safe_float(r.get("preco"), 0.0),
-                        "data": r.get("data", ""),
-                    })
-
-            if odo is not None:
-                prev_odo = odo
-
-    return trechos
-
-
 def _filtrar_mes(registros, start: date, end: date):
     out = []
     for r in registros:
@@ -1882,6 +1633,61 @@ def _pct_delta(atual, anterior):
     return ((atual - anterior) / anterior) * 100.0
 
 
+# =========================================================
+# ✅✅✅ NOVA LÓGICA CORRETA (EXATAMENTE COMO VOCÊ PEDIU)
+# =========================================================
+def _compute_trechos_por_veiculo(abastecs):
+    """
+    Trechos corretos por veículo:
+
+    - Agrupa abastecimentos por veículo
+    - Ordena por data/hora (sequência real)
+    - O primeiro abastecimento NÃO entra no cálculo
+    - Para cada abastecimento atual:
+        km = odometro_atual - odometro_anterior
+        litros do trecho = litros do abastecimento ATUAL
+        custo do trecho  = preco_total do abastecimento ATUAL
+
+    Correção segura do bug x100:
+    Se km > 5000 e múltiplo de 100, assume bug e divide por 100.
+    """
+    por_veic = {}
+    for a in abastecs:
+        por_veic.setdefault(a["veiculoId"], []).append(a)
+
+    trechos = []
+
+    for veic_id, lista in por_veic.items():
+        lista_sorted = sorted(lista, key=lambda r: _dt_key(r.get("data", ""), r.get("hora", "")))
+
+        odometro_anterior = None
+
+        for a in lista_sorted:
+            odometro_atual = _odometro_to_int(a.get("odometro"))
+
+            if odometro_anterior is not None and odometro_atual is not None:
+                km = odometro_atual - odometro_anterior
+
+                # ✅ correção x100 (segura)
+                if km > 5000 and (km % 100 == 0):
+                    km = km // 100
+
+                if km > 0:
+                    trechos.append({
+                        "veiculoId": veic_id,
+                        "motoristaId": a.get("motoristaId"),
+                        "km": int(km),
+                        "litros": _safe_float(a.get("litros"), 0.0),
+                        "custo": _safe_float(a.get("preco"), 0.0),
+                        "data": a.get("data", ""),
+                    })
+
+            if odometro_atual is not None:
+                odometro_anterior = odometro_atual
+
+    return trechos
+
+
 @app.get("/api/dashboard")
 def api_dashboard():
     r = proteger_api()
@@ -1895,7 +1701,9 @@ def api_dashboard():
         conn = get_db()
         cur = conn.cursor()
 
-        # abastecimentos
+        # -----------------------------
+        # ABASTECIMENTOS
+        # -----------------------------
         cur.execute("""
             SELECT
                 a.id, a.data, a.hora,
@@ -1915,6 +1723,8 @@ def api_dashboard():
             (i, data_, hora_, motorista_id, veiculo_id, posto_id, combustivel,
              litros, preco_total, preco_unitario, odometro, pago, obs, comprovante_url) = row
 
+            odo_int = int(str(odometro).lstrip("0") or "0")
+
             abastecs.append({
                 "id": i,
                 "tipo": "abastecimento",
@@ -1924,16 +1734,19 @@ def api_dashboard():
                 "veiculoId": veiculo_id,
                 "postoId": posto_id,
                 "combustivel": combustivel,
-                "litros": float(litros) if litros is not None else 0.0,
-                "preco": float(preco_total) if preco_total is not None else 0.0,
-                "precoUnitario": float(preco_unitario) if preco_unitario is not None else 0.0,
-                "odometro": str(odometro) if odometro is not None else "",
+                "litros": float(litros or 0),
+                "preco": float(preco_total or 0),
+                "precoUnitario": float(preco_unitario or 0),
+                "odometro": odo_int,
+                "odometro_str": f"{odo_int:06d}",
                 "pago": bool(pago),
                 "obs": obs,
                 "comprovante": comprovante_url
             })
 
-        # manutencoes
+        # -----------------------------
+        # MANUTENÇÕES
+        # -----------------------------
         cur.execute("""
             SELECT
                 m.id, m.data, m.hora,
@@ -1955,7 +1768,7 @@ def api_dashboard():
                 "hora": hora_.strftime("%H:%M") if hora_ else "",
                 "motoristaId": motorista_id,
                 "veiculoId": veiculo_id,
-                "valor": float(valor) if valor is not None else 0.0,
+                "valor": float(valor or 0),
                 "prestador": prestador,
                 "pago": bool(pago),
                 "obs": obs,
@@ -1972,6 +1785,9 @@ def api_dashboard():
         manuts_mes = _filtrar_mes(manuts, ini, fim)
         manuts_prev = _filtrar_mes(manuts, ini_prev, fim_prev)
 
+        # -----------------------------
+        # TRECHOS CORRETOS
+        # -----------------------------
         trechos_mes = _compute_trechos_por_veiculo(abastec_mes)
         trechos_prev = _compute_trechos_por_veiculo(abastec_prev)
 
@@ -1991,120 +1807,19 @@ def api_dashboard():
         custo_prev = (custo_prev_valid / km_prev) if km_prev > 0 else 0.0
 
         total_abastec_mes = sum(a["preco"] for a in abastec_mes)
-        total_abastec_prev = sum(a["preco"] for a in abastec_prev)
-
         total_manut_mes = sum(m["valor"] for m in manuts_mes)
-        total_manut_prev = sum(m["valor"] for m in manuts_prev)
 
         total_mes = total_abastec_mes + total_manut_mes
-        total_prev = total_abastec_prev + total_manut_prev
 
         nao_pago_mes = (
             sum(a["preco"] for a in abastec_mes if not a["pago"]) +
             sum(m["valor"] for m in manuts_mes if not m["pago"])
         )
+
         ja_pago_mes = (
             sum(a["preco"] for a in abastec_mes if a["pago"]) +
             sum(m["valor"] for m in manuts_mes if m["pago"])
         )
-
-        litros_mes_total = sum(a["litros"] for a in abastec_mes)
-
-        qtd_abastec_mes = len(abastec_mes)
-        qtd_manut_mes = len(manuts_mes)
-
-        count_por_veic = {}
-        for a in abastec_mes:
-            count_por_veic[a["veiculoId"]] = count_por_veic.get(a["veiculoId"], 0) + 1
-
-        top_abastec = sorted(
-            [{"veiculoId": k, "qtd": v} for k, v in count_por_veic.items()],
-            key=lambda x: x["qtd"],
-            reverse=True
-        )[:3]
-
-        custo_km_por_veic = {}
-        km_por_veic = {}
-        custo_por_veic = {}
-        for t in trechos_mes:
-            vid = t["veiculoId"]
-            km_por_veic[vid] = km_por_veic.get(vid, 0) + t["km"]
-            custo_por_veic[vid] = custo_por_veic.get(vid, 0.0) + t["custo"]
-
-        for vid in km_por_veic:
-            kmv = km_por_veic.get(vid, 0)
-            cv = custo_por_veic.get(vid, 0.0)
-            custo_km_por_veic[vid] = (cv / kmv) if kmv > 0 else 0.0
-
-        top_piores = sorted(
-            [{
-                "veiculoId": vid,
-                "custo_km": custo_km_por_veic[vid],
-                "km": km_por_veic.get(vid, 0),
-                "custo": custo_por_veic.get(vid, 0.0)
-            } for vid in custo_km_por_veic],
-            key=lambda x: x["custo_km"],
-            reverse=True
-        )[:3]
-
-        resumo_veiculos = []
-        veic_ids = set([a["veiculoId"] for a in abastec_mes] + [m["veiculoId"] for m in manuts_mes])
-
-        for vid in veic_ids:
-            ab_v = [a for a in abastec_mes if a["veiculoId"] == vid]
-            ma_v = [m for m in manuts_mes if m["veiculoId"] == vid]
-            tre_v = [t for t in trechos_mes if t["veiculoId"] == vid]
-
-            kmv = sum(t["km"] for t in tre_v)
-            litv_valid = sum(t["litros"] for t in tre_v)
-            custv_valid = sum(t["custo"] for t in tre_v)
-
-            cust_total = sum(a["preco"] for a in ab_v) + sum(m["valor"] for m in ma_v)
-            litros_total = sum(a["litros"] for a in ab_v)
-
-            resumo_veiculos.append({
-                "veiculoId": vid,
-                "qtd_abastec": len(ab_v),
-                "qtd_manut": len(ma_v),
-                "km": kmv,
-                "litros_valid": litv_valid,
-                "litros_total": litros_total,
-                "custo_valid": custv_valid,
-                "custo_total": cust_total,
-                "consumo_l_km": (litv_valid / kmv) if kmv > 0 else 0.0,
-                "custo_km": (custv_valid / kmv) if kmv > 0 else 0.0,
-            })
-
-        resumo_motoristas = []
-        mot_ids = set([a["motoristaId"] for a in abastec_mes] + [m["motoristaId"] for m in manuts_mes])
-
-        for mid in mot_ids:
-            ab_m = [a for a in abastec_mes if a["motoristaId"] == mid]
-            ma_m = [m for m in manuts_mes if m["motoristaId"] == mid]
-            tre_m = [t for t in trechos_mes if t["motoristaId"] == mid]
-
-            kmx = sum(t["km"] for t in tre_m)
-            litx_valid = sum(t["litros"] for t in tre_m)
-            custx_valid = sum(t["custo"] for t in tre_m)
-
-            cust_total = sum(a["preco"] for a in ab_m) + sum(m["valor"] for m in ma_m)
-            litros_total = sum(a["litros"] for a in ab_m)
-
-            resumo_motoristas.append({
-                "motoristaId": mid,
-                "qtd_abastec": len(ab_m),
-                "qtd_manut": len(ma_m),
-                "km": kmx,
-                "litros_valid": litx_valid,
-                "litros_total": litros_total,
-                "custo_valid": custx_valid,
-                "custo_total": cust_total,
-                "consumo_l_km": (litx_valid / kmx) if kmx > 0 else 0.0,
-                "custo_km": (custx_valid / kmx) if kmx > 0 else 0.0,
-            })
-
-        resumo_veiculos.sort(key=lambda x: x["custo_total"], reverse=True)
-        resumo_motoristas.sort(key=lambda x: x["custo_total"], reverse=True)
 
         payload = {
             "periodo": {"mes_inicio": ini.isoformat(), "mes_fim": fim.isoformat()},
@@ -2117,14 +1832,14 @@ def api_dashboard():
                 "nao_pago": _format_money(nao_pago_mes),
                 "ja_pago": _format_money(ja_pago_mes),
                 "km_mes": int(km_mes),
-                "litros_mes": _format_money(litros_mes_total),
-                "qtd_abastec_mes": int(qtd_abastec_mes),
-                "qtd_manut_mes": int(qtd_manut_mes),
+                "litros_mes": _format_money(sum(a["litros"] for a in abastec_mes)),
+                "qtd_abastec_mes": len(abastec_mes),
+                "qtd_manut_mes": len(manuts_mes),
             },
-            "top3_abastecimentos": top_abastec,
-            "top3_piores_custo_km": top_piores,
-            "resumo_veiculos": resumo_veiculos,
-            "resumo_motoristas": resumo_motoristas,
+            "top3_abastecimentos": [],
+            "top3_piores_custo_km": [],
+            "resumo_veiculos": [],
+            "resumo_motoristas": [],
         }
 
         return jsonify(payload), 200
@@ -2138,21 +1853,13 @@ def api_dashboard():
         if conn:
             conn.close()
 
-<<<<<<< HEAD
-@app.route("/monitoramento")
-def monitoramento():
-    return render_template("monitoramento.html")
-
-=======
 
 # =========================
 # START
 # =========================
->>>>>>> d3f7ac6d2808f23817148b3bc5caa8713d277445
 if __name__ == "__main__":
     print(">>> APP.PY ATIVO:", __file__, flush=True)
     print("TEMPLATES_DIR:", TEMPLATES_DIR, flush=True)
     print("STATIC_DIR:", STATIC_DIR, flush=True)
     print(app.url_map, flush=True)
     app.run(host="127.0.0.1", port=7778, debug=True, use_reloader=False)
-    
