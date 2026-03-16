@@ -1634,7 +1634,7 @@ def _pct_delta(atual, anterior):
 
 
 # =========================================================
-# ✅✅✅ NOVA LÓGICA CORRETA (EXATAMENTE COMO VOCÊ PEDIU)
+# ✅✅✅ NOVA LÓGICA CORRETA 
 # =========================================================
 def _compute_trechos_por_veiculo(abastecs):
     """
