@@ -1774,7 +1774,7 @@ def api_historico():
     except Exception as e:
         print("ERRO api_historico:", e, flush=True)
         return jsonify({"sucesso": False, "erro": str(e)}), 500
-    finally:
+             
 
 
 # =========================
