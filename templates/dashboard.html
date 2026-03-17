@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestão de Frota</title>
 
-<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<link rel="stylesheet" href="style.css">
 </head>
 
 <body>
@@ -30,14 +30,23 @@
   <!-- Conteúdo -->
   <main class="conteudo">
 
-    <header class="topo" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-      <h1>Visão Executiva</h1>
+    <header class="topo">
 
-      <!-- ✅ NOVO: botão para a página monitoramento.html -->
-      <a class="btn primary" href="{{ url_for('monitoramento') }}" style="text-decoration:none;">
-        Monitoramento →
-      </a>
-    </header>
+  <h1>Visão Executiva</h1>
+
+  <div class="topo-botoes">
+
+    <a class="item-menu ativo" href="{{ url_for('abastecimento') }}">
+      Abastecimento
+    </a>
+
+ <a class="item-menu" href="monitoramento.html">
+      Monitoramento
+    </a>
+
+  </div>
+
+</header>
 
     <!-- ========================= -->
     <!-- PAINEL ABASTECIMENTO -->
@@ -210,7 +219,7 @@
   </div>
 </div>
 
-<script src="/static/js/dashboard.js"></script>
+<script src="dashboard.js"></script>
 
 <script>
   window.addEventListener("pageshow", function (event) {

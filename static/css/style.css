@@ -78,10 +78,12 @@ body{
   color: #222;
   padding: 12px 14px;
   border-radius: 12px;
-  font-size: 14px;
+  font-size: 16px;
   background: #f4f4f8;
   transition: all 0.2s ease;
 }
+
+
 
 .item-menu:hover {
   background: linear-gradient(90deg, #6f2cff, #9b5cff);
@@ -116,13 +118,18 @@ body{
    ✅ TOPO (CORRIGIDO PARA DASHBOARD + MONITORAMENTO)
 ========================= */
 .topo{
-  display:flex;
-  align-items:center;              /* ✅ antes era flex-end */
-  justify-content:space-between;   /* ✅ antes era flex-end */
-  gap:12px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;                /* ✅ se a tela for pequena, quebra bonito */
+ display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:14px;
+  margin-bottom: 20px;
 }
+
+.topo-botoes{
+  display:flex;
+  gap:12px;
+}
+
 
 .topo h1{
   font-size: 28px;
@@ -133,7 +140,7 @@ body{
 
 /* ✅ Botões usados no topo (Monitoramento / Voltar) */
 .btn{
-  display:inline-flex;
+  display:flex;
   align-items:center;
   justify-content:center;
   gap:10px;

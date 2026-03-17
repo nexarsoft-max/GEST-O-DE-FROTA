@@ -1,3 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+
 /* =========================
    RESET + VARIÁVEIS (MAIS ROXO + RAIO MAIOR)
 ========================= */
@@ -33,12 +36,13 @@
   margin:0;
   padding:0;
   box-sizing:border-box;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Inter", sans-serif;
 }
 
 body{
   background: var(--bg);
   color: var(--texto);
+  font-family: "Inter", sans-serif;
 }
 
 /* =========================
@@ -74,10 +78,12 @@ body{
   color: #222;
   padding: 12px 14px;
   border-radius: 12px;
-  font-size: 14px;
+  font-size: 16px;
   background: #f4f4f8;
   transition: all 0.2s ease;
 }
+
+
 
 .item-menu:hover {
   background: linear-gradient(90deg, #6f2cff, #9b5cff);
@@ -108,18 +114,69 @@ body{
   overflow-y:auto;
 }
 
-/* Cabeçalho */
+/* =========================
+   ✅ TOPO (CORRIGIDO PARA DASHBOARD + MONITORAMENTO)
+========================= */
 .topo{
-  display:flex;
-  align-items:flex-end;
-  justify-content:flex-end;
-  margin-bottom: 16px;
+ display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:14px;
+  margin-bottom: 20px;
 }
+
+.topo-botoes{
+  display:flex;
+  gap:12px;
+}
+
 
 .topo h1{
   font-size: 28px;
   font-weight: 950;
   letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+
+/* ✅ Botões usados no topo (Monitoramento / Voltar) */
+.btn{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 14px;
+  font-weight: 950;
+  font-size: 14px;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: .18s ease;
+  user-select:none;
+  white-space: nowrap;
+}
+
+.btn.primary{
+  color:#fff;
+  background: linear-gradient(90deg, var(--roxo1), var(--roxo2));
+  box-shadow: 0 12px 22px rgba(111,44,255,0.22);
+  border-color: rgba(111,44,255,0.25);
+}
+
+.btn.primary:hover{
+  transform: translateY(-1px);
+  opacity: 0.95;
+}
+
+.btn.ghost{
+  color: var(--roxo1);
+  background: rgba(111,44,255,0.08);
+  border-color: rgba(111,44,255,0.22);
+}
+
+.btn.ghost:hover{
+  background: rgba(111,44,255,0.12);
+  transform: translateY(-1px);
 }
 
 /* Abas */
@@ -706,24 +763,25 @@ body{
   }
 }
 
-/* ===============================
-   CHAT IA NEXAR (FLUTUANTE)
-=================================*/
+.logo img {
+  width: 100px;
+  height: 100px;
+  display: flex;
+  justify-content: center;
+  margin-left: 56px;
+}
 
-/* Wrapper geral */
 .nexar-chat-wrapper{
   position:fixed;
   bottom:0;
   right:0;
-  z-index:999;
+  z-index:9999;
 }
 
-/* Toggle escondido */
-.nexar-chat-wrapper #nexar-chat-toggle{
+#nexar-chat-toggle{
   display:none;
 }
 
-/* Botão flutuante */
 .nexar-chat-button{
   position:fixed;
   bottom:25px;
@@ -731,7 +789,7 @@ body{
   width:64px;
   height:64px;
   border-radius:50%;
-  background:linear-gradient(135deg,var(--roxo1),var(--roxo2));
+  background:linear-gradient(135deg,#6f2cff,#9b5cff);
   display:flex;
   align-items:center;
   justify-content:center;
@@ -740,14 +798,12 @@ body{
   cursor:pointer;
   box-shadow:0 12px 30px rgba(111,44,255,0.35);
   transition:0.25s;
-  z-index:999;
 }
 
 .nexar-chat-button:hover{
   transform:scale(1.08);
 }
 
-/* Janela do chat */
 .nexar-chat-container{
   position:fixed;
   bottom:110px;
@@ -760,23 +816,21 @@ body{
   display:flex;
   flex-direction:column;
   overflow:hidden;
+
   opacity:0;
   transform:translateY(20px);
   pointer-events:none;
   transition:0.3s ease;
-  z-index:999;
 }
 
-/* Quando ativado */
-.nexar-chat-wrapper #nexar-chat-toggle:checked ~ .nexar-chat-container{
+#nexar-chat-toggle:checked ~ .nexar-chat-container{
   opacity:1;
   transform:translateY(0);
   pointer-events:auto;
 }
 
-/* Header */
 .nexar-chat-header{
-  background:linear-gradient(135deg,var(--roxo1),var(--roxo2));
+  background:linear-gradient(135deg,#6f2cff,#9b5cff);
   padding:18px;
   display:flex;
   align-items:center;
@@ -789,6 +843,19 @@ body{
   height:42px;
   border-radius:50%;
   background:#fff;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  overflow:hidden; /* 🔥 importante */
+}
+
+.nexar-avatar img{
+  width:50px;   /* 👈 diminui/aumenta aqui */
+  height:50px;
+  margin-top: 6px;
+  object-fit:contain;
 }
 
 .nexar-chat-header h3{
@@ -802,7 +869,6 @@ body{
   opacity:0.9;
 }
 
-/* Corpo */
 .nexar-chat-body{
   flex:1;
   padding:18px;
@@ -818,12 +884,12 @@ body{
   line-height:1.5;
   color:#333;
   box-shadow:0 6px 18px rgba(0,0,0,0.05);
+  max-width:85%;
 }
 
-/* Input */
 .nexar-chat-input{
   padding:14px;
-  border-top:1px solid var(--borda);
+  border-top:1px solid #e5e5ea;
   background:#fff;
 }
 
@@ -831,15 +897,108 @@ body{
   width:100%;
   padding:12px 14px;
   border-radius:14px;
-  border:1px solid var(--borda);
+  border:1px solid #e5e5ea;
   font-size:14px;
-  background:var(--campo);
+  background:#f7f7fb;
   transition:0.2s;
 }
 
 .nexar-chat-input input:focus{
   outline:none;
-  border-color:rgba(111,44,255,0.5);
+  border-color:#6f2cff;
   box-shadow:0 0 0 3px rgba(111,44,255,0.15);
   background:#fff;
+}
+
+.nexar-chat-body::-webkit-scrollbar{
+  width:6px;
+}
+
+.nexar-chat-body::-webkit-scrollbar-thumb{
+  background:#ccc;
+  border-radius:10px;
+}
+
+@media (max-width: 480px){
+  .nexar-chat-container{
+    width:92%;
+    right:4%;
+    height:500px;
+  }
+
+  .nexar-chat-button{
+    right:20px;
+    bottom:20px;
+  }
+}
+
+.nexar-chat-body{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+/* mensagem base */
+.nexar-message{
+  background:#fff;
+  padding:14px;
+  border-radius:16px;
+  font-size:14px;
+  line-height:1.5;
+  color:#333;
+  box-shadow:0 6px 18px rgba(0,0,0,0.05);
+  max-width:85%;
+  margin-bottom:4px;
+  animation:fadeIn 0.2s ease;
+}
+
+/* animação suave */
+@keyframes fadeIn{
+  from{ opacity:0; transform:translateY(5px);}
+  to{ opacity:1; transform:translateY(0);}
+}
+
+/* mensagem do usuário */
+.nexar-message.user{
+  align-self:flex-end;
+  background:linear-gradient(135deg,#6f2cff,#9b5cff);
+  color:#fff;
+  box-shadow:0 10px 25px rgba(111,44,255,0.25);
+}
+
+/* mensagem da IA */
+.nexar-message.bot{
+  align-self:flex-start;
+  background:#fff;
+}
+
+/* =========================
+   LOADING (bolinhas animadas)
+========================= */
+.nexar-typing{
+  display:flex;
+  gap:6px;
+  padding:10px 14px;
+}
+
+.nexar-typing span{
+  width:7px;
+  height:7px;
+  background:#6f2cff;
+  border-radius:50%;
+  animation:typing 1s infinite ease-in-out;
+}
+
+.nexar-typing span:nth-child(2){ animation-delay:0.2s; }
+.nexar-typing span:nth-child(3){ animation-delay:0.4s; }
+
+@keyframes typing{
+  0%,80%,100%{
+    transform:translateY(0);
+    opacity:0.4;
+  }
+  40%{
+    transform:translateY(-6px);
+    opacity:1;
+  }
 }
