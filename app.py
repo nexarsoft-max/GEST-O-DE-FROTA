@@ -396,6 +396,9 @@ def dashboard():
         return r
     return render_template("dashboard.html")
 
+@app.route("/monitoramento")
+def monitoramento():
+    return render_template("monitoramento.html")
 
 @app.get("/geralinformacao", endpoint="geral_informacao")
 def geral_informacao_page():
