@@ -29,6 +29,16 @@ body{
   height: 100vh;
 }
 
+.barra-lateral > img{
+  width: 100px;      /* ajuste aqui */
+  height: 10s0px;     /* ajuste aqui */
+  object-fit: contain;
+  display: block;
+  margin: 0 auto 8px; /* centraliza e dá espaço embaixo */
+  margin-left: 56px;
+}
+
+
 /* Sidebar */
 .barra-lateral {
   width: 260px;
