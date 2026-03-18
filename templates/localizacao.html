@@ -3,28 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Rastreamento do Veículo</title>
+  <title>Localização do Veículo</title>
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/localizacao.css') }}">
 </head>
 <body>
 
-  <!-- injeta os dados do veículo (JSON) pro JS -->
   <div id="loc-data"
        data-veiculo='{{ veiculo_json | safe }}'
        style="display:none;"></div>
 
   <div class="page">
-    <!-- Top bar -->
     <div class="topbar">
-      <!-- ✅ ALTERADO: volta para /dashboard abrindo a aba Monitoramento -->
-      <a class="back" href="{{ url_for('dashboard') }}#monitoramento">
+      <a class="back" href="{{ url_for('monitoramento') }}">
         <span class="arrow">←</span> Voltar ao Monitoramento
       </a>
 
       <div class="vehicle-title">
         <div class="veh-icon" aria-hidden="true">
-          <!-- ícone carro -->
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
             <path d="M3 13.2V18a1 1 0 0 0 1 1h1.2a1 1 0 0 0 1-1v-1h11.6v1a1 1 0 0 0 1 1H21a1 1 0 0 0 1-1v-4.8a2.2 2.2 0 0 0-1.4-2.05l-1.56-5.2A2.2 2.2 0 0 0 16.93 4H7.07a2.2 2.2 0 0 0-2.11 1.95l-1.56 5.2A2.2 2.2 0 0 0 3 13.2Z" stroke="currentColor" stroke-width="1.6"/>
             <path d="M6.5 16.5h.01M17.5 16.5h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
@@ -43,11 +39,9 @@
       </div>
     </div>
 
-    <!-- Content -->
     <div class="content">
-      <!-- Map card -->
       <section class="map-card">
-        <div class="map-area">
+        <div class="map-area" id="mapArea">
           <iframe
             id="mapFrame"
             title="Mapa"
@@ -66,12 +60,15 @@
                 <div class="coords-title">Coordenadas GPS</div>
                 <div class="coords-value" id="coordsValue">—</div>
               </div>
+
+              <div class="no-gps-text" id="semGpsTexto" style="display:none;">
+                Ainda não há posição real recebida do rastreador para este veículo.
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Side cards -->
       <aside class="side">
         <section class="card">
           <h3>Informações do Veículo</h3>
@@ -88,7 +85,10 @@
             <div class="info-icon green">➤</div>
             <div class="info-col">
               <div class="label">Velocidade Atual</div>
-              <div class="value big"><span id="velocidadeValue">—</span> <span class="unit">km/h</span></div>
+              <div class="value big">
+                <span id="velocidadeValue">—</span>
+                <span class="unit">km/h</span>
+              </div>
             </div>
           </div>
 
@@ -97,7 +97,7 @@
             <div class="info-col grow">
               <div class="line">
                 <div class="label">Nível de Combustível</div>
-                <div class="value" id="combValue">—%</div>
+                <div class="value" id="combValue">—</div>
               </div>
               <div class="progress">
                 <div class="bar" id="combBar" style="width:0%"></div>
@@ -132,8 +132,11 @@
               ☎️ Contatar Motorista
             </a>
 
-            <!-- ✅ ALTERADO -->
-            <a class="btn ghost" href="{{ url_for('dashboard') }}#monitoramento">
+            <a class="btn ghost" href="{{ url_for('mapa_geral') }}">
+              Ver mapa geral
+            </a>
+
+            <a class="btn ghost" href="{{ url_for('monitoramento') }}">
               ← Voltar
             </a>
           </div>
@@ -142,6 +145,6 @@
     </div>
   </div>
 
-  <script src="{{ url_for('static', filename='js/monitoramento_veiculo.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/localizacao.js') }}"></script>
 </body>
 </html>
