@@ -465,6 +465,106 @@ def localizacao_veiculo(veiculo_id):
         if conn:
             conn.close()
 
+@app.get("/api/monitoramento/resumo")
+def api_monitoramento_resumo():
+    r = proteger_api()
+    if r:
+        return r
+
+    uid = usuario_id_atual()
+    conn = cur = None
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        # veículos do usuário
+        cur.execute("""
+            SELECT id, modelo, placa, cidade
+            FROM veiculos
+            WHERE usuario_id = %s
+            ORDER BY id DESC
+        """, (uid,))
+        veiculos_rows = cur.fetchall()
+
+        # nomes dos motoristas
+        cur.execute("""
+            SELECT id, nome
+            FROM motoristas
+            WHERE usuario_id = %s
+        """, (uid,))
+        motoristas_rows = cur.fetchall()
+        motoristas_map = {int(i): nome for (i, nome) in motoristas_rows}
+
+        # último abastecimento de cada veículo
+        cur.execute("""
+            SELECT DISTINCT ON (a.veiculo_id)
+                a.veiculo_id,
+                a.data,
+                a.hora,
+                a.motorista_id,
+                a.litros,
+                a.preco_total,
+                a.odometro
+            FROM abastecimentos a
+            WHERE a.usuario_id = %s
+            ORDER BY a.veiculo_id, a.data DESC, a.hora DESC, a.id DESC
+        """, (uid,))
+        ultimos_rows = cur.fetchall()
+
+        ultimos_map = {}
+        for row in ultimos_rows:
+            veiculo_id, data_, hora_, motorista_id, litros, preco_total, odometro = row
+            ultimos_map[int(veiculo_id)] = {
+                "data": data_.isoformat() if data_ else "",
+                "hora": hora_.strftime("%H:%M") if hora_ else "",
+                "motorista_id": int(motorista_id) if motorista_id is not None else None,
+                "litros": float(litros or 0),
+                "preco_total": float(preco_total or 0),
+                "odometro": odometro
+            }
+
+        data_out = []
+
+        for row in veiculos_rows:
+            veiculo_id, modelo, placa, cidade = row
+            ultimo = ultimos_map.get(int(veiculo_id))
+
+            status = "offline"
+            ultima_atualizacao = "Sem atualização"
+            motorista_nome = None
+
+            if ultimo:
+                ultima_atualizacao = f'{ultimo["data"]} {ultimo["hora"]}'.strip()
+                if ultimo.get("motorista_id"):
+                    motorista_nome = motoristas_map.get(ultimo["motorista_id"])
+
+            data_out.append({
+                "id": int(veiculo_id),
+                "nome": modelo,
+                "modelo": modelo,
+                "placa": placa,
+                "cidade": cidade,
+                "status": status,
+                "motoristaNome": motorista_nome,
+                "velocidade_kmh": None,
+                "combustivel_pct": None,
+                "ultima_atualizacao": ultima_atualizacao,
+                "ultima_atualizacao_label": ultima_atualizacao
+            })
+
+        return jsonify(data_out), 200
+
+    except Exception as e:
+        print("ERRO api_monitoramento_resumo:", e, flush=True)
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+            
 @app.get("/geralinformacao", endpoint="geral_informacao")
 def geral_informacao_page():
     r = proteger_pagina()
