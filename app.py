@@ -396,12 +396,6 @@ def dashboard():
         return r
     return render_template("dashboard.html")
 
-@app.get("/monitoramento")
-def monitoramento():
-    r = proteger_pagina()
-    if r:
-        return r
-    return render_template("monitoramento.html")
 
 @app.get("/monitoramento")
 def monitoramento():
@@ -470,7 +464,7 @@ def localizacao_veiculo(veiculo_id):
             cur.close()
         if conn:
             conn.close()
-            
+
 @app.get("/geralinformacao", endpoint="geral_informacao")
 def geral_informacao_page():
     r = proteger_pagina()
