@@ -396,10 +396,81 @@ def dashboard():
         return r
     return render_template("dashboard.html")
 
-@app.route("/monitoramento")
+@app.get("/monitoramento")
 def monitoramento():
+    r = proteger_pagina()
+    if r:
+        return r
     return render_template("monitoramento.html")
 
+@app.get("/monitoramento")
+def monitoramento():
+    r = proteger_pagina()
+    if r:
+        return r
+    return render_template("monitoramento.html")
+
+
+@app.get("/mapa-geral")
+def mapa_geral():
+    r = proteger_pagina()
+    if r:
+        return r
+    return render_template("mapa_geral.html")
+
+
+@app.get("/localizacao/<int:veiculo_id>")
+def localizacao_veiculo(veiculo_id):
+    r = proteger_pagina()
+    if r:
+        return r
+
+    uid = usuario_id_atual()
+    conn = cur = None
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT id, modelo, placa, cidade
+            FROM veiculos
+            WHERE id = %s AND usuario_id = %s
+        """, (veiculo_id, uid))
+
+        row = cur.fetchone()
+        if not row:
+            return redirect(url_for("monitoramento"))
+
+        veiculo = {
+            "id": row[0],
+            "modelo": row[1],
+            "placa": row[2],
+            "cidade": row[3],
+            "status": "offline",
+            "motoristaNome": "Aguardando vínculo do app",
+            "velocidade_kmh": None,
+            "combustivel_pct": None,
+            "ultima_atualizacao": "Sem atualização",
+            "endereco": "Localização indisponível no momento",
+            "lat": None,
+            "lng": None,
+            "telefone_motorista": ""
+        }
+
+        import json
+        return render_template("localizacao.html", veiculo_json=json.dumps(veiculo))
+
+    except Exception as e:
+        print("ERRO localizacao_veiculo:", e, flush=True)
+        return redirect(url_for("monitoramento"))
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+            
 @app.get("/geralinformacao", endpoint="geral_informacao")
 def geral_informacao_page():
     r = proteger_pagina()
