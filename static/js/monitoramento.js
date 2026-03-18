@@ -19,16 +19,18 @@ function statusLabel(status) {
 
 function fuelText(v) {
   const n = Number(v.combustivel_pct);
-  return Number.isFinite(n) ? `${Math.max(0, Math.min(100, Math.round(n)))}%` : "—";
+  return Number.isFinite(n)
+    ? `${Math.max(0, Math.min(100, Math.round(n)))}%`
+    : "Aguardando app";
 }
 
 function speedText(v) {
   const n = Number(v.velocidade_kmh);
-  return Number.isFinite(n) ? `${n} km/h` : "—";
+  return Number.isFinite(n) ? `${n} km/h` : "Aguardando app";
 }
 
 function updatedText(v) {
-  return v.ultima_atualizacao_label || v.ultima_atualizacao || "Sem atualização";
+  return v.ultima_atualizacao_label || v.ultima_atualizacao || "Aguardando app";
 }
 
 function motoristaText(v) {
