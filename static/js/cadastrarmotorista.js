@@ -1,12 +1,13 @@
-
 async function cadastrarMotorista(){
   const nome = document.getElementById("nome").value.trim();
   const cpf = document.getElementById("cpf").value.trim();
+  const email = document.getElementById("email").value.trim();
+  const senha = document.getElementById("senha").value;
   const nascimento = document.getElementById("nascimento").value;
   const endereco = document.getElementById("endereco").value.trim();
 
-  if(!nome || !cpf || !endereco){
-    alert("Preencha Nome, CPF e Endereço.");
+  if(!nome || !cpf || !endereco || !email || !senha){
+    alert("Preencha todos os campos obrigatórios.");
     return;
   }
 
@@ -14,32 +15,31 @@ async function cadastrarMotorista(){
     const resp = await fetch("/api/motoristas", {
       method: "POST",
       headers: {
-        "Content-Type":"application/json",
-        "Accept":"application/json"
+        "Content-Type":"application/json"
       },
-      body: JSON.stringify({ nome, cpf, nascimento, endereco })
+      body: JSON.stringify({
+        nome,
+        cpf,
+        nascimento,
+        endereco,
+        email,
+        senha
+      })
     });
 
-    const data = await resp.json().catch(()=> ({}));
-
-    if(resp.status === 401){
-      alert("Sua sessão expirou. Faça login novamente.");
-      location.assign("/");
-      return;
-    }
+    const data = await resp.json();
 
     if(!resp.ok){
-      alert(data.erro || `Erro ao cadastrar motorista (HTTP ${resp.status})`);
+      alert(data.erro || "Erro ao cadastrar");
       return;
     }
 
-    alert("Motorista cadastrado!");
-    // vai para a listagem
-    window.location.assign("/dentromotorista");
+    alert("Motorista criado com login!");
+    location.assign("/dentromotorista");
 
-  }catch(err){
-    console.error(err);
-    alert("Erro de conexão com o servidor");
+  }catch(e){
+    alert("Erro de conexão");
   }
 }
+
 window.cadastrarMotorista = cadastrarMotorista;

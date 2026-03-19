@@ -1,9 +1,11 @@
 import os
 import re
+import hashlib
+import secrets
 from datetime import timedelta, date, datetime
 
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-from werkzeug.security import check_password_hash
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, g
+from werkzeug.security import check_password_hash, generate_password_hash
 from psycopg2 import errors
 
 from conexao import get_db
@@ -272,6 +274,107 @@ def proteger_api():
         return jsonify({"sucesso": False, "erro": "Sessão expirada. Faça login novamente."}), 401
     return None
 
+# =========================
+# MOBILE AUTH HELPERS
+# =========================
+MOBILE_SESSION_DAYS = 90
+
+def _hash_mobile_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+def _gerar_mobile_token() -> str:
+    return secrets.token_urlsafe(48)
+
+def _mobile_bearer_token():
+    auth = (request.headers.get("Authorization") or "").strip()
+    if not auth.startswith("Bearer "):
+        return None
+    token = auth[7:].strip()
+    return token or None
+
+def proteger_api_mobile():
+    token = _mobile_bearer_token()
+    if not token:
+        return jsonify({
+            "sucesso": False,
+            "erro": "Token ausente"
+        }), 401
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        token_hash = _hash_mobile_token(token)
+
+        cur.execute("""
+            SELECT
+                s.id,
+                s.motorista_id,
+                m.usuario_id,
+                m.nome,
+                COALESCE(m.email, ''),
+                s.expira_em,
+                s.revogado_em
+            FROM motorista_sessoes_mobile s
+            INNER JOIN motoristas m
+                ON m.id = s.motorista_id
+            WHERE s.token_hash = %s
+            LIMIT 1
+        """, (token_hash,))
+
+        row = cur.fetchone()
+
+        if not row:
+            return jsonify({
+                "sucesso": False,
+                "erro": "Token inválido"
+            }), 401
+
+        sessao_id, motorista_id, usuario_id, nome, email, expira_em, revogado_em = row
+
+        if revogado_em is not None:
+            return jsonify({
+                "sucesso": False,
+                "erro": "Sessão encerrada"
+            }), 401
+
+        if expira_em is None or expira_em <= datetime.utcnow():
+            return jsonify({
+                "sucesso": False,
+                "erro": "Sessão expirada"
+            }), 401
+
+        cur.execute("""
+            UPDATE motorista_sessoes_mobile
+            SET ultimo_uso_em = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (sessao_id,))
+        conn.commit()
+
+        g.mobile_auth = {
+            "sessao_id": int(sessao_id),
+            "motorista_id": int(motorista_id),
+            "usuario_id": int(usuario_id),
+            "nome": nome,
+            "email": email,
+        }
+        return None
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("ERRO proteger_api_mobile:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": "Erro interno na autenticação mobile"
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 def _posto_completo_por_id(cur, usuario_id: int, posto_id: int):
     # ✅ ALINHADO COM init_db.py:
@@ -396,12 +499,6 @@ def dashboard():
         return r
     return render_template("dashboard.html")
 
-@app.get("/monitoramento")
-def monitoramento():
-    r = proteger_pagina()
-    if r:
-        return r
-    return render_template("monitoramento.html")
 
 @app.get("/monitoramento")
 def monitoramento():
@@ -471,6 +568,64 @@ def localizacao_veiculo(veiculo_id):
         if conn:
             conn.close()
             
+@app.get("/api/monitoramento/resumo")
+def api_monitoramento_resumo():
+    r = proteger_api()
+    if r:
+        return r
+
+    uid = usuario_id_atual()
+    conn = cur = None
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT id, modelo, placa, cidade
+            FROM veiculos
+            WHERE usuario_id = %s
+            ORDER BY id DESC
+        """, (uid,))
+        veiculos_rows = cur.fetchall()
+
+        data_out = []
+
+        for row in veiculos_rows:
+            veiculo_id, modelo, placa, cidade = row
+
+            data_out.append({
+                "id": int(veiculo_id),
+                "nome": modelo,
+                "modelo": modelo,
+                "placa": placa,
+                "cidade": cidade,
+
+                # monitoramento real vai vir do app mobile / rastreador depois
+                "status": "offline",
+                "motoristaNome": None,
+                "velocidade_kmh": None,
+                "combustivel_pct": None,
+                "ultima_atualizacao": None,
+                "ultima_atualizacao_label": None,
+                "lat": None,
+                "lng": None,
+                "endereco": None,
+                "telefone_motorista": None
+            })
+
+        return jsonify(data_out), 200
+
+    except Exception as e:
+        print("ERRO api_monitoramento_resumo:", e, flush=True)
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
 @app.get("/geralinformacao", endpoint="geral_informacao")
 def geral_informacao_page():
     r = proteger_pagina()
@@ -778,7 +933,7 @@ def api_motoristas():
             conn = get_db()
             cur = conn.cursor()
             cur.execute("""
-                SELECT id, nome, cpf, nascimento, endereco
+                SELECT id, nome, cpf, nascimento, endereco, COALESCE(email, '')
                 FROM motoristas
                 WHERE usuario_id = %s
                 ORDER BY id DESC
@@ -786,15 +941,17 @@ def api_motoristas():
             rows = cur.fetchall()
 
             data_out = []
-            for (i, nome, cpf, nasc, end) in rows:
+            for (i, nome, cpf, nasc, end, email) in rows:
                 data_out.append({
                     "id": i,
                     "nome": nome,
                     "cpf": cpf,
                     "nascimento": (nasc.isoformat() if nasc else ""),
                     "endereco": end,
+                    "email": email,
                 })
             return jsonify(data_out), 200
+
         except Exception as e:
             print("ERRO api_motoristas GET:", e, flush=True)
             return jsonify({"sucesso": False, "erro": str(e)}), 500
@@ -806,26 +963,57 @@ def api_motoristas():
 
     # POST
     dados = request.get_json(silent=True) or {}
+
     nome = (dados.get("nome") or "").strip()
     cpf = (dados.get("cpf") or "").strip()
     nascimento = (dados.get("nascimento") or "").strip()
     endereco = (dados.get("endereco") or "").strip()
+    email = (dados.get("email") or "").strip().lower()
+    senha = (dados.get("senha") or "").strip()
 
-    if not nome or not cpf or not endereco:
-        return jsonify({"sucesso": False, "erro": "Campos obrigatórios: nome, cpf, endereco"}), 400
+    if not nome or not cpf or not endereco or not email or not senha:
+        return jsonify({
+            "sucesso": False,
+            "erro": "Campos obrigatórios: nome, cpf, endereco, email, senha"
+        }), 400
+
+    if not email_valido(email):
+        return jsonify({"sucesso": False, "erro": "Email inválido"}), 400
 
     conn = cur = None
     try:
         conn = get_db()
         cur = conn.cursor()
+
+        # email global único para login mobile
         cur.execute("""
-            INSERT INTO motoristas (usuario_id, nome, cpf, nascimento, endereco)
-            VALUES (%s, %s, %s, %s, %s)
+            SELECT 1
+            FROM motoristas
+            WHERE email = %s
+        """, (email,))
+        if cur.fetchone():
+            return jsonify({"sucesso": False, "erro": "Email já cadastrado para outro motorista"}), 409
+
+        senha_hash = generate_password_hash(senha)
+
+        cur.execute("""
+            INSERT INTO motoristas (usuario_id, nome, cpf, nascimento, endereco, email, senha_hash)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (uid, nome, cpf, nascimento if nascimento else None, endereco))
+        """, (
+            uid,
+            nome,
+            cpf,
+            nascimento if nascimento else None,
+            endereco,
+            email,
+            senha_hash
+        ))
+
         new_id = cur.fetchone()[0]
         conn.commit()
         return jsonify({"sucesso": True, "id": new_id}), 201
+
     except Exception as e:
         if conn:
             conn.rollback()
@@ -836,7 +1024,6 @@ def api_motoristas():
             cur.close()
         if conn:
             conn.close()
-
 
 @app.route("/api/motoristas/<int:motorista_id>", methods=["GET", "PUT", "DELETE"], strict_slashes=False)
 def api_motorista_por_id(motorista_id):
@@ -853,7 +1040,7 @@ def api_motorista_por_id(motorista_id):
 
         if request.method == "GET":
             cur.execute("""
-                SELECT id, nome, cpf, nascimento, endereco
+                SELECT id, nome, cpf, nascimento, endereco, COALESCE(email, '')
                 FROM motoristas
                 WHERE id = %s AND usuario_id = %s
             """, (motorista_id, uid))
@@ -867,36 +1054,91 @@ def api_motorista_por_id(motorista_id):
                 "nome": row[1],
                 "cpf": row[2],
                 "nascimento": row[3].isoformat() if row[3] else "",
-                "endereco": row[4]
+                "endereco": row[4],
+                "email": row[5]
             }), 200
 
         if request.method == "PUT":
             dados = request.get_json(silent=True) or {}
+
             nome = (dados.get("nome") or "").strip()
             cpf = (dados.get("cpf") or "").strip()
             nascimento = (dados.get("nascimento") or "").strip()
             endereco = (dados.get("endereco") or "").strip()
+            email = (dados.get("email") or "").strip().lower()
+            senha = (dados.get("senha") or "").strip()
 
-            if not nome or not cpf or not endereco:
-                return jsonify({"sucesso": False, "erro": "Campos obrigatórios"}), 400
+            if not nome or not cpf or not endereco or not email:
+                return jsonify({"sucesso": False, "erro": "Campos obrigatórios: nome, cpf, endereco, email"}), 400
 
+            if not email_valido(email):
+                return jsonify({"sucesso": False, "erro": "Email inválido"}), 400
+
+            # email global único para login mobile
             cur.execute("""
-                UPDATE motoristas
-                SET nome = %s,
-                    cpf = %s,
-                    nascimento = %s,
-                    endereco = %s
-                WHERE id = %s AND usuario_id = %s
-            """, (
-                nome,
-                cpf,
-                nascimento if nascimento else None,
-                endereco,
-                motorista_id,
-                uid
-            ))
+                SELECT 1
+                FROM motoristas
+                WHERE email = %s
+                  AND id <> %s
+            """, (email, motorista_id))
 
-            if cur.rowcount == 0:
+            if cur.fetchone():
+                return jsonify({"sucesso": False, "erro": "Email já cadastrado para outro motorista"}), 409
+
+            if senha:
+                senha_hash = generate_password_hash(senha)
+
+                cur.execute("""
+                    UPDATE motoristas
+                    SET nome = %s,
+                        cpf = %s,
+                        nascimento = %s,
+                        endereco = %s,
+                        email = %s,
+                        senha_hash = %s
+                    WHERE id = %s AND usuario_id = %s
+                """, (
+                    nome,
+                    cpf,
+                    nascimento if nascimento else None,
+                    endereco,
+                    email,
+                    senha_hash,
+                    motorista_id,
+                    uid
+                ))
+
+                motorista_atualizado = cur.rowcount
+
+                # derruba todas as sessões mobile ao trocar senha
+                cur.execute("""
+                    UPDATE motorista_sessoes_mobile
+                    SET revogado_em = CURRENT_TIMESTAMP
+                    WHERE motorista_id = %s
+                      AND revogado_em IS NULL
+                """, (motorista_id,))
+            else:
+                cur.execute("""
+                    UPDATE motoristas
+                    SET nome = %s,
+                        cpf = %s,
+                        nascimento = %s,
+                        endereco = %s,
+                        email = %s
+                    WHERE id = %s AND usuario_id = %s
+                """, (
+                    nome,
+                    cpf,
+                    nascimento if nascimento else None,
+                    endereco,
+                    email,
+                    motorista_id,
+                    uid
+                ))
+
+                motorista_atualizado = cur.rowcount
+
+            if motorista_atualizado == 0:
                 conn.rollback()
                 return jsonify({"sucesso": False, "erro": "Motorista não encontrado"}), 404
 
@@ -926,8 +1168,256 @@ def api_motorista_por_id(motorista_id):
             cur.close()
         if conn:
             conn.close()
+# =========================
+# API MOBILE - LOGIN
+# =========================
+@app.post("/api/mobile/login")
+def api_mobile_login():
+    dados = request.get_json(silent=True) or {}
+
+    email = (dados.get("email") or "").strip().lower()
+    senha = (dados.get("senha") or "").strip()
+    dispositivo = (dados.get("dispositivo") or "").strip()
+
+    if not email or not senha:
+        return jsonify({
+            "sucesso": False,
+            "erro": "Email e senha são obrigatórios"
+        }), 400
+
+    if not email_valido(email):
+        return jsonify({
+            "sucesso": False,
+            "erro": "Email inválido"
+        }), 400
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT id, usuario_id, nome, COALESCE(email, ''), senha_hash
+            FROM motoristas
+            WHERE email = %s
+            LIMIT 1
+        """, (email,))
+
+        row = cur.fetchone()
+
+        if not row:
+            return jsonify({
+                "sucesso": False,
+                "erro": "E-mail ou senha inválidos"
+            }), 401
+
+        motorista_id, usuario_id, nome, email_db, senha_hash = row
+
+        if not senha_hash:
+            return jsonify({
+                "sucesso": False,
+                "erro": "Este colaborador ainda não possui acesso mobile configurado"
+            }), 403
+
+        if not check_password_hash(senha_hash, senha):
+            return jsonify({
+                "sucesso": False,
+                "erro": "E-mail ou senha inválidos"
+            }), 401
+
+        cur.execute("""
+            UPDATE motorista_sessoes_mobile
+            SET revogado_em = CURRENT_TIMESTAMP
+            WHERE motorista_id = %s
+              AND revogado_em IS NULL
+              AND expira_em <= CURRENT_TIMESTAMP
+        """, (motorista_id,))
+
+        token = _gerar_mobile_token()
+        token_hash = _hash_mobile_token(token)
+
+        cur.execute("""
+            INSERT INTO motorista_sessoes_mobile (
+                motorista_id,
+                token_hash,
+                dispositivo,
+                expira_em,
+                ultimo_uso_em
+            )
+            VALUES (%s, %s, %s, CURRENT_TIMESTAMP + INTERVAL '90 days', CURRENT_TIMESTAMP)
+            RETURNING id, expira_em, criado_em
+        """, (
+            motorista_id,
+            token_hash,
+            dispositivo if dispositivo else None
+        ))
+
+        sessao_id, expira_em, criado_em = cur.fetchone()
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True,
+            "token": token,
+            "token_type": "Bearer",
+            "expira_em": expira_em.isoformat() if expira_em else None,
+            "sessao": {
+                "id": int(sessao_id),
+                "criado_em": criado_em.isoformat() if criado_em else None
+            },
+            "motorista": {
+                "id": int(motorista_id),
+                "usuario_id": int(usuario_id),
+                "nome": nome,
+                "email": email_db
+            }
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("ERRO api_mobile_login:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": "Erro interno ao autenticar no mobile"
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
+# =========================
+# API MOBILE - ME
+# =========================
+@app.get("/api/mobile/me")
+def api_mobile_me():
+    r = proteger_api_mobile()
+    if r:
+        return r
+
+    return jsonify({
+        "sucesso": True,
+        "motorista": {
+            "id": g.mobile_auth["motorista_id"],
+            "usuario_id": g.mobile_auth["usuario_id"],
+            "nome": g.mobile_auth["nome"],
+            "email": g.mobile_auth["email"]
+        }
+    }), 200
+
+
+# =========================
+# API MOBILE - VALIDAR SESSAO
+# =========================
+@app.get("/api/mobile/session")
+def api_mobile_session():
+    r = proteger_api_mobile()
+    if r:
+        return r
+
+    return jsonify({
+        "sucesso": True,
+        "autenticado": True,
+        "motorista": {
+            "id": g.mobile_auth["motorista_id"],
+            "nome": g.mobile_auth["nome"],
+            "email": g.mobile_auth["email"]
+        }
+    }), 200
+
+
+# =========================
+# API MOBILE - LOGOUT
+# =========================
+@app.post("/api/mobile/logout")
+def api_mobile_logout():
+    token = _mobile_bearer_token()
+    if not token:
+        return jsonify({
+            "sucesso": False,
+            "erro": "Token ausente"
+        }), 401
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        token_hash = _hash_mobile_token(token)
+
+        cur.execute("""
+            UPDATE motorista_sessoes_mobile
+            SET revogado_em = CURRENT_TIMESTAMP
+            WHERE token_hash = %s
+              AND revogado_em IS NULL
+        """, (token_hash,))
+
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("ERRO api_mobile_logout:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": "Erro interno ao encerrar sessão"
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+# =========================
+# API MOBILE - LOGOUT DE TODAS AS SESSOES
+# =========================
+@app.post("/api/mobile/logout-all")
+def api_mobile_logout_all():
+    r = proteger_api_mobile()
+    if r:
+        return r
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            UPDATE motorista_sessoes_mobile
+            SET revogado_em = CURRENT_TIMESTAMP
+            WHERE motorista_id = %s
+              AND revogado_em IS NULL
+        """, (g.mobile_auth["motorista_id"],))
+
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("ERRO api_mobile_logout_all:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": "Erro interno ao encerrar todas as sessões"
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+            
 # =========================
 # API POSTOS
 # =========================

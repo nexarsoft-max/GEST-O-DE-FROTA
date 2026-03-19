@@ -11,7 +11,7 @@
 
 <div class="card">
   <div class="card-header">
-    <button class="back-btn" onclick="window.location.href='dentromotorista.html'">←</button>
+    <button class="back-btn" type="button" onclick="location.assign('/dentromotorista')">←</button>
     <strong>Editar Motorista</strong>
   </div>
 
@@ -19,12 +19,22 @@
     <div class="form-grid">
       <div class="form-group">
         <label>Nome completo *</label>
-        <input id="nome">
+        <input id="nome" placeholder="Nome completo do motorista">
       </div>
 
       <div class="form-group">
         <label>CPF *</label>
-        <input id="cpf">
+        <input id="cpf" placeholder="000.000.000-00">
+      </div>
+
+      <div class="form-group">
+        <label>Email de login mobile *</label>
+        <input id="email" type="email" placeholder="email@exemplo.com">
+      </div>
+
+      <div class="form-group">
+        <label>Nova senha do mobile</label>
+        <input id="senha" type="password" placeholder="Deixe em branco para manter a atual">
       </div>
 
       <div class="form-group">
@@ -34,7 +44,7 @@
 
       <div class="form-group full">
         <label>Endereço *</label>
-        <input id="endereco">
+        <input id="endereco" placeholder="Endereço completo">
       </div>
 
       <!-- CNH Frente -->
@@ -43,7 +53,7 @@
         <label class="upload-box">
           <span>Clique para anexar a CNH (frente)</span>
           <input type="file" accept="image/*" id="cnhFrente">
-          <img id="previewFrente">
+          <img id="previewFrente" alt="">
         </label>
       </div>
 
@@ -53,20 +63,18 @@
         <label class="upload-box">
           <span>Clique para anexar a CNH (verso)</span>
           <input type="file" accept="image/*" id="cnhVerso">
-          <img id="previewVerso">
+          <img id="previewVerso" alt="">
         </label>
       </div>
     </div>
 
     <div class="actions">
-      <button class="btn salvar" onclick="salvar()">Salvar</button>
-      <button class="btn excluir" onclick="excluir()">Excluir</button>
+      <button class="btn salvar" type="button" onclick="salvar()">Salvar</button>
+      <button class="btn excluir" type="button" onclick="excluir()">Excluir</button>
     </div>
   </div>
 </div>
 
 <script src="{{ url_for('static', filename='js/editarmotorista.js') }}"></script>
-
-
 </body>
 </html>

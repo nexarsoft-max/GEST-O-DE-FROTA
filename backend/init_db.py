@@ -29,7 +29,7 @@ def criar_tabelas():
     """)
 
     # =========================
-    # 2) VEICULOS (schema oficial do app)
+    # 2) VEICULOS
     # =========================
     cur.execute("""
     CREATE TABLE IF NOT EXISTS veiculos (
@@ -43,7 +43,6 @@ def criar_tabelas():
     );
     """)
 
-    # Garante colunas novas/antigas
     cur.execute("""ALTER TABLE veiculos ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
     cur.execute("""ALTER TABLE veiculos ADD COLUMN IF NOT EXISTS modelo VARCHAR(100);""")
     cur.execute("""ALTER TABLE veiculos ADD COLUMN IF NOT EXISTS placa VARCHAR(20);""")
@@ -51,9 +50,6 @@ def criar_tabelas():
     cur.execute("""ALTER TABLE veiculos ADD COLUMN IF NOT EXISTS cidade VARCHAR(120);""")
     cur.execute("""ALTER TABLE veiculos ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
 
-    # Se existir coluna antiga "nome", não deixa ela quebrar inserts (NOT NULL)
-    # - copia modelo -> nome quando nome estiver NULL
-    # - derruba NOT NULL do nome (pra nunca mais quebrar)
     cur.execute("""
     DO $$
     BEGIN
@@ -71,7 +67,6 @@ def criar_tabelas():
     END$$;
     """)
 
-    # FK veiculos.usuario_id
     cur.execute("""
     DO $$
     BEGIN
@@ -88,7 +83,6 @@ def criar_tabelas():
     END$$;
     """)
 
-    # Unique usuario_id + placa
     cur.execute("""
     DO $$
     BEGIN
@@ -112,17 +106,20 @@ def criar_tabelas():
         cpf VARCHAR(30) NOT NULL,
         nascimento DATE,
         endereco TEXT NOT NULL,
+        email VARCHAR(150),
+        senha_hash TEXT,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
     );
     """)
 
-    # migração segura
     cur.execute("""ALTER TABLE motoristas ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
     cur.execute("""ALTER TABLE motoristas ADD COLUMN IF NOT EXISTS nome VARCHAR(100);""")
     cur.execute("""ALTER TABLE motoristas ADD COLUMN IF NOT EXISTS cpf VARCHAR(30);""")
     cur.execute("""ALTER TABLE motoristas ADD COLUMN IF NOT EXISTS nascimento DATE;""")
     cur.execute("""ALTER TABLE motoristas ADD COLUMN IF NOT EXISTS endereco TEXT;""")
+    cur.execute("""ALTER TABLE motoristas ADD COLUMN IF NOT EXISTS email VARCHAR(150);""")
+    cur.execute("""ALTER TABLE motoristas ADD COLUMN IF NOT EXISTS senha_hash TEXT;""")
     cur.execute("""ALTER TABLE motoristas ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
 
     cur.execute("""
@@ -138,6 +135,36 @@ def criar_tabelas():
         END IF;
     EXCEPTION WHEN duplicate_object THEN
         NULL;
+    END$$;
+    """)
+
+    # remove índice antigo por usuário, se existir
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname='public' AND indexname='ux_motoristas_usuario_email'
+        ) THEN
+            DROP INDEX ux_motoristas_usuario_email;
+        END IF;
+    END$$;
+    """)
+
+    # cria índice global para login mobile
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname='public' AND indexname='ux_motoristas_email'
+        ) THEN
+            CREATE UNIQUE INDEX ux_motoristas_email
+            ON motoristas (email)
+            WHERE email IS NOT NULL;
+        END IF;
     END$$;
     """)
 
@@ -177,7 +204,7 @@ def criar_tabelas():
     """)
 
     # =========================
-    # 5) POSTO_COMBUSTIVEIS (ALINHADO COM app.py)
+    # 5) POSTO_COMBUSTIVEIS
     # =========================
     cur.execute("""
     CREATE TABLE IF NOT EXISTS posto_combustiveis (
@@ -192,14 +219,12 @@ def criar_tabelas():
     );
     """)
 
-    # garante colunas
     cur.execute("""ALTER TABLE posto_combustiveis ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
     cur.execute("""ALTER TABLE posto_combustiveis ADD COLUMN IF NOT EXISTS posto_id BIGINT;""")
     cur.execute("""ALTER TABLE posto_combustiveis ADD COLUMN IF NOT EXISTS tipo TEXT;""")
     cur.execute("""ALTER TABLE posto_combustiveis ADD COLUMN IF NOT EXISTS preco NUMERIC(10,2);""")
     cur.execute("""ALTER TABLE posto_combustiveis ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
 
-    # ✅ Corrige linhas antigas: se usuario_id está NULL, puxa de postos.usuario_id
     cur.execute("""
     UPDATE posto_combustiveis pc
     SET usuario_id = p.usuario_id
@@ -208,7 +233,6 @@ def criar_tabelas():
       AND pc.usuario_id IS NULL;
     """)
 
-    # FK usuario_id
     cur.execute("""
     DO $$
     BEGIN
@@ -224,7 +248,6 @@ def criar_tabelas():
     END$$;
     """)
 
-    # FK posto_id
     cur.execute("""
     DO $$
     BEGIN
@@ -240,7 +263,6 @@ def criar_tabelas():
     END$$;
     """)
 
-    # Unique usuario_id + posto_id + tipo
     cur.execute("""
     DO $$
     BEGIN
@@ -255,7 +277,7 @@ def criar_tabelas():
     """)
 
     # =========================
-    # 6) ABASTECIMENTOS (alinhado com app.py)
+    # 6) ABASTECIMENTOS
     # =========================
     cur.execute("""
     CREATE TABLE IF NOT EXISTS abastecimentos (
@@ -282,8 +304,24 @@ def criar_tabelas():
     );
     """)
 
+    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
+    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS data DATE;""")
+    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS hora TIME;""")
+    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS motorista_id BIGINT;""")
+    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS veiculo_id BIGINT;""")
+    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS posto_id BIGINT;""")
+    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS combustivel_tipo TEXT;""")
+    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS litros NUMERIC(10,2);""")
+    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS preco_total NUMERIC(10,2);""")
+    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS preco_unitario NUMERIC(10,2);""")
+    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS odometro BIGINT;""")
+    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS pago BOOLEAN DEFAULT FALSE;""")
+    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS obs TEXT;""")
+    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS comprovante_url TEXT;""")
+    cur.execute("""ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
+
     # =========================
-    # 7) MANUTENCOES (alinhado com app.py)
+    # 7) MANUTENCOES
     # =========================
     cur.execute("""
     CREATE TABLE IF NOT EXISTS manutencoes (
@@ -303,6 +341,71 @@ def criar_tabelas():
         FOREIGN KEY (motorista_id) REFERENCES motoristas(id) ON DELETE RESTRICT,
         FOREIGN KEY (veiculo_id) REFERENCES veiculos(id) ON DELETE RESTRICT
     );
+    """)
+
+    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
+    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS data DATE;""")
+    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS hora TIME;""")
+    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS motorista_id BIGINT;""")
+    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS veiculo_id BIGINT;""")
+    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS valor NUMERIC(10,2);""")
+    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS prestador TEXT;""")
+    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS pago BOOLEAN DEFAULT FALSE;""")
+    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS obs TEXT;""")
+    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS comprovante_url TEXT;""")
+    cur.execute("""ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
+
+    # =========================
+    # 8) SESSOES MOBILE DOS MOTORISTAS
+    # =========================
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS motorista_sessoes_mobile (
+        id BIGSERIAL PRIMARY KEY,
+        motorista_id BIGINT NOT NULL,
+        token_hash TEXT NOT NULL,
+        dispositivo VARCHAR(200),
+        expira_em TIMESTAMP NOT NULL,
+        ultimo_uso_em TIMESTAMP,
+        revogado_em TIMESTAMP,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (motorista_id) REFERENCES motoristas(id) ON DELETE CASCADE
+    );
+    """)
+
+    cur.execute("""ALTER TABLE motorista_sessoes_mobile ADD COLUMN IF NOT EXISTS motorista_id BIGINT;""")
+    cur.execute("""ALTER TABLE motorista_sessoes_mobile ADD COLUMN IF NOT EXISTS token_hash TEXT;""")
+    cur.execute("""ALTER TABLE motorista_sessoes_mobile ADD COLUMN IF NOT EXISTS dispositivo VARCHAR(200);""")
+    cur.execute("""ALTER TABLE motorista_sessoes_mobile ADD COLUMN IF NOT EXISTS expira_em TIMESTAMP;""")
+    cur.execute("""ALTER TABLE motorista_sessoes_mobile ADD COLUMN IF NOT EXISTS ultimo_uso_em TIMESTAMP;""")
+    cur.execute("""ALTER TABLE motorista_sessoes_mobile ADD COLUMN IF NOT EXISTS revogado_em TIMESTAMP;""")
+    cur.execute("""ALTER TABLE motorista_sessoes_mobile ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname='public' AND indexname='ux_motorista_sessoes_mobile_token_hash'
+        ) THEN
+            CREATE UNIQUE INDEX ux_motorista_sessoes_mobile_token_hash
+            ON motorista_sessoes_mobile (token_hash);
+        END IF;
+    END$$;
+    """)
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname='public' AND indexname='ix_motorista_sessoes_mobile_motorista'
+        ) THEN
+            CREATE INDEX ix_motorista_sessoes_mobile_motorista
+            ON motorista_sessoes_mobile (motorista_id);
+        END IF;
+    END$$;
     """)
 
     conn.commit()

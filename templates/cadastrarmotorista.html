@@ -5,7 +5,6 @@
 <title>Cadastrar Motorista</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadastrarmotorista.css') }}">
-
 </head>
 
 <body>
@@ -17,14 +16,25 @@
 
   <div class="card-body">
     <div class="form-grid">
+
       <div class="form-group">
         <label>Nome completo *</label>
-        <input id="nome" placeholder="Nome do motorista">
+        <input id="nome">
       </div>
 
       <div class="form-group">
         <label>CPF *</label>
-        <input id="cpf" placeholder="000.000.000-00">
+        <input id="cpf">
+      </div>
+
+      <div class="form-group">
+        <label>Email *</label>
+        <input id="email" placeholder="email@exemplo.com">
+      </div>
+
+      <div class="form-group">
+        <label>Senha *</label>
+        <input id="senha" type="password">
       </div>
 
       <div class="form-group">
@@ -34,12 +44,13 @@
 
       <div class="form-group full">
         <label>Endereço *</label>
-        <input id="endereco" placeholder="Endereço completo">
+        <input id="endereco">
       </div>
 
       <div class="actions full">
         <button type="button" onclick="cadastrarMotorista()">Cadastrar Motorista</button>
       </div>
+
     </div>
   </div>
 </div>
