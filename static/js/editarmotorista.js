@@ -1,10 +1,29 @@
-const MOTORISTA_ID = Number("{{ motorista_id|int }}");
+function obterMotoristaId() {
+  const partes = window.location.pathname.split('/').filter(Boolean);
+  const ultimoTrecho = partes[partes.length - 1];
+  const id = Number(ultimoTrecho);
+
+  if (Number.isNaN(id) || id <= 0) {
+    console.error("ID do motorista inválido na URL:", window.location.pathname);
+    return null;
+  }
+
+  return id;
+}
+
+const MOTORISTA_ID = obterMotoristaId();
 
 function mostrarErroPadrao(msg) {
   alert(msg || "Ocorreu um erro na operação.");
 }
 
 async function carregar() {
+  if (!MOTORISTA_ID) {
+    mostrarErroPadrao("ID do motorista inválido.");
+    history.back();
+    return;
+  }
+
   try {
     const resp = await fetch(`/api/motoristas/${MOTORISTA_ID}`, {
       headers: { "Accept": "application/json" }
@@ -37,6 +56,11 @@ async function carregar() {
 }
 
 async function salvar() {
+  if (!MOTORISTA_ID) {
+    mostrarErroPadrao("ID do motorista inválido.");
+    return;
+  }
+
   const nome = document.getElementById("nome").value.trim();
   const cpf = document.getElementById("cpf").value.trim();
   const email = document.getElementById("email").value.trim().toLowerCase();
@@ -88,6 +112,11 @@ async function salvar() {
 }
 
 async function excluir() {
+  if (!MOTORISTA_ID) {
+    mostrarErroPadrao("ID do motorista inválido.");
+    return;
+  }
+
   if (!confirm("Excluir motorista?")) return;
 
   try {
