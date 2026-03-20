@@ -507,6 +507,12 @@ def monitoramento():
         return r
     return render_template("monitoramento.html")
 
+@app.get("/colaboradores")
+def colaboradores():
+    r = proteger_pagina()
+    if r:
+        return r
+    return render_template("colaboradores.html")
 
 @app.get("/mapa-geral")
 def mapa_geral():
