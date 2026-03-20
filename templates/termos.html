@@ -14,20 +14,20 @@
 
   <aside class="barra-lateral">
     <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo">
-    <div class="logo">
-    
-    </div>
+   
 
     <nav class="menu-novo">
       <a href="{{ url_for('dashboard') }}" class="item-menu">Executivo</a>
-      <a href="{{ url_for('geral_informacao') }}" class="item-menu">Registros</a>
+
+      <!-- ✅ AQUI ERA O ERRO -->
+      <a href="{{ url_for('geral_informacao') }}" class="item-menu ">Registros</a>
+
       <a href="{{ url_for('abastecimento') }}" class="item-menu">Registrar abastecimento</a>
-      <a href="{{ url_for('cadastro') }}" class="item-menu">Cadastrar</a>
+      <a href="{{ url_for('cadastro') }}" class="item-menu ">Cadastrar</a>
       <a href="{{ url_for('termos') }}" class="item-menu ativo">Termos</a>
       <a href="{{ url_for('logout') }}" class="item-menu sair">Sair</a>
     </nav>
   </aside>
-
   <main class="conteudo">
     <header class="header">
       <h1>TERMOS DE USO – <span>NEXAR SOFTWARE</span></h1>
