@@ -94,7 +94,9 @@ body{
   margin-bottom:10px;
 }
 
-.header h1 span{ color: var(--roxo1); }
+.header h1 span{
+  color: var(--roxo1);
+}
 
 .atualizacao{
   color: var(--muted);
@@ -151,7 +153,7 @@ body{
   font-size: 13px;
 }
 
-/* NOVA ÁREA: TERMOS COLABORADORES */
+/* NOVA ÁREA TERMOS COLABORADORES */
 .card-acesso-termos-colaboradores{
   background: linear-gradient(135deg, #111111 0%, #1b102e 48%, #6f2cff 100%);
   border: 1px solid rgba(111, 44, 255, 0.16);
@@ -175,6 +177,10 @@ body{
   margin-bottom:10px;
 }
 
+.mini-titulo-claro{
+  color:#8b5cf6;
+}
+
 .card-acesso-termos-colaboradores h2{
   color:#ffffff;
   margin-bottom:10px;
@@ -186,7 +192,15 @@ body{
   margin-bottom:0;
 }
 
-.botao-termos-colaboradores{
+.acoes-topo-termos{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+
+.botao-termos-colaboradores,
+.botao-secundario-termos{
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -194,14 +208,25 @@ body{
   min-width:220px;
   padding:14px 20px;
   border-radius:14px;
-  background:#ffffff;
-  color:#111111;
   font-weight:800;
-  border:1px solid rgba(255,255,255,0.65);
   transition:all 0.2s ease;
 }
 
-.botao-termos-colaboradores:hover{
+.botao-termos-colaboradores{
+  background:#ffffff;
+  color:#111111;
+  border:1px solid rgba(255,255,255,0.65);
+}
+
+.botao-secundario-termos{
+  background:transparent;
+  color:#ffffff;
+  border:1px solid rgba(255,255,255,0.35);
+  cursor:pointer;
+}
+
+.botao-termos-colaboradores:hover,
+.botao-secundario-termos:hover{
   transform:translateY(-2px);
   box-shadow:0 14px 28px rgba(0,0,0,0.16);
 }
@@ -216,6 +241,10 @@ body{
 
 .descricao-termos-colaboradores{
   color: var(--muted);
+}
+
+.descricao-clara{
+  color:#6b7280;
 }
 
 .resumo-status-termos{
@@ -243,6 +272,21 @@ body{
 .resumo-box strong{
   font-size:28px;
   color:#1f1f27;
+}
+
+.estado-api-termos{
+  margin-bottom:18px;
+  min-height:24px;
+  color:#6b7280;
+  font-size:14px;
+}
+
+.estado-api-termos.erro{
+  color:#b91c1c;
+}
+
+.estado-api-termos.sucesso{
+  color:#166534;
 }
 
 .grade-colaboradores-termos{
@@ -355,29 +399,9 @@ body{
   border-radius:14px;
   background:#faf8ff;
   border:1px solid #ece4ff;
-}
-
-.conteudo-termo-mobile h4{
-  color:#1f1f27;
-  font-size:15px;
-  margin-bottom:10px;
-}
-
-.conteudo-termo-mobile p{
+  white-space:pre-line;
   color:#374151;
   line-height:1.7;
-  margin-bottom:12px;
-}
-
-.conteudo-termo-mobile ul{
-  margin-left:18px;
-  margin-bottom:12px;
-}
-
-.conteudo-termo-mobile ul li{
-  color:#374151;
-  margin-bottom:8px;
-  line-height:1.6;
 }
 
 .bloco-sem-aceite{
@@ -406,6 +430,16 @@ body{
   color:#7b7b87;
   font-weight:800;
   cursor:not-allowed;
+}
+
+.vazio-termos{
+  grid-column:1 / -1;
+  background:#ffffff;
+  border:1px dashed #d7d7e2;
+  border-radius:18px;
+  padding:24px;
+  text-align:center;
+  color:#6b7280;
 }
 
 /* RESPONSIVO */
@@ -454,16 +488,17 @@ body{
     align-items:flex-start;
   }
 
-  .botao-termos-colaboradores{
+  .botao-termos-colaboradores,
+  .botao-secundario-termos{
     width:100%;
   }
 }
 
 .barra-lateral > img{
-  width: 100px;      /* ajuste aqui */
-  height: 10s0px;     /* ajuste aqui */
+  width: 100px;
+  height: auto;
   object-fit: contain;
   display: block;
-  margin: 0 auto 8px; /* centraliza e dá espaço embaixo */
+  margin: 0 auto 8px;
   margin-left: 56px;
 }

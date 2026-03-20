@@ -1293,6 +1293,578 @@ def api_mobile_login():
         if conn:
             conn.close()
 
+# =========================
+# API MOBILE - TERMOS
+# =========================
+
+TERMOS_MOBILE_VERSAO_ATUAL = "1.0"
+
+TERMOS_MOBILE_TEXTO = """
+1. Direitos Autorais
+Todos os direitos reservados pela agência Nexar. Este aplicativo e todo seu conteúdo, incluindo mas não se limitando a texto, gráficos, logotipos, ícones e imagens, são propriedade da Nexar e estão protegidos por leis de direitos autorais nacionais e internacionais.
+
+2. Suporte e Contato
+Caso haja alguma dúvida referente à aplicação, entre em contato diretamente com o gestor responsável. Nossa equipe está disponível para esclarecer questões técnicas, funcionais ou operacionais relacionadas ao uso do GoRota.
+
+3. Privacidade e Segurança de Dados
+Todos os dados são monitorados pela aplicação conforme regras internas de segurança e rastreabilidade. Isso inclui, mas não se limita a:
+- Registros de ponto (entrada e saída)
+- Checklists de veículos e ferramentas
+- Fotografias e documentação relacionada
+- Localização e dados de uso do aplicativo
+
+4. Uso Responsável
+Ao utilizar o GoRota, você concorda em usar o aplicativo de forma responsável e em conformidade com todas as políticas internas da empresa. O uso inadequado ou não autorizado do sistema pode resultar em sanções conforme as normas trabalhistas e políticas organizacionais.
+
+5. Atualizações dos Termos
+A Nexar se reserva o direito de atualizar estes termos a qualquer momento. Os usuários serão notificados sobre alterações significativas e deverão aceitar os novos termos para continuar utilizando o aplicativo.
+
+6. Autorização de Uso de Imagem
+Ao aceitar estes termos, o usuário autoriza, de forma expressa e irrevogável, o uso de sua imagem que possa ser capturada durante a utilização do aplicativo GoRota, incluindo mas não se limitando a fotografias de vistoria de veículos, registros de atividades operacionais e documentação de processos internos.
+
+Esta autorização abrange a captação, armazenamento, processamento e utilização da imagem para finalidades exclusivamente relacionadas ao controle de jornada, segurança operacional, auditoria interna e cumprimento de regulamentações trabalhistas vigentes.
+
+O usuário declara estar ciente de que as imagens coletadas poderão ser armazenadas em servidores seguros e acessadas por gestores autorizados para fins de supervisão, análise de conformidade e resolução de eventuais divergências operacionais, sempre respeitando os princípios de privacidade e proteção de dados pessoais.
+
+7. Responsabilidade do Usuário e Limitação de Responsabilidade
+O usuário é integralmente responsável pela veracidade, exatidão e completude das informações registradas no aplicativo GoRota, incluindo mas não se limitando a registros de ponto, checklists de veículos, relatórios de atividades e demais dados inseridos durante a operação do sistema.
+
+A Nexar e seus representantes não se responsabilizam por quaisquer danos, prejuízos, acidentes, multas, sanções ou perdas decorrentes de:
+- Preenchimento incorreto, incompleto ou fraudulento dos checklists de veículos e ferramentas
+- Omissão de informações relevantes sobre condições do veículo ou equipamentos
+- Utilização de veículos ou equipamentos em condições inadequadas identificadas ou não reportadas no checklist
+- Registros de jornada imprecisos ou manipulados pelo usuário
+- Má utilização do aplicativo em desconformidade com as diretrizes operacionais estabelecidas
+
+O aplicativo GoRota é uma ferramenta de auxílio ao controle de jornada e vistoria operacional, não substituindo a responsabilidade individual do usuário pela inspeção física adequada dos veículos, cumprimento das normas de segurança e veracidade dos dados informados. O usuário reconhece que a aprovação automática de checklists pelo sistema não exime sua obrigação de reportar imediatamente qualquer irregularidade identificada aos superiores competentes.
+
+A Nexar não se responsabiliza por incompatibilidades, falhas de desempenho ou impossibilidade de utilização do aplicativo decorrentes de dispositivos móveis que não atendam aos requisitos mínimos de sistema operacional, capacidade de processamento, memória ou conectividade de rede. É de responsabilidade exclusiva do usuário e/ou da empresa contratante garantir que os dispositivos utilizados sejam compatíveis e estejam em condições adequadas de funcionamento para operação do GoRota.
+""".strip()
+
+
+def _ip_request():
+    forwarded = (request.headers.get("X-Forwarded-For") or "").strip()
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return (request.remote_addr or "").strip()
+
+
+def _payload_status_termos(row, motorista_id: int):
+    if not row:
+        return {
+            "sucesso": True,
+            "motorista_id": int(motorista_id),
+            "accepted": False,
+            "terms_version": TERMOS_MOBILE_VERSAO_ATUAL,
+            "accepted_at": None,
+            "terms_text": TERMOS_MOBILE_TEXTO
+        }
+
+    terms_version, accepted_at, ip, dispositivo = row
+
+    return {
+        "sucesso": True,
+        "motorista_id": int(motorista_id),
+        "accepted": True,
+        "terms_version": terms_version or TERMOS_MOBILE_VERSAO_ATUAL,
+        "accepted_at": accepted_at.isoformat() if accepted_at else None,
+        "ip": ip or "",
+        "dispositivo": dispositivo or "",
+        "terms_text": TERMOS_MOBILE_TEXTO
+    }
+
+
+@app.get("/api/mobile/terms/status")
+def api_mobile_terms_status():
+    r = proteger_api_mobile()
+    if r:
+        return r
+
+    motorista_id = int(g.mobile_auth["motorista_id"])
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT terms_version, accepted_at, COALESCE(ip, ''), COALESCE(dispositivo, '')
+            FROM motorista_termos
+            WHERE motorista_id = %s
+            ORDER BY accepted_at DESC NULLS LAST, id DESC
+            LIMIT 1
+        """, (motorista_id,))
+
+        row = cur.fetchone()
+        return jsonify(_payload_status_termos(row, motorista_id)), 200
+
+    except Exception as e:
+        print("ERRO api_mobile_terms_status:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": "Erro ao consultar status dos termos"
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.post("/api/mobile/terms/accept")
+def api_mobile_terms_accept():
+    r = proteger_api_mobile()
+    if r:
+        return r
+
+    dados = request.get_json(silent=True) or {}
+
+    motorista_id = int(g.mobile_auth["motorista_id"])
+    usuario_id = int(g.mobile_auth["usuario_id"])
+    dispositivo_auth = (g.mobile_auth.get("email") or "").strip()
+
+    terms_version = (dados.get("terms_version") or TERMOS_MOBILE_VERSAO_ATUAL).strip()
+    dispositivo_body = (dados.get("dispositivo") or "").strip()
+    dispositivo = dispositivo_body or dispositivo_auth
+    ip = _ip_request()
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        # Garante que o motorista existe e pertence a um gestor válido
+        cur.execute("""
+            SELECT id, usuario_id
+            FROM motoristas
+            WHERE id = %s
+            LIMIT 1
+        """, (motorista_id,))
+        motorista_row = cur.fetchone()
+
+        if not motorista_row:
+            return jsonify({
+                "sucesso": False,
+                "erro": "Motorista não encontrado"
+            }), 404
+
+        # Se já aceitou antes, não cria outro registro.
+        # Assim o aceite fica permanente e o mobile pode parar de mostrar o modal.
+        cur.execute("""
+            SELECT terms_version, accepted_at, COALESCE(ip, ''), COALESCE(dispositivo, '')
+            FROM motorista_termos
+            WHERE motorista_id = %s
+            ORDER BY accepted_at DESC NULLS LAST, id DESC
+            LIMIT 1
+        """, (motorista_id,))
+
+        row_existente = cur.fetchone()
+
+        if row_existente:
+            return jsonify({
+                "sucesso": True,
+                "already_accepted": True,
+                "accepted": True,
+                "motorista_id": motorista_id,
+                "terms_version": row_existente[0] or TERMOS_MOBILE_VERSAO_ATUAL,
+                "accepted_at": row_existente[1].isoformat() if row_existente[1] else None,
+                "ip": row_existente[2] or "",
+                "dispositivo": row_existente[3] or "",
+                "message": "Termos já haviam sido aceitos anteriormente"
+            }), 200
+
+        cur.execute("""
+            INSERT INTO motorista_termos (
+                motorista_id,
+                usuario_id,
+                terms_version,
+                accepted_at,
+                ip,
+                dispositivo
+            )
+            VALUES (%s, %s, %s, CURRENT_TIMESTAMP, %s, %s)
+            RETURNING accepted_at
+        """, (
+            motorista_id,
+            usuario_id,
+            terms_version,
+            ip or None,
+            dispositivo or None
+        ))
+
+        accepted_at = cur.fetchone()[0]
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True,
+            "already_accepted": False,
+            "accepted": True,
+            "motorista_id": motorista_id,
+            "terms_version": terms_version,
+            "accepted_at": accepted_at.isoformat() if accepted_at else None,
+            "ip": ip or "",
+            "dispositivo": dispositivo or "",
+            "message": "Termos aceitos com sucesso"
+        }), 201
+
+    except errors.UniqueViolation:
+        if conn:
+            conn.rollback()
+
+        # Caso você tenha criado UNIQUE(motorista_id) na tabela, ainda fica protegido.
+        try:
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT terms_version, accepted_at, COALESCE(ip, ''), COALESCE(dispositivo, '')
+                FROM motorista_termos
+                WHERE motorista_id = %s
+                ORDER BY accepted_at DESC NULLS LAST, id DESC
+                LIMIT 1
+            """, (motorista_id,))
+            row = cur.fetchone()
+
+            return jsonify({
+                "sucesso": True,
+                "already_accepted": True,
+                "accepted": True,
+                "motorista_id": motorista_id,
+                "terms_version": row[0] if row else TERMOS_MOBILE_VERSAO_ATUAL,
+                "accepted_at": row[1].isoformat() if row and row[1] else None,
+                "ip": row[2] if row else "",
+                "dispositivo": row[3] if row else "",
+                "message": "Termos já haviam sido aceitos anteriormente"
+            }), 200
+        except Exception as e2:
+            print("ERRO pós-UniqueViolation api_mobile_terms_accept:", e2, flush=True)
+            return jsonify({
+                "sucesso": False,
+                "erro": "Erro ao confirmar aceite dos termos"
+            }), 500
+        finally:
+            if cur:
+                cur.close()
+            if conn:
+                conn.close()
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("ERRO api_mobile_terms_accept:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": "Erro ao registrar aceite dos termos"
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+# =========================
+# API MOBILE - TERMOS
+# =========================
+TERMOS_MOBILE_VERSAO_ATUAL = "1.0"
+
+TERMOS_MOBILE_TEXTO = """
+1. Direitos Autorais
+Todos os direitos reservados pela agência Nexar. Este aplicativo e todo seu conteúdo, incluindo mas não se limitando a texto, gráficos, logotipos, ícones e imagens, são propriedade da Nexar e estão protegidos por leis de direitos autorais nacionais e internacionais.
+
+2. Suporte e Contato
+Caso haja alguma dúvida referente à aplicação, entre em contato diretamente com o gestor responsável. Nossa equipe está disponível para esclarecer questões técnicas, funcionais ou operacionais relacionadas ao uso do GoRota.
+
+3. Privacidade e Segurança de Dados
+Todos os dados são monitorados pela aplicação conforme regras internas de segurança e rastreabilidade. Isso inclui, mas não se limita a:
+
+Registros de ponto (entrada e saída)
+Checklists de veículos e ferramentas
+Fotografias e documentação relacionada
+Localização e dados de uso do aplicativo
+
+4. Uso Responsável
+Ao utilizar o GoRota, você concorda em usar o aplicativo de forma responsável e em conformidade com todas as políticas internas da empresa. O uso inadequado ou não autorizado do sistema pode resultar em sanções conforme as normas trabalhistas e políticas organizacionais.
+
+5. Atualizações dos Termos
+A Nexar se reserva o direito de atualizar estes termos a qualquer momento. Os usuários serão notificados sobre alterações significativas e deverão aceitar os novos termos para continuar utilizando o aplicativo.
+
+6. Autorização de Uso de Imagem
+Ao aceitar estes termos, o usuário autoriza, de forma expressa e irrevogável, o uso de sua imagem que possa ser capturada durante a utilização do aplicativo GoRota, incluindo mas não se limitando a fotografias de vistoria de veículos, registros de atividades operacionais e documentação de processos internos.
+
+Esta autorização abrange a captação, armazenamento, processamento e utilização da imagem para finalidades exclusivamente relacionadas ao controle de jornada, segurança operacional, auditoria interna e cumprimento de regulamentações trabalhistas vigentes.
+
+O usuário declara estar ciente de que as imagens coletadas poderão ser armazenadas em servidores seguros e acessadas por gestores autorizados para fins de supervisão, análise de conformidade e resolução de eventuais divergências operacionais, sempre respeitando os princípios de privacidade e proteção de dados pessoais.
+
+7. Responsabilidade do Usuário e Limitação de Responsabilidade
+O usuário é integralmente responsável pela veracidade, exatidão e completude das informações registradas no aplicativo GoRota, incluindo mas não se limitando a registros de ponto, checklists de veículos, relatórios de atividades e demais dados inseridos durante a operação do sistema.
+
+A Nexar e seus representantes não se responsabilizam por quaisquer danos, prejuízos, acidentes, multas, sanções ou perdas decorrentes de:
+
+Preenchimento incorreto, incompleto ou fraudulento dos checklists de veículos e ferramentas
+Omissão de informações relevantes sobre condições do veículo ou equipamentos
+Utilização de veículos ou equipamentos em condições inadequadas identificadas ou não reportadas no checklist
+Registros de jornada imprecisos ou manipulados pelo usuário
+Má utilização do aplicativo em desconformidade com as diretrizes operacionais estabelecidas
+
+O aplicativo GoRota é uma ferramenta de auxílio ao controle de jornada e vistoria operacional, não substituindo a responsabilidade individual do usuário pela inspeção física adequada dos veículos, cumprimento das normas de segurança e veracidade dos dados informados. O usuário reconhece que a aprovação automática de checklists pelo sistema não exime sua obrigação de reportar imediatamente qualquer irregularidade identificada aos superiores competentes.
+
+A Nexar não se responsabiliza por incompatibilidades, falhas de desempenho ou impossibilidade de utilização do aplicativo decorrentes de dispositivos móveis que não atendam aos requisitos mínimos de sistema operacional, capacidade de processamento, memória ou conectividade de rede. É de responsabilidade exclusiva do usuário e/ou da empresa contratante garantir que os dispositivos utilizados sejam compatíveis e estejam em condições adequadas de funcionamento para operação do GoRota.
+""".strip()
+
+
+def _ip_request():
+    forwarded = (request.headers.get("X-Forwarded-For") or "").strip()
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return (request.remote_addr or "").strip()
+
+
+@app.get("/api/mobile/terms/status")
+def api_mobile_terms_status():
+    r = proteger_api_mobile()
+    if r:
+        return r
+
+    motorista_id = int(g.mobile_auth["motorista_id"])
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT
+                termos_versao,
+                aceito_em,
+                COALESCE(ip_aceite, ''),
+                COALESCE(dispositivo, ''),
+                COALESCE(texto_termos, '')
+            FROM motorista_termos_aceites
+            WHERE motorista_id = %s
+            LIMIT 1
+        """, (motorista_id,))
+
+        row = cur.fetchone()
+
+        if not row:
+            return jsonify({
+                "sucesso": True,
+                "accepted": False,
+                "terms_version": TERMOS_MOBILE_VERSAO_ATUAL,
+                "accepted_at": None,
+                "terms_text": TERMOS_MOBILE_TEXTO
+            }), 200
+
+        termos_versao, aceito_em, ip_aceite, dispositivo, texto_termos = row
+
+        return jsonify({
+            "sucesso": True,
+            "accepted": True,
+            "terms_version": termos_versao or TERMOS_MOBILE_VERSAO_ATUAL,
+            "accepted_at": aceito_em.isoformat() if aceito_em else None,
+            "ip": ip_aceite or "",
+            "dispositivo": dispositivo or "",
+            "terms_text": texto_termos or TERMOS_MOBILE_TEXTO
+        }), 200
+
+    except Exception as e:
+        print("ERRO api_mobile_terms_status:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": "Erro ao consultar status dos termos"
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.post("/api/mobile/terms/accept")
+def api_mobile_terms_accept():
+    r = proteger_api_mobile()
+    if r:
+        return r
+
+    dados = request.get_json(silent=True) or {}
+
+    motorista_id = int(g.mobile_auth["motorista_id"])
+    usuario_id = int(g.mobile_auth["usuario_id"])
+
+    termos_versao = (dados.get("terms_version") or TERMOS_MOBILE_VERSAO_ATUAL).strip()
+    texto_termos = (dados.get("terms_text") or TERMOS_MOBILE_TEXTO).strip()
+    dispositivo = (dados.get("dispositivo") or "").strip()
+    ip_aceite = _ip_request()
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            INSERT INTO motorista_termos_aceites (
+                motorista_id,
+                usuario_id,
+                termos_versao,
+                texto_termos,
+                ip_aceite,
+                dispositivo
+            )
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (motorista_id) DO NOTHING
+            RETURNING id, aceito_em
+        """, (
+            motorista_id,
+            usuario_id,
+            termos_versao,
+            texto_termos,
+            ip_aceite if ip_aceite else None,
+            dispositivo if dispositivo else None
+        ))
+
+        inserted = cur.fetchone()
+
+        if inserted:
+            aceite_id, aceito_em = inserted
+            conn.commit()
+
+            return jsonify({
+                "sucesso": True,
+                "accepted": True,
+                "already_accepted": False,
+                "id": int(aceite_id),
+                "terms_version": termos_versao,
+                "accepted_at": aceito_em.isoformat() if aceito_em else None
+            }), 201
+
+        cur.execute("""
+            SELECT
+                id,
+                termos_versao,
+                aceito_em,
+                COALESCE(texto_termos, '')
+            FROM motorista_termos_aceites
+            WHERE motorista_id = %s
+            LIMIT 1
+        """, (motorista_id,))
+
+        existente = cur.fetchone()
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True,
+            "accepted": True,
+            "already_accepted": True,
+            "id": int(existente[0]) if existente else None,
+            "terms_version": existente[1] if existente and existente[1] else TERMOS_MOBILE_VERSAO_ATUAL,
+            "accepted_at": existente[2].isoformat() if existente and existente[2] else None,
+            "terms_text": existente[3] if existente and existente[3] else TERMOS_MOBILE_TEXTO
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("ERRO api_mobile_terms_accept:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": "Erro ao registrar aceite dos termos"
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+# =========================
+# API WEB - TERMOS DOS COLABORADORES
+# =========================
+@app.get("/api/termos/colaboradores")
+def api_termos_colaboradores():
+    r = proteger_api()
+    if r:
+        return r
+
+    uid = usuario_id_atual()
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT
+                m.id,
+                m.nome,
+                COALESCE(m.email, ''),
+                t.id,
+                t.termos_versao,
+                t.texto_termos,
+                t.aceito_em,
+                COALESCE(t.ip_aceite, ''),
+                COALESCE(t.dispositivo, '')
+            FROM motoristas m
+            LEFT JOIN motorista_termos_aceites t
+                ON t.motorista_id = m.id
+            WHERE m.usuario_id = %s
+            ORDER BY m.id DESC
+        """, (uid,))
+
+        rows = cur.fetchall()
+
+        colaboradores = []
+        aceitaram = 0
+        nao_aceitaram = 0
+
+        for row in rows:
+            motorista_id, nome, email, aceite_id, termos_versao, texto_termos, aceito_em, ip_aceite, dispositivo = row
+            aceitou = aceite_id is not None
+
+            if aceitou:
+                aceitaram += 1
+            else:
+                nao_aceitaram += 1
+
+            colaboradores.append({
+                "id": int(motorista_id),
+                "nome": nome,
+                "email": email,
+                "termo_aceito": aceitou,
+                "status": "aceito" if aceitou else "pendente",
+                "termos_versao": termos_versao if termos_versao else TERMOS_MOBILE_VERSAO_ATUAL,
+                "texto_termos": texto_termos if texto_termos else "",
+                "aceito_em": aceito_em.isoformat() if aceito_em else None,
+                "ip_aceite": ip_aceite or "",
+                "dispositivo": dispositivo or ""
+            })
+
+        return jsonify({
+            "sucesso": True,
+            "resumo": {
+                "total_cadastrados": len(colaboradores),
+                "aceitaram": aceitaram,
+                "nao_aceitaram": nao_aceitaram
+            },
+            "versao_atual_termos": TERMOS_MOBILE_VERSAO_ATUAL,
+            "colaboradores": colaboradores
+        }), 200
+
+    except Exception as e:
+        print("ERRO api_termos_colaboradores:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": "Erro ao listar termos dos colaboradores"
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 # =========================
 # API MOBILE - ME

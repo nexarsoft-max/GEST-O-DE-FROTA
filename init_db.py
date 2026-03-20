@@ -408,6 +408,62 @@ def criar_tabelas():
     END$$;
     """)
 
+ # =========================
+    # 9) TERMOS ACEITOS NO MOBILE
+    # =========================
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS motorista_termos_aceites (
+        id BIGSERIAL PRIMARY KEY,
+        motorista_id BIGINT NOT NULL,
+        usuario_id BIGINT NOT NULL,
+        termos_versao VARCHAR(30) NOT NULL,
+        texto_termos TEXT NOT NULL,
+        aceito_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        ip_aceite VARCHAR(100),
+        dispositivo VARCHAR(200),
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (motorista_id) REFERENCES motoristas(id) ON DELETE CASCADE,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+    );
+    """)
+
+    cur.execute("""ALTER TABLE motorista_termos_aceites ADD COLUMN IF NOT EXISTS motorista_id BIGINT;""")
+    cur.execute("""ALTER TABLE motorista_termos_aceites ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
+    cur.execute("""ALTER TABLE motorista_termos_aceites ADD COLUMN IF NOT EXISTS termos_versao VARCHAR(30);""")
+    cur.execute("""ALTER TABLE motorista_termos_aceites ADD COLUMN IF NOT EXISTS texto_termos TEXT;""")
+    cur.execute("""ALTER TABLE motorista_termos_aceites ADD COLUMN IF NOT EXISTS aceito_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
+    cur.execute("""ALTER TABLE motorista_termos_aceites ADD COLUMN IF NOT EXISTS ip_aceite VARCHAR(100);""")
+    cur.execute("""ALTER TABLE motorista_termos_aceites ADD COLUMN IF NOT EXISTS dispositivo VARCHAR(200);""")
+    cur.execute("""ALTER TABLE motorista_termos_aceites ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname='public' AND indexname='ux_motorista_termos_aceites_motorista'
+        ) THEN
+            CREATE UNIQUE INDEX ux_motorista_termos_aceites_motorista
+            ON motorista_termos_aceites (motorista_id);
+        END IF;
+    END$$;
+    """)
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname='public' AND indexname='ix_motorista_termos_aceites_usuario'
+        ) THEN
+            CREATE INDEX ix_motorista_termos_aceites_usuario
+            ON motorista_termos_aceites (usuario_id);
+        END IF;
+    END$$;
+    """)
+    
     conn.commit()
     cur.close()
     conn.close()
