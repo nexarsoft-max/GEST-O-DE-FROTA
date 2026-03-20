@@ -151,10 +151,275 @@ body{
   font-size: 13px;
 }
 
+/* NOVA ÁREA: TERMOS COLABORADORES */
+.card-acesso-termos-colaboradores{
+  background: linear-gradient(135deg, #111111 0%, #1b102e 48%, #6f2cff 100%);
+  border: 1px solid rgba(111, 44, 255, 0.16);
+  box-shadow: 0 18px 40px rgba(111, 44, 255, 0.18);
+}
+
+.topo-termos-colaboradores{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  flex-wrap:wrap;
+}
+
+.mini-titulo{
+  display:inline-block;
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:0.14em;
+  color:#b8a7ff;
+  margin-bottom:10px;
+}
+
+.card-acesso-termos-colaboradores h2{
+  color:#ffffff;
+  margin-bottom:10px;
+}
+
+.card-acesso-termos-colaboradores .descricao-termos-colaboradores{
+  color:rgba(255,255,255,0.82);
+  max-width:700px;
+  margin-bottom:0;
+}
+
+.botao-termos-colaboradores{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  text-decoration:none;
+  min-width:220px;
+  padding:14px 20px;
+  border-radius:14px;
+  background:#ffffff;
+  color:#111111;
+  font-weight:800;
+  border:1px solid rgba(255,255,255,0.65);
+  transition:all 0.2s ease;
+}
+
+.botao-termos-colaboradores:hover{
+  transform:translateY(-2px);
+  box-shadow:0 14px 28px rgba(0,0,0,0.16);
+}
+
+.secao-termos-colaboradores{
+  scroll-margin-top: 24px;
+}
+
+.cabecalho-listagem-termos{
+  margin-bottom:22px;
+}
+
+.descricao-termos-colaboradores{
+  color: var(--muted);
+}
+
+.resumo-status-termos{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(180px, 1fr));
+  gap:16px;
+  margin-bottom:24px;
+}
+
+.resumo-box{
+  background:linear-gradient(180deg, #fcfbff 0%, #f4efff 100%);
+  border:1px solid #eadfff;
+  border-radius:16px;
+  padding:18px;
+  box-shadow:0 10px 22px rgba(111,44,255,0.08);
+}
+
+.resumo-label{
+  display:block;
+  font-size:13px;
+  color:#6b6b75;
+  margin-bottom:8px;
+}
+
+.resumo-box strong{
+  font-size:28px;
+  color:#1f1f27;
+}
+
+.grade-colaboradores-termos{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(320px, 1fr));
+  gap:18px;
+}
+
+.card-colaborador-termo{
+  background:#ffffff;
+  border:1px solid var(--borda);
+  border-radius:18px;
+  padding:22px;
+  box-shadow:0 12px 26px rgba(0,0,0,0.05);
+}
+
+.linha-superior-colaborador{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:14px;
+}
+
+.linha-superior-colaborador h3{
+  font-size:18px;
+  color:#1f1f27;
+  margin-bottom:6px;
+}
+
+.linha-superior-colaborador p{
+  margin-bottom:0;
+  color:var(--muted);
+  font-size:14px;
+}
+
+.status-termo{
+  white-space:nowrap;
+  padding:10px 12px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:800;
+}
+
+.status-termo.aceito{
+  background:rgba(111, 44, 255, 0.12);
+  color:var(--roxo1);
+  border:1px solid rgba(111, 44, 255, 0.18);
+}
+
+.status-termo.pendente{
+  background:#111111;
+  color:#ffffff;
+  border:1px solid #111111;
+}
+
+.meta-colaborador-termo{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px 18px;
+  margin-bottom:18px;
+}
+
+.meta-colaborador-termo span{
+  font-size:13px;
+  color:#6b7280;
+}
+
+.detalhes-termos{
+  border-top:1px solid #ececf3;
+  padding-top:16px;
+}
+
+.detalhes-termos summary{
+  list-style:none;
+  cursor:pointer;
+  user-select:none;
+  font-weight:800;
+  color:var(--roxo1);
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+
+.detalhes-termos summary::-webkit-details-marker{
+  display:none;
+}
+
+.detalhes-termos summary::before{
+  content:"+";
+  width:22px;
+  height:22px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(111, 44, 255, 0.10);
+  color:var(--roxo1);
+  font-size:15px;
+  font-weight:800;
+}
+
+.detalhes-termos[open] summary::before{
+  content:"−";
+}
+
+.conteudo-termo-mobile{
+  margin-top:18px;
+  padding:18px;
+  border-radius:14px;
+  background:#faf8ff;
+  border:1px solid #ece4ff;
+}
+
+.conteudo-termo-mobile h4{
+  color:#1f1f27;
+  font-size:15px;
+  margin-bottom:10px;
+}
+
+.conteudo-termo-mobile p{
+  color:#374151;
+  line-height:1.7;
+  margin-bottom:12px;
+}
+
+.conteudo-termo-mobile ul{
+  margin-left:18px;
+  margin-bottom:12px;
+}
+
+.conteudo-termo-mobile ul li{
+  color:#374151;
+  margin-bottom:8px;
+  line-height:1.6;
+}
+
+.bloco-sem-aceite{
+  border-top:1px solid #ececf3;
+  padding-top:16px;
+}
+
+.bloco-sem-aceite strong{
+  display:block;
+  font-size:14px;
+  color:#111111;
+  margin-bottom:8px;
+}
+
+.bloco-sem-aceite p{
+  color:#6b7280;
+  margin-bottom:14px;
+}
+
+.botao-termo-desabilitado{
+  width:100%;
+  border:0;
+  border-radius:14px;
+  padding:14px 16px;
+  background:#ececf3;
+  color:#7b7b87;
+  font-weight:800;
+  cursor:not-allowed;
+}
+
 /* RESPONSIVO */
 @media (max-width:1050px){
   .grid-cadastros{
     grid-template-columns:repeat(2, minmax(260px, 1fr));
+  }
+
+  .resumo-status-termos{
+    grid-template-columns:1fr;
+  }
+
+  .grade-colaboradores-termos{
+    grid-template-columns:1fr;
   }
 }
 
@@ -182,6 +447,15 @@ body{
 
   .caixa-cadastro{
     min-height:170px;
+  }
+
+  .linha-superior-colaborador{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
+  .botao-termos-colaboradores{
+    width:100%;
   }
 }
 
