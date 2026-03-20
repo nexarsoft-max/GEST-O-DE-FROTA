@@ -33,14 +33,19 @@
         <h1>Monitoramento</h1>
       </div>
 
-      <div class="monitor-topo-acoes">
-        <a href="{{ url_for('mapa_geral') }}" class="btn-monitor-topo primary">
-          Ver mapa geral
-        </a>
-        <a href="{{ url_for('dashboard') }}" class="btn-monitor-topo ghost">
-          ← Voltar para Executivo
-        </a>
-      </div>
+   <div class="topo-botoes">
+  <a class="item-menu" href="{{ url_for('abastecimento') }}">
+    Abastecimento
+  </a>
+
+  <a class="item-menu ativo" href="{{ url_for('monitoramento') }}">
+    Monitoramento
+  </a>
+
+  <a class="item-menu" href="{{ url_for('colaboradores') }}">
+    Colaboradores
+  </a>
+</div>
     </header>
 
     <div class="tab-painel ativo" id="tab-monitoramento">

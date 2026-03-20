@@ -40,21 +40,19 @@
   <main class="conteudo">
     <header class="topo">
       <h1>Visão Executiva</h1>
+<div class="topo-botoes">
+  <a class="item-menu" href="{{ url_for('abastecimento') }}">
+    Abastecimento
+  </a>
 
-      <div class="topo-botoes">
-        <a class="item-menu aba-topo" href="{{ url_for('abastecimento') }}">
-          Abastecimento
-        </a>
+  <a class="item-menu" href="{{ url_for('monitoramento') }}">
+    Monitoramento
+  </a>
 
-        <a class="item-menu aba-topo" href="{{ url_for('monitoramento') }}">
-          Monitoramento
-        </a>
-
-        <a class="item-menu aba-topo ativo" href="{{ url_for('colaboradores') }}">
-          Colaboradores
-        </a>
-      </div>
-    </header>
+  <a class="item-menu ativo" href="{{ url_for('colaboradores') }}">
+    Colaboradores
+  </a>
+</div>    </header>
 
     <section class="cards-grid">
       <article class="metric-card">
