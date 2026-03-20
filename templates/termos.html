@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+DOCTYPE html>
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Termos de Uso – Nexar Software</title>
 
-<link rel="stylesheet" href="{{ url_for('static', filename='css/termos.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/termos.css') }}">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -14,12 +14,10 @@
 
   <aside class="barra-lateral">
     <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo">
-   
 
     <nav class="menu-novo">
       <a href="{{ url_for('dashboard') }}" class="item-menu">Executivo</a>
 
-      <!-- ✅ AQUI ERA O ERRO -->
       <a href="{{ url_for('geral_informacao') }}" class="item-menu ">Registros</a>
 
       <a href="{{ url_for('abastecimento') }}" class="item-menu">Registrar abastecimento</a>
@@ -28,13 +26,13 @@
       <a href="{{ url_for('logout') }}" class="item-menu sair">Sair</a>
     </nav>
   </aside>
+
   <main class="conteudo">
     <header class="header">
       <h1>TERMOS DE USO – <span>NEXAR SOFTWARE</span></h1>
       <p class="atualizacao">Versão Atual: 10.01v</p>
     </header>
 
-    <!-- OBJETO -->
     <section class="card">
       <h2>OBJETO</h2>
       <p>
@@ -50,7 +48,6 @@
       </ul>
     </section>
 
-    <!-- CADASTRO -->
     <section class="card">
       <h2>CADASTRO E RESPONSABILIDADE</h2>
       <p>O usuário é responsável por:</p>
@@ -63,7 +60,6 @@
       <p>É <span class="highlight">proibido</span> utilizar a plataforma para fins ilícitos ou inserir informações falsas.</p>
     </section>
 
-    <!-- DADOS -->
     <section class="card">
       <h2>DADOS E PRIVACIDADE</h2>
       <p>A plataforma poderá coletar e armazenar:</p>
@@ -77,10 +73,9 @@
       </ul>
       <p>O tratamento de dados é realizado em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018).</p>
       <p>Os dados são utilizados exclusivamente para execução dos serviços contratados, gestão operacional da frota e cumprimento de obrigações legais.</p>
-      <p>O titular poderá solicitar acesso, correção ou exclusão de dados através do e-mail: <strong>NexarAgencia@gmail.com</strong>.</p>
+      <p>O titular poderá solicitar acesso, correção ou exclusão de dados através do e-mail: <strong>contatoagencianexar@gmail.com</strong>.</p>
     </section>
 
-    <!-- COMODATO -->
     <section class="card">
       <h2>EQUIPAMENTOS EM COMODATO</h2>
       <p>
@@ -98,7 +93,6 @@
       <p>No encerramento do contrato, os equipamentos deverão ser devolvidos em condições adequadas, salvo desgaste natural.</p>
     </section>
 
-    <!-- RESPONSABILIDADE -->
     <section class="card">
       <h2>LIMITAÇÃO DE RESPONSABILIDADE</h2>
       <p>A NEXAR SOFTWARE não se responsabiliza por:</p>
@@ -109,13 +103,11 @@
       </ul>
     </section>
 
-    <!-- DISPONIBILIDADE -->
     <section class="card">
       <h2>DISPONIBILIDADE</h2>
       <p>A plataforma poderá passar por atualizações, melhorias técnicas e manutenções programadas, podendo haver interrupções temporárias.</p>
     </section>
 
-    <!-- CANCELAMENTO -->
     <section class="card">
       <h2>CANCELAMENTO</h2>
       <p>O usuário poderá solicitar o cancelamento da conta através do e-mail <strong>NexarAgencia@gmail.com</strong>.</p>

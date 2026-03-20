@@ -25,7 +25,8 @@ body{
 
 .container-principal {
   display: flex;
-  height: 100vh;
+  min-height: 100vh;
+  align-items: flex-start;
 }
 
 /* Sidebar */
@@ -37,6 +38,7 @@ body{
   height: 100vh;
   position: sticky;
   top: 0;
+  flex-shrink: 0;
 }
 
 /* Menu */
@@ -78,10 +80,12 @@ body{
 .item-menu.sair:hover {
   background: #000;
 }
+
 /* CONTEÚDO */
 .conteudo{
   flex:1;
   padding:48px 40px;
+  min-height: 100vh;
 }
 
 .header h1{
