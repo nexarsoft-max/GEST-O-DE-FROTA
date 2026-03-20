@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Colaboradores - Gestão de Frota</title>
+
+  <link rel="stylesheet" href="colaboradores.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+    rel="stylesheet"
+  >
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+  >
+</head>
+
+<body>
+
+<div class="container-principal">
+
+  <aside class="barra-lateral">
+    <div class="logo">
+      <img src="logo.png" alt="Logo">
+    </div>
+
+    <nav class="menu-novo">
+      <a href="{{ url_for('dashboard') }}" class="item-menu ativo">Executivo</a>
+      <a href="{{ url_for('geral_informacao') }}" class="item-menu">Registros</a>
+      <a href="{{ url_for('abastecimento') }}" class="item-menu">Registrar abastecimento</a>
+      <a href="{{ url_for('cadastro') }}" class="item-menu ">Cadastrar</a>
+      <a href="{{ url_for('termos') }}" class="item-menu">Termos</a>
+      <a href="{{ url_for('logout') }}" class="item-menu sair">Sair</a>
+    </nav>
+  </aside>
+
+  <main class="conteudo">
+    <header class="topo">
+      <h1>Visão Executiva</h1>
+
+      <div class="topo-botoes">
+        <a class="item-menu aba-topo" href="{{ url_for('abastecimento') }}">
+          Abastecimento
+        </a>
+
+        <a class="item-menu aba-topo" href="{{ url_for('monitoramento') }}">
+          Monitoramento
+        </a>
+
+        <a class="item-menu aba-topo ativo" href="{{ url_for('colaboradores') }}">
+          Colaboradores
+        </a>
+      </div>
+    </header>
+
+    <section class="cards-grid">
+      <article class="metric-card">
+        <div class="metric-icon bg-purple-soft">
+          <i class="fa-solid fa-users"></i>
+        </div>
+        <h3>Colaboradores ativos</h3>
+        <strong id="cardColaboradoresAtivos">--</strong>
+        <span>Quantidade total de colaboradores ativos no período consultado</span>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-icon bg-purple-soft">
+          <i class="fa-solid fa-clipboard-check"></i>
+        </div>
+        <h3>Checklists realizados</h3>
+        <strong id="cardChecklistsRealizados">--</strong>
+        <span>Quantidade total de checklists concluídos no período consultado</span>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-icon bg-purple-soft">
+          <i class="fa-solid fa-right-to-bracket"></i>
+        </div>
+        <h3>Entradas registradas</h3>
+        <strong id="cardEntradasRegistradas">--</strong>
+        <span>Total de registros de entrada encontrados</span>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-icon bg-purple-soft">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </div>
+        <h3>Saídas registradas</h3>
+        <strong id="cardSaidasRegistradas">--</strong>
+        <span>Total de registros de saída encontrados</span>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-icon bg-purple-soft">
+          <i class="fa-solid fa-car-side"></i>
+        </div>
+        <h3>Veículos em uso</h3>
+        <strong id="cardVeiculosEmUso">--</strong>
+        <span>Quantidade de veículos vinculados aos registros consultados</span>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-icon bg-purple-soft">
+          <i class="fa-solid fa-circle-exclamation"></i>
+        </div>
+        <h3>Pendências</h3>
+        <strong id="cardPendencias">--</strong>
+        <span>Total de registros com pendência operacional</span>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Registros de colaboradores</h2>
+          <p>Acompanhamento diário de entrada, saída, checklist, fotos e ajuste de ponto.</p>
+        </div>
+
+        <div class="filters-inline">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input
+              type="text"
+              id="mainSearchInput"
+              placeholder="Buscar por colaborador, veículo ou placa..."
+            >
+          </div>
+
+          <select id="mainStatusFilter">
+            <option value="">Todos os status</option>
+            <option value="finalizado">Finalizado</option>
+            <option value="em_andamento">Em andamento</option>
+            <option value="pendente">Pendente</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="premium-table">
+          <thead>
+            <tr>
+              <th>Colaborador</th>
+              <th>Veículo utilizado</th>
+              <th>Data</th>
+              <th>Hora entrada</th>
+              <th>Hora saída</th>
+              <th>Status</th>
+              <th>Checklist</th>
+              <th>Foto entrada</th>
+              <th>Foto saída</th>
+              <th>Ajuste de ponto</th>
+            </tr>
+          </thead>
+          <tbody id="mainTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="empty-state" id="mainEmptyState">
+        <div class="empty-state-icon">
+          <i class="fa-solid fa-folder-open"></i>
+        </div>
+        <h3>Nenhum registro disponível</h3>
+        <p>Os registros de colaboradores aparecerão aqui quando forem carregados no front.</p>
+      </div>
+    </section>
+
+    <section class="history-section">
+      <div class="panel">
+        <div class="panel-header history-header">
+          <div>
+            <h2>Histórico</h2>
+            <p>Filtre por colaborador, data, veículo, placa ou status para listar os registros encontrados.</p>
+          </div>
+        </div>
+
+        <div class="history-filters">
+          <div class="filter-group">
+            <label for="historyPerson">Colaborador</label>
+            <input
+              type="text"
+              id="historyPerson"
+              placeholder="Digite o nome do colaborador"
+            >
+          </div>
+
+          <div class="filter-group">
+            <label for="historyDate">Data</label>
+            <input type="date" id="historyDate">
+          </div>
+
+          <div class="filter-group">
+            <label for="historyVehicle">Veículo / placa</label>
+            <input
+              type="text"
+              id="historyVehicle"
+              placeholder="Digite o veículo ou a placa"
+            >
+          </div>
+
+          <div class="filter-group">
+            <label for="historyStatus">Status</label>
+            <select id="historyStatus">
+              <option value="">Todos</option>
+              <option value="finalizado">Finalizado</option>
+              <option value="em_andamento">Em andamento</option>
+              <option value="pendente">Pendente</option>
+            </select>
+          </div>
+
+          <div class="history-buttons">
+            <button class="btn btn-primary" id="filterHistoryButton" type="button">
+              <i class="fa-solid fa-filter"></i>
+              Filtrar histórico
+            </button>
+
+            <button class="btn btn-light" id="clearHistoryButton" type="button">
+              <i class="fa-solid fa-rotate-left"></i>
+              Limpar
+            </button>
+          </div>
+        </div>
+
+        <div class="history-cards">
+          <article class="history-card">
+            <span class="history-label">Resultado atual</span>
+            <strong id="historyResultCount">--</strong>
+            <p>Total de registros encontrados com os filtros aplicados</p>
+          </article>
+
+          <article class="history-card">
+            <span class="history-label">Finalizados</span>
+            <strong id="historyFinishedCount">--</strong>
+            <p>Registros com entrada, saída e checklist concluídos</p>
+          </article>
+
+          <article class="history-card">
+            <span class="history-label">Em andamento</span>
+            <strong id="historyInProgressCount">--</strong>
+            <p>Registros ainda abertos ou com operação em curso</p>
+          </article>
+
+          <article class="history-card">
+            <span class="history-label">Pendentes</span>
+            <strong id="historyPendingCount">--</strong>
+            <p>Registros com ausência de fechamento ou pendência operacional</p>
+          </article>
+        </div>
+
+        <div class="results-panel">
+          <div class="results-panel-header">
+            <h3>Resultados do histórico</h3>
+            <span id="historyAppliedFilterText">Nenhum filtro aplicado</span>
+          </div>
+
+          <div class="table-wrap">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>Colaborador</th>
+                  <th>Veículo</th>
+                  <th>Placa</th>
+                  <th>Data</th>
+                  <th>Entrada</th>
+                  <th>Saída</th>
+                  <th>Status</th>
+                  <th>Checklist</th>
+                  <th>Foto entrada</th>
+                  <th>Foto saída</th>
+                  <th>Ajuste de ponto</th>
+                </tr>
+              </thead>
+              <tbody id="historyResultsBody"></tbody>
+            </table>
+          </div>
+
+          <div class="empty-state" id="historyEmptyState">
+            <div class="empty-state-icon">
+              <i class="fa-solid fa-magnifying-glass"></i>
+            </div>
+            <h3>Nenhum resultado encontrado</h3>
+            <p>Os registros filtrados aparecerão aqui quando houver correspondência.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="modal-overlay" id="adjustModal">
+  <div class="adjust-modal">
+    <div class="adjust-modal-header">
+      <div>
+        <h3>Ajustar ponto</h3>
+        <p>Preencha as informações para corrigir o registro selecionado.</p>
+      </div>
+
+      <button class="close-modal" id="closeAdjustModal" type="button" aria-label="Fechar modal">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="adjust-user-box">
+      <div class="adjust-user-icon">
+        <i class="fa-solid fa-user"></i>
+      </div>
+      <div>
+        <strong id="adjustCollaboratorName">Registro selecionado</strong>
+        <span id="adjustCollaboratorInfo">As informações do registro aparecerão aqui</span>
+      </div>
+    </div>
+
+    <form class="adjust-form" id="adjustForm">
+      <div class="adjust-grid">
+        <div class="adjust-field">
+          <label for="adjustDate">Data do ponto</label>
+          <input type="date" id="adjustDate">
+        </div>
+
+        <div class="adjust-field">
+          <label for="adjustEntry">Hora de entrada</label>
+          <input type="time" id="adjustEntry">
+        </div>
+
+        <div class="adjust-field">
+          <label for="adjustExit">Hora de saída</label>
+          <input type="time" id="adjustExit">
+        </div>
+
+        <div class="adjust-field">
+          <label for="adjustStatus">Status da solicitação</label>
+          <select id="adjustStatus">
+            <option value="solicitado">Solicitado</option>
+            <option value="em_analise">Em análise</option>
+            <option value="ajustado">Ajustado</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="adjust-field full">
+        <label for="adjustReason">Motivo do ajuste</label>
+        <textarea
+          id="adjustReason"
+          rows="5"
+          placeholder="Descreva o motivo do ajuste do ponto"
+        ></textarea>
+      </div>
+
+      <div class="adjust-actions">
+        <button type="button" class="btn btn-light" id="cancelAdjustModal">
+          Cancelar
+        </button>
+
+        <button type="submit" class="btn btn-primary">
+          Salvar ajuste
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="nexar-chat-wrapper">
+  <input type="checkbox" id="nexar-chat-toggle">
+  <label for="nexar-chat-toggle" class="nexar-chat-button">💬</label>
+
+  <div class="nexar-chat-container">
+    <div class="nexar-chat-header">
+      <div class="nexar-avatar">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo Nexar">
+      </div>
+      <div>
+        <h3>Nexar</h3>
+        <div class="nexar-status">● Assistente Inteligente</div>
+      </div>
+    </div>
+
+    <div class="nexar-chat-body">
+      <div class="nexar-message bot">
+        Olá! Sou a <strong>Nexar</strong>, sua assistente inteligente.<br>
+        Como posso ajudar você hoje?
+      </div>
+    </div>
+
+    <div class="nexar-chat-input">
+      <input type="text" placeholder="Digite sua dúvida...">
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/colaboradores.js') }}"></script>
+
+<script>
+  window.addEventListener("pageshow", function (event) {
+    if (event.persisted) window.location.reload();
+  });
+</script>
+
+</body>
+</html>
