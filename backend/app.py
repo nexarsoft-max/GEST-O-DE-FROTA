@@ -1378,7 +1378,6 @@ Registros de ponto (entrada e saída)
 Checklists de veículos e ferramentas
 Fotografias e documentação relacionada
 Localização e dados de uso do aplicativo
-
 4. Uso Responsável
 Ao utilizar o GoRota, você concorda em usar o aplicativo de forma responsável e em conformidade com todas as políticas internas da empresa. O uso inadequado ou não autorizado do sistema pode resultar em sanções conforme as normas trabalhistas e políticas organizacionais.
 
@@ -1386,10 +1385,25 @@ Ao utilizar o GoRota, você concorda em usar o aplicativo de forma responsável 
 A Nexar se reserva o direito de atualizar estes termos a qualquer momento. Os usuários serão notificados sobre alterações significativas e deverão aceitar os novos termos para continuar utilizando o aplicativo.
 
 6. Autorização de Uso de Imagem
-Ao aceitar estes termos, o usuário autoriza, de forma expressa e irrevogável, o uso de sua imagem que possa ser capturada durante a utilização do aplicativo GoRota.
+Ao aceitar estes termos, o usuário autoriza, de forma expressa e irrevogável, o uso de sua imagem que possa ser capturada durante a utilização do aplicativo GoRota, incluindo mas não se limitando a fotografias de vistoria de veículos, registros de atividades operacionais e documentação de processos internos.
 
-7. Responsabilidade do Usuário
-O usuário é responsável pelas informações registradas no sistema.
+Esta autorização abrange a captação, armazenamento, processamento e utilização da imagem para finalidades exclusivamente relacionadas ao controle de jornada, segurança operacional, auditoria interna e cumprimento de regulamentações trabalhistas vigentes.
+
+O usuário declara estar ciente de que as imagens coletadas poderão ser armazenadas em servidores seguros e acessadas por gestores autorizados para fins de supervisão, análise de conformidade e resolução de eventuais divergências operacionais, sempre respeitando os princípios de privacidade e proteção de dados pessoais.
+
+7. Responsabilidade do Usuário e Limitação de Responsabilidade
+O usuário é integralmente responsável pela veracidade, exatidão e completude das informações registradas no aplicativo GoRota, incluindo mas não se limitando a registros de ponto, checklists de veículos, relatórios de atividades e demais dados inseridos durante a operação do sistema.
+
+A Nexar e seus representantes não se responsabilizam por quaisquer danos, prejuízos, acidentes, multas, sanções ou perdas decorrentes de:
+
+Preenchimento incorreto, incompleto ou fraudulento dos checklists de veículos e ferramentas
+Omissão de informações relevantes sobre condições do veículo ou equipamentos
+Utilização de veículos ou equipamentos em condições inadequadas identificadas ou não reportadas no checklist
+Registros de jornada imprecisos ou manipulados pelo usuário
+Má utilização do aplicativo em desconformidade com as diretrizes operacionais estabelecidas
+O aplicativo GoRota é uma ferramenta de auxílio ao controle de jornada e vistoria operacional, não substituindo a responsabilidade individual do usuário pela inspeção física adequada dos veículos, cumprimento das normas de segurança e veracidade dos dados informados. O usuário reconhece que a aprovação automática de checklists pelo sistema não exime sua obrigação de reportar imediatamente qualquer irregularidade identificada aos superiores competentes.
+
+A Nexar não se responsabiliza por incompatibilidades, falhas de desempenho ou impossibilidade de utilização do aplicativo decorrentes de dispositivos móveis que não atendam aos requisitos mínimos de sistema operacional, capacidade de processamento, memória ou conectividade de rede. É de responsabilidade exclusiva do usuário e/ou da empresa contratante garantir que os dispositivos utilizados sejam compatíveis e estejam em condições adequadas de funcionamento para operação do GoRota.
 """.strip()
 
 
@@ -1603,6 +1617,59 @@ def api_mobile_me():
     }), 200
 
 
+# =========================
+# API MOBILE - VEÍCULOS DISPONÍVEIS
+# =========================
+@app.get("/api/mobile/veiculos")
+def api_mobile_veiculos():
+    r = proteger_api_mobile()
+    if r:
+        return r
+
+    usuario_id = int(g.mobile_auth["usuario_id"])
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT id, modelo, placa, COALESCE(renavam, ''), cidade
+            FROM veiculos
+            WHERE usuario_id = %s
+            ORDER BY id DESC
+        """, (usuario_id,))
+
+        rows = cur.fetchall()
+
+        veiculos = []
+        for row in rows:
+            veiculos.append({
+                "id": int(row[0]),
+                "modelo": row[1],
+                "placa": row[2],
+                "renavam": row[3] or "",
+                "cidade": row[4]
+            })
+
+        return jsonify({
+            "sucesso": True,
+            "veiculos": veiculos
+        }), 200
+
+    except Exception as e:
+        print("ERRO api_mobile_veiculos:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": "Erro ao carregar veículos"
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+            
 # =========================
 # API MOBILE - VALIDAR SESSAO
 # =========================

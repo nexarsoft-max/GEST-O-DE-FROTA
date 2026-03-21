@@ -1618,6 +1618,59 @@ def api_mobile_me():
 
 
 # =========================
+# API MOBILE - VEÍCULOS DISPONÍVEIS
+# =========================
+@app.get("/api/mobile/veiculos")
+def api_mobile_veiculos():
+    r = proteger_api_mobile()
+    if r:
+        return r
+
+    usuario_id = int(g.mobile_auth["usuario_id"])
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT id, modelo, placa, COALESCE(renavam, ''), cidade
+            FROM veiculos
+            WHERE usuario_id = %s
+            ORDER BY id DESC
+        """, (usuario_id,))
+
+        rows = cur.fetchall()
+
+        veiculos = []
+        for row in rows:
+            veiculos.append({
+                "id": int(row[0]),
+                "modelo": row[1],
+                "placa": row[2],
+                "renavam": row[3] or "",
+                "cidade": row[4]
+            })
+
+        return jsonify({
+            "sucesso": True,
+            "veiculos": veiculos
+        }), 200
+
+    except Exception as e:
+        print("ERRO api_mobile_veiculos:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": "Erro ao carregar veículos"
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+            
+# =========================
 # API MOBILE - VALIDAR SESSAO
 # =========================
 @app.get("/api/mobile/session")
