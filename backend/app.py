@@ -1966,6 +1966,76 @@ def api_mobile_finalizar_expediente():
         if conn:
             conn.close()
 
+    # =========================
+# API MOBILE - EXPEDIENTE ATUAL
+# =========================
+@app.get("/api/mobile/expediente-atual")
+def api_mobile_expediente_atual():
+    r = proteger_api_mobile()
+    if r:
+        return r
+
+    motorista_id = int(g.mobile_auth["motorista_id"])
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT
+                vu.id,
+                vu.veiculo_id,
+                vu.iniciado_em,
+                v.modelo,
+                v.placa,
+                v.cidade
+            FROM veiculos_uso vu
+            INNER JOIN veiculos v
+                ON v.id = vu.veiculo_id
+            WHERE vu.motorista_id = %s
+              AND vu.ativo = TRUE
+            ORDER BY vu.id DESC
+            LIMIT 1
+        """, (motorista_id,))
+
+        row = cur.fetchone()
+
+        if not row:
+            return jsonify({
+                "sucesso": True,
+                "expediente_ativo": False,
+                "vinculo": None
+            }), 200
+
+        vinculo_id, veiculo_id, iniciado_em, modelo, placa, cidade = row
+
+        return jsonify({
+            "sucesso": True,
+            "expediente_ativo": True,
+            "vinculo": {
+                "id": int(vinculo_id),
+                "veiculo_id": int(veiculo_id),
+                "modelo": modelo,
+                "placa": placa,
+                "cidade": cidade,
+                "iniciado_em": iniciado_em.isoformat() if iniciado_em else None
+            }
+        }), 200
+
+    except Exception as e:
+        print("ERRO api_mobile_expediente_atual:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": "Erro ao consultar expediente atual"
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+            
 # =========================
 # API POSTOS
 # =========================
