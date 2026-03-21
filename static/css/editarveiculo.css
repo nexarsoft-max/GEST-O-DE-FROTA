@@ -1,0 +1,22 @@
+*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif;}
+body{background:#f3f4f6;margin:0;}
+.card{max-width:900px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,.08);}
+.card-header{background:linear-gradient(90deg,#6f2cff,#9b5cff);color:white;padding:18px 24px;display:flex;gap:14px;align-items:center;}
+.back-btn{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,0.15);border:none;color:white;font-size:22px;cursor:pointer;}
+.card-body{padding:24px;}
+label{font-size:14px;font-weight:600;color:#374151;display:block;margin-bottom:6px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.full{grid-column:span 2;}
+input{height:44px;border-radius:10px;border:1px solid #e5e7eb;padding:0 14px;width:100%;}
+input:focus{outline:none;border-color:#8b1cf6;box-shadow:0 0 0 2px rgba(139,28,246,.15);}
+.actions{display:flex;gap:12px;margin-top:28px;}
+.btn-save{flex:1;height:48px;border-radius:12px;border:none;cursor:pointer;background:#8b1cf6;color:white;font-size:15px;font-weight:600;}
+.btn-delete{background:#dc2626;}
+.mini-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.msg{margin-top:14px;color:#6b7280;font-size:13px;}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;z-index:9999;}
+.modal-box{background:white;padding:24px;border-radius:14px;max-width:360px;width:100%;text-align:center;}
+.modal-actions{display:flex;gap:10px;margin-top:20px;}
+.modal-actions button{flex:1;height:42px;border-radius:10px;border:none;cursor:pointer;font-size:14px;}
+.cancel{background:#e5e7eb;}
+.confirm{background:#dc2626;color:white;}
