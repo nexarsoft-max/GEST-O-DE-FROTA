@@ -10,21 +10,48 @@
 <body data-veiculo-id="{{ veiculo_id }}">
   <div class="card">
     <div class="card-header">
-      <button class="back-btn" type="button" onclick="history.back()">←</button>
+      <button class="back-btn" type="button" onclick="location.assign('/dentroveiculo')">←</button>
       <strong>Editar Veículo</strong>
     </div>
 
     <div class="card-body">
       <div class="form-grid">
-        <input id="modelo" placeholder="Modelo">
-        <input id="placa" placeholder="Placa">
-        <input id="renavam" placeholder="Renavam">
-        <input id="cidade" class="full" placeholder="Cidade">
+        <div>
+          <label>Modelo</label>
+          <input id="modelo" placeholder="Modelo">
+        </div>
+
+        <div>
+          <label>Placa</label>
+          <input id="placa" placeholder="Placa">
+        </div>
+
+        <div>
+          <label>Renavam</label>
+          <input id="renavam" placeholder="Renavam">
+        </div>
+
+        <div class="full">
+          <label>Cidade</label>
+          <input id="cidade" placeholder="Cidade">
+        </div>
       </div>
 
       <div class="actions">
         <button class="btn-save" type="button" onclick="salvar()">Salvar Alterações</button>
-        <button class="btn-save btn-delete" type="button" onclick="excluir()">Excluir</button>
+        <button class="btn-save btn-delete" type="button" onclick="abrirModal()">Excluir</button>
+      </div>
+
+      <div class="msg" id="msg"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal" onclick="fecharModal(event)">
+    <div class="modal-box">
+      <p><strong>Confirmar exclusão?</strong><br>Essa ação não pode ser desfeita.</p>
+      <div class="modal-actions">
+        <button class="cancel" type="button" onclick="fecharModal()">Cancelar</button>
+        <button class="confirm" type="button" onclick="excluir()">Excluir</button>
       </div>
     </div>
   </div>

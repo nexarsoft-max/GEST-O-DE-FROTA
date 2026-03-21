@@ -1,25 +1,33 @@
 const VEICULO_ID = Number(document.body.dataset.veiculoId);
 
+function setMsg(texto) {
+  document.getElementById("msg").textContent = texto || "";
+}
+
 async function carregar() {
   if (!VEICULO_ID || Number.isNaN(VEICULO_ID)) {
     alert("ID do veículo inválido");
-    history.back();
     return;
   }
 
+  setMsg("Carregando...");
+
   try {
-    const resp = await fetch(`/api/veiculos/${VEICULO_ID}`);
+    const resp = await fetch(`/api/veiculos/${VEICULO_ID}`, {
+      headers: { "Accept": "application/json" }
+    });
+
     const data = await resp.json().catch(() => ({}));
 
     if (resp.status === 401) {
-      alert("Sessão expirada");
+      alert("Sessão expirada. Faça login novamente.");
       location.assign("/");
       return;
     }
 
     if (!resp.ok) {
-      alert(data.erro || "Erro ao carregar veículo");
-      history.back();
+      setMsg("");
+      alert(data.erro || `Erro ao carregar veículo (HTTP ${resp.status})`);
       return;
     }
 
@@ -27,7 +35,10 @@ async function carregar() {
     document.getElementById("placa").value = data.placa || "";
     document.getElementById("renavam").value = data.renavam || "";
     document.getElementById("cidade").value = data.cidade || "";
+
+    setMsg("");
   } catch (erro) {
+    setMsg("");
     alert("Erro de conexão ao carregar veículo");
     console.error(erro);
   }
@@ -43,6 +54,13 @@ async function salvar() {
   const placa = document.getElementById("placa").value.trim();
   const renavam = document.getElementById("renavam").value.trim();
   const cidade = document.getElementById("cidade").value.trim();
+
+  if (!modelo || !placa || !renavam || !cidade) {
+    alert("Preencha todos os campos.");
+    return;
+  }
+
+  setMsg("Salvando...");
 
   try {
     const resp = await fetch(`/api/veiculos/${VEICULO_ID}`, {
@@ -61,21 +79,33 @@ async function salvar() {
     const data = await resp.json().catch(() => ({}));
 
     if (resp.status === 401) {
-      alert("Sessão expirada");
+      alert("Sessão expirada. Faça login novamente.");
       location.assign("/");
       return;
     }
 
     if (!resp.ok) {
-      alert(data.erro || "Erro ao salvar");
+      setMsg("");
+      alert(data.erro || `Erro ao salvar (HTTP ${resp.status})`);
       return;
     }
 
-    alert("Veículo atualizado com sucesso");
-    location.assign("/dentroveiculo");
+    setMsg("Salvo com sucesso!");
+    setTimeout(() => location.assign("/dentroveiculo"), 300);
   } catch (erro) {
+    setMsg("");
     alert("Erro de conexão ao salvar");
     console.error(erro);
+  }
+}
+
+function abrirModal() {
+  document.getElementById("modal").style.display = "flex";
+}
+
+function fecharModal(e) {
+  if (!e || e.target.id === "modal") {
+    document.getElementById("modal").style.display = "none";
   }
 }
 
@@ -85,9 +115,7 @@ async function excluir() {
     return;
   }
 
-  if (!confirm("Excluir veículo?")) {
-    return;
-  }
+  setMsg("Excluindo...");
 
   try {
     const resp = await fetch(`/api/veiculos/${VEICULO_ID}`, {
@@ -97,19 +125,20 @@ async function excluir() {
     const data = await resp.json().catch(() => ({}));
 
     if (resp.status === 401) {
-      alert("Sessão expirada");
+      alert("Sessão expirada. Faça login novamente.");
       location.assign("/");
       return;
     }
 
     if (!resp.ok) {
-      alert(data.erro || "Erro ao excluir");
+      setMsg("");
+      alert(data.erro || `Erro ao excluir (HTTP ${resp.status})`);
       return;
     }
 
-    alert("Veículo excluído com sucesso");
     location.assign("/dentroveiculo");
   } catch (erro) {
+    setMsg("");
     alert("Erro de conexão ao excluir");
     console.error(erro);
   }
