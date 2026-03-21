@@ -1,111 +1,34 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>Editar Veículo</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<style>
-* { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
-body { background: #f3f4f6; margin: 0; }
-.card { max-width: 900px; margin: 40px auto; background: #ffffff; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
-.card-header { background: linear-gradient(90deg, #6f2cff, #9b5cff); color: white; padding: 18px 24px; display: flex; gap: 14px; align-items: center; }
-.back-btn { width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.15); border: none; color: white; font-size: 22px; cursor: pointer; }
-.card-body { padding: 24px; }
-.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-.full { grid-column: span 2; }
-input { height: 44px; border-radius: 10px; border: 1px solid #e5e7eb; padding: 0 14px; font-size: 14px; }
-.actions { display: flex; gap: 12px; margin-top: 28px; }
-.btn-save { flex: 1; height: 48px; border-radius: 12px; border: none; cursor: pointer; background: #8b1cf6; color: white; font-size: 15px; }
-.btn-delete { background: #dc2626; }
-</style>
+  <meta charset="UTF-8">
+  <title>Editar Veículo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/editarveiculo.css') }}">
 </head>
 
-<body>
-
-<div class="card">
-  <div class="card-header">
-    <button class="back-btn" type="button" onclick="history.back()">←</button>
-    <strong>Editar Veículo</strong>
-  </div>
-
-  <div class="card-body">
-    <div class="form-grid">
-      <input id="modelo" placeholder="Modelo">
-      <input id="placa" placeholder="Placa">
-      <input id="renavam" placeholder="Renavam">
-      <input id="cidade" class="full" placeholder="Cidade">
+<body data-veiculo-id="{{ veiculo_id }}">
+  <div class="card">
+    <div class="card-header">
+      <button class="back-btn" type="button" onclick="history.back()">←</button>
+      <strong>Editar Veículo</strong>
     </div>
 
-    <div class="actions">
-      <button class="btn-save" type="button" onclick="salvar()">Salvar Alterações</button>
-      <button class="btn-save btn-delete" type="button" onclick="excluir()">Excluir</button>
+    <div class="card-body">
+      <div class="form-grid">
+        <input id="modelo" placeholder="Modelo">
+        <input id="placa" placeholder="Placa">
+        <input id="renavam" placeholder="Renavam">
+        <input id="cidade" class="full" placeholder="Cidade">
+      </div>
+
+      <div class="actions">
+        <button class="btn-save" type="button" onclick="salvar()">Salvar Alterações</button>
+        <button class="btn-save btn-delete" type="button" onclick="excluir()">Excluir</button>
+      </div>
     </div>
   </div>
-</div>
 
-<script>
-const VEICULO_ID = Number("{{ veiculo_id|int }}");
-
-async function carregar(){
-  const resp = await fetch(`/api/veiculos/${VEICULO_ID}`);
-  const data = await resp.json().catch(()=> ({}));
-
-  if(resp.status === 401){
-    alert("Sessão expirada");
-    location.assign("/");
-    return;
-  }
-
-  if(!resp.ok){
-    alert("Erro ao carregar veículo");
-    history.back();
-    return;
-  }
-
-  document.getElementById("modelo").value = data.modelo || "";
-  document.getElementById("placa").value = data.placa || "";
-  document.getElementById("renavam").value = data.renavam || "";
-  document.getElementById("cidade").value = data.cidade || "";
-}
-
-async function salvar(){
-  const modelo = document.getElementById("modelo").value.trim();
-  const placa = document.getElementById("placa").value.trim();
-  const renavam = document.getElementById("renavam").value.trim();
-  const cidade = document.getElementById("cidade").value.trim();
-
-  const resp = await fetch(`/api/veiculos/${VEICULO_ID}`, {
-    method: "PUT",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ modelo, placa, renavam, cidade })
-  });
-
-  if(!resp.ok){
-    alert("Erro ao salvar");
-    return;
-  }
-
-  location.assign("/dentroveiculo");
-}
-
-async function excluir(){
-  if(!confirm("Excluir veículo?")) return;
-
-  const resp = await fetch(`/api/veiculos/${VEICULO_ID}`, {
-    method: "DELETE"
-  });
-
-  if(!resp.ok){
-    alert("Erro ao excluir");
-    return;
-  }
-
-  location.assign("/dentroveiculo");
-}
-
-carregar();
-</script>
-
+  <script src="{{ url_for('static', filename='js/editarveiculo.js') }}"></script>
 </body>
 </html>
