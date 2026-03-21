@@ -588,17 +588,29 @@ def api_monitoramento_resumo():
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT id, modelo, placa, cidade
-            FROM veiculos
-            WHERE usuario_id = %s
-            ORDER BY id DESC
+            SELECT
+                v.id,
+                v.modelo,
+                v.placa,
+                v.cidade,
+                vu.motorista_id,
+                m.nome
+            FROM veiculos v
+            LEFT JOIN veiculos_uso vu
+                ON vu.veiculo_id = v.id
+               AND vu.ativo = TRUE
+            LEFT JOIN motoristas m
+                ON m.id = vu.motorista_id
+            WHERE v.usuario_id = %s
+            ORDER BY v.id DESC
         """, (uid,))
+
         veiculos_rows = cur.fetchall()
 
         data_out = []
 
         for row in veiculos_rows:
-            veiculo_id, modelo, placa, cidade = row
+            veiculo_id, modelo, placa, cidade, motorista_id, motorista_nome = row
 
             data_out.append({
                 "id": int(veiculo_id),
@@ -607,9 +619,9 @@ def api_monitoramento_resumo():
                 "placa": placa,
                 "cidade": cidade,
 
-                # monitoramento real vai vir do app mobile / rastreador depois
+                # continua dependendo do rastreador depois
                 "status": "offline",
-                "motoristaNome": None,
+                "motoristaNome": motorista_nome if motorista_nome else None,
                 "velocidade_kmh": None,
                 "combustivel_pct": None,
                 "ultima_atualizacao": None,
@@ -1618,7 +1630,7 @@ def api_mobile_me():
 
 
 # =========================
-# API MOBILE - VEÍCULOS DISPONÍVEIS
+# API MOBILE - VEÍCULOS DISPONÍVEIS (COM STATUS)
 # =========================
 @app.get("/api/mobile/veiculos")
 def api_mobile_veiculos():
@@ -1634,22 +1646,45 @@ def api_mobile_veiculos():
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT id, modelo, placa, COALESCE(renavam, ''), cidade
-            FROM veiculos
-            WHERE usuario_id = %s
-            ORDER BY id DESC
+            SELECT
+                v.id,
+                v.modelo,
+                v.placa,
+                COALESCE(v.renavam, ''),
+                v.cidade,
+
+                vu.motorista_id,
+                m.nome
+
+            FROM veiculos v
+
+            LEFT JOIN veiculos_uso vu
+                ON vu.veiculo_id = v.id
+               AND vu.ativo = TRUE
+
+            LEFT JOIN motoristas m
+                ON m.id = vu.motorista_id
+
+            WHERE v.usuario_id = %s
+            ORDER BY v.id DESC
         """, (usuario_id,))
 
         rows = cur.fetchall()
 
         veiculos = []
         for row in rows:
+            veiculo_id, modelo, placa, renavam, cidade, motorista_id, motorista_nome = row
+
             veiculos.append({
-                "id": int(row[0]),
-                "modelo": row[1],
-                "placa": row[2],
-                "renavam": row[3] or "",
-                "cidade": row[4]
+                "id": int(veiculo_id),
+                "modelo": modelo,
+                "placa": placa,
+                "renavam": renavam or "",
+                "cidade": cidade,
+
+                # 🔥 NOVO
+                "em_uso": motorista_id is not None,
+                "motorista_nome": motorista_nome if motorista_nome else None
             })
 
         return jsonify({
@@ -1669,7 +1704,6 @@ def api_mobile_veiculos():
             cur.close()
         if conn:
             conn.close()
-            
 # =========================
 # API MOBILE - VALIDAR SESSAO
 # =========================
@@ -1780,6 +1814,158 @@ def api_mobile_logout_all():
         if conn:
             conn.close()
             
+# =========================
+# API MOBILE - INICIAR EXPEDIENTE
+# =========================
+@app.post("/api/mobile/iniciar-expediente")
+def api_mobile_iniciar_expediente():
+    r = proteger_api_mobile()
+    if r:
+        return r
+
+    dados = request.get_json(silent=True) or {}
+
+    veiculo_id = dados.get("veiculo_id")
+    if not veiculo_id:
+        return jsonify({
+            "sucesso": False,
+            "erro": "veiculo_id é obrigatório"
+        }), 400
+
+    motorista_id = int(g.mobile_auth["motorista_id"])
+    usuario_id = int(g.mobile_auth["usuario_id"])
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        # garante que o veículo pertence ao mesmo usuário/gestor
+        cur.execute("""
+            SELECT id, modelo, placa
+            FROM veiculos
+            WHERE id = %s AND usuario_id = %s
+            LIMIT 1
+        """, (veiculo_id, usuario_id))
+
+        row = cur.fetchone()
+        if not row:
+            return jsonify({
+                "sucesso": False,
+                "erro": "Veículo não encontrado"
+            }), 404
+
+        veiculo_id_db, modelo, placa = row
+
+        # encerra vínculo ativo anterior desse motorista
+        cur.execute("""
+            UPDATE veiculos_uso
+            SET ativo = FALSE,
+                finalizado_em = CURRENT_TIMESTAMP
+            WHERE motorista_id = %s
+              AND ativo = TRUE
+        """, (motorista_id,))
+
+        # encerra vínculo ativo anterior desse veículo
+        cur.execute("""
+            UPDATE veiculos_uso
+            SET ativo = FALSE,
+                finalizado_em = CURRENT_TIMESTAMP
+            WHERE veiculo_id = %s
+              AND ativo = TRUE
+        """, (veiculo_id_db,))
+
+        # cria novo vínculo
+        cur.execute("""
+            INSERT INTO veiculos_uso (
+                motorista_id,
+                veiculo_id,
+                usuario_id,
+                ativo
+            )
+            VALUES (%s, %s, %s, TRUE)
+            RETURNING id, iniciado_em
+        """, (
+            motorista_id,
+            veiculo_id_db,
+            usuario_id
+        ))
+
+        vinculo_id, iniciado_em = cur.fetchone()
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True,
+            "vinculo": {
+                "id": int(vinculo_id),
+                "motorista_id": motorista_id,
+                "veiculo_id": int(veiculo_id_db),
+                "modelo": modelo,
+                "placa": placa,
+                "iniciado_em": iniciado_em.isoformat() if iniciado_em else None
+            }
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("ERRO api_mobile_iniciar_expediente:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": "Erro ao iniciar expediente"
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+    # =========================
+# API MOBILE - FINALIZAR EXPEDIENTE
+# =========================
+@app.post("/api/mobile/finalizar-expediente")
+def api_mobile_finalizar_expediente():
+    r = proteger_api_mobile()
+    if r:
+        return r
+
+    motorista_id = int(g.mobile_auth["motorista_id"])
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            UPDATE veiculos_uso
+            SET ativo = FALSE,
+                finalizado_em = CURRENT_TIMESTAMP
+            WHERE motorista_id = %s
+              AND ativo = TRUE
+        """, (motorista_id,))
+
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("ERRO api_mobile_finalizar_expediente:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": "Erro ao finalizar expediente"
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
 # =========================
 # API POSTOS
 # =========================

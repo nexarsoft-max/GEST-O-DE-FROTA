@@ -464,6 +464,75 @@ def criar_tabelas():
     END$$;
     """)
     
+      # =========================
+    # 10) VÍNCULO MOTORISTA-VEÍCULO EM USO
+    # =========================
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS veiculos_uso (
+        id BIGSERIAL PRIMARY KEY,
+        motorista_id BIGINT NOT NULL,
+        veiculo_id BIGINT NOT NULL,
+        usuario_id BIGINT NOT NULL,
+        ativo BOOLEAN DEFAULT TRUE,
+        iniciado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        finalizado_em TIMESTAMP,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (motorista_id) REFERENCES motoristas(id) ON DELETE CASCADE,
+        FOREIGN KEY (veiculo_id) REFERENCES veiculos(id) ON DELETE CASCADE,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+    );
+    """)
+
+    cur.execute("""ALTER TABLE veiculos_uso ADD COLUMN IF NOT EXISTS motorista_id BIGINT;""")
+    cur.execute("""ALTER TABLE veiculos_uso ADD COLUMN IF NOT EXISTS veiculo_id BIGINT;""")
+    cur.execute("""ALTER TABLE veiculos_uso ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
+    cur.execute("""ALTER TABLE veiculos_uso ADD COLUMN IF NOT EXISTS ativo BOOLEAN DEFAULT TRUE;""")
+    cur.execute("""ALTER TABLE veiculos_uso ADD COLUMN IF NOT EXISTS iniciado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
+    cur.execute("""ALTER TABLE veiculos_uso ADD COLUMN IF NOT EXISTS finalizado_em TIMESTAMP;""")
+    cur.execute("""ALTER TABLE veiculos_uso ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname='public' AND indexname='ix_veiculos_uso_motorista'
+        ) THEN
+            CREATE INDEX ix_veiculos_uso_motorista
+            ON veiculos_uso (motorista_id);
+        END IF;
+    END$$;
+    """)
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname='public' AND indexname='ix_veiculos_uso_veiculo'
+        ) THEN
+            CREATE INDEX ix_veiculos_uso_veiculo
+            ON veiculos_uso (veiculo_id);
+        END IF;
+    END$$;
+    """)
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname='public' AND indexname='ix_veiculos_uso_usuario'
+        ) THEN
+            CREATE INDEX ix_veiculos_uso_usuario
+            ON veiculos_uso (usuario_id);
+        END IF;
+    END$$;
+    """)
+
     conn.commit()
     cur.close()
     conn.close()
