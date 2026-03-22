@@ -287,77 +287,8 @@
   </main>
 </div>
 
-<div class="modal-overlay" id="adjustModal">
-  <div class="adjust-modal">
-    <div class="adjust-modal-header">
-      <div>
-        <h3>Ajustar ponto</h3>
-        <p>Preencha as informações para corrigir o registro selecionado.</p>
-      </div>
 
-      <button class="close-modal" id="closeAdjustModal" type="button" aria-label="Fechar modal">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-    </div>
-
-    <div class="adjust-user-box">
-      <div class="adjust-user-icon">
-        <i class="fa-solid fa-user"></i>
-      </div>
-      <div>
-        <strong id="adjustCollaboratorName">Registro selecionado</strong>
-        <span id="adjustCollaboratorInfo">As informações do registro aparecerão aqui</span>
-      </div>
-    </div>
-
-    <form class="adjust-form" id="adjustForm">
-      <div class="adjust-grid">
-        <div class="adjust-field">
-          <label for="adjustDate">Data do ponto</label>
-          <input type="date" id="adjustDate">
-        </div>
-
-        <div class="adjust-field">
-          <label for="adjustEntry">Hora de entrada</label>
-          <input type="time" id="adjustEntry">
-        </div>
-
-        <div class="adjust-field">
-          <label for="adjustExit">Hora de saída</label>
-          <input type="time" id="adjustExit">
-        </div>
-
-        <div class="adjust-field">
-          <label for="adjustStatus">Status da solicitação</label>
-          <select id="adjustStatus">
-            <option value="solicitado">Solicitado</option>
-            <option value="em_analise">Em análise</option>
-            <option value="ajustado">Ajustado</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="adjust-field full">
-        <label for="adjustReason">Motivo do ajuste</label>
-        <textarea
-          id="adjustReason"
-          rows="5"
-          placeholder="Descreva o motivo do ajuste do ponto"
-        ></textarea>
-      </div>
-
-      <div class="adjust-actions">
-        <button type="button" class="btn btn-light" id="cancelAdjustModal">
-          Cancelar
-        </button>
-
-        <button type="submit" class="btn btn-primary">
-          Salvar ajuste
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
+  
 
 <div class="nexar-chat-wrapper">
   <input type="checkbox" id="nexar-chat-toggle">
@@ -395,5 +326,34 @@
   });
 </script>
 
+
+<div id="modalAjuste" class="modal-overlay hidden">
+  <div class="modal-box">
+
+    <h2>Ajustar ponto</h2>
+
+    <label>Hora entrada</label>
+    <input type="time" id="ajusteEntrada">
+
+    <label>Hora saída</label>
+    <input type="time" id="ajusteSaida">
+
+    <label>Motivo</label>
+    <textarea id="ajusteMotivo"></textarea>
+
+    <h3>Checklist</h3>
+    <div id="checklistContainer"></div>
+
+    <h3>Fotos</h3>
+    <div id="fotoEntradaPreview"></div>
+    <div id="fotoSaidaPreview"></div>
+
+    <br>
+
+    <button onclick="salvarAjuste()">Salvar</button>
+    <button onclick="fecharModal()">Cancelar</button>
+
+  </div>
+</div>
 </body>
 </html>

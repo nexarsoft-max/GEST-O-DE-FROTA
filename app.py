@@ -1225,6 +1225,9 @@ def api_motorista_por_id(motorista_id):
             cur.close()
         if conn:
             conn.close()
+
+    
+    
 # =========================
 # API MOBILE - LOGIN
 # =========================
@@ -1344,6 +1347,58 @@ def api_mobile_login():
         if conn:
             conn.close()
 
+@app.get("/api/colaboradores/<int:expediente_id>/detalhe")
+def api_detalhe_expediente(expediente_id):
+    r = proteger_api()
+    if r:
+        return r
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT
+                checklist_entrada,
+                checklist_saida,
+                foto_entrada_url,
+                foto_saida_url,
+                horario_inicio,
+                horario_fim
+            FROM expedientes
+            WHERE id = %s
+        """, (expediente_id,))
+
+        row = cur.fetchone()
+
+        if not row:
+            return jsonify({"erro": "Não encontrado"}), 404
+
+        checklist_entrada = row[0] if row[0] else []
+        checklist_saida = row[1] if row[1] else []
+
+        if isinstance(checklist_entrada, str):
+            checklist_entrada = json.loads(checklist_entrada)
+
+        if isinstance(checklist_saida, str):
+            checklist_saida = json.loads(checklist_saida)
+
+        return jsonify({
+            "checklist_entrada": checklist_entrada,
+            "checklist_saida": checklist_saida,
+            "fotoEntrada": row[2],
+            "fotoSaida": row[3],
+            "horaEntrada": row[4].strftime("%H:%M") if row[4] else "",
+            "horaSaida": row[5].strftime("%H:%M") if row[5] else ""
+        }), 200
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+        
 @app.get("/api/mobile/terms/status")
 def api_mobile_terms_status():
     r = proteger_api_mobile()
