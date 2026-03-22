@@ -1,7 +1,8 @@
 import os
 import re
 import hashlib
-import secrets
+import secrets 
+import json
 from datetime import timedelta, date, datetime
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, g
@@ -12,7 +13,19 @@ from conexao import get_db
 
 print(">>> APP.PY CARREGADO:", __file__, flush=True)
 
+# =========================
+# S3 CONFIG
+# =========================
+import boto3
+import os
 
+
+s3 = boto3.client(
+    "s3",
+    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+    region_name=os.getenv("AWS_REGION")
+)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
@@ -410,7 +423,28 @@ def _odometro_to_int(odometro):
     odo_digits = re.sub(r"[^\d]", "", str(odometro or ""))
     return int(odo_digits) if odo_digits else None
 
+def _parse_checklist_json(raw_checklist):
+    """
+    Aceita:
+    - None / vazio -> {}
+    - dict já pronto -> dict
+    - string JSON válida -> dict/list
+    Rejeita string inválida.
+    """
+    if raw_checklist is None:
+        return {}
 
+    if isinstance(raw_checklist, (dict, list)):
+        return raw_checklist
+
+    texto = str(raw_checklist).strip()
+    if not texto:
+        return {}
+
+    try:
+        return json.loads(texto)
+    except Exception:
+        raise ValueError("Checklist inválido. Envie um JSON válido.")
 # =========================
 # LOGIN (compatível com JSON e FORM)
 # =========================
@@ -1425,7 +1459,245 @@ def _ip_request():
         return forwarded.split(",")[0].strip()
     return (request.remote_addr or "").strip()
 
+# =========================
+# API COLABORADORES (AGORA COM FOTOS)
+# =========================
+@app.get("/api/colaboradores/registros")
+def api_colaboradores_registros():
+    r = proteger_api()
+    if r:
+        return r
 
+    uid = usuario_id_atual()
+
+    conn = cur = None
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT
+                e.id,
+                m.nome,
+                v.modelo,
+                v.placa,
+                e.horario_inicio,
+                e.horario_fim,
+                e.status,
+                e.foto_entrada_url,
+                e.foto_saida_url,
+                e.ajustado
+            FROM expedientes e
+            LEFT JOIN motoristas m ON m.id = e.colaborador_id
+            LEFT JOIN veiculos v ON v.id = e.veiculo_id
+            WHERE e.usuario_id = %s
+            ORDER BY e.id DESC
+        """, (uid,))
+
+        rows = cur.fetchall()
+
+        data = []
+
+        for r in rows:
+            data.append({
+                "id": r[0],
+                "colaborador": r[1],
+                "veiculo": r[2],
+                "placa": r[3],
+                "data": r[4].date().isoformat() if r[4] else "",
+                "horaEntrada": r[4].strftime("%H:%M") if r[4] else "",
+                "horaSaida": r[5].strftime("%H:%M") if r[5] else "",
+                "status": r[6],
+                "checklistDisponivel": False,
+                "fotoEntrada": r[7],
+                "fotoSaida": r[8],
+                "ajustado": bool(r[9])
+            })
+
+        return jsonify(data), 200
+
+    except Exception as e:
+        print("ERRO api_colaboradores_registros:", e, flush=True)
+        return jsonify({"erro": str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+            
+# =========================
+# API COLABORADORES - PENDÊNCIAS
+# =========================
+@app.get("/api/colaboradores/pendencias")
+def api_colaboradores_pendencias():
+    r = proteger_api()
+    if r:
+        return r
+
+    uid = usuario_id_atual()
+
+    conn = None
+    cur = None
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT COUNT(*)
+            FROM veiculos_uso
+            WHERE usuario_id = %s
+            AND ativo = TRUE
+        """, (uid,))
+
+        total = cur.fetchone()[0]
+
+        return jsonify({"pendencias": total}), 200
+
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+# =========================
+# API COLABORADORES - AJUSTE (CORRETO)
+# =========================
+# =========================
+# API COLABORADORES - AJUSTE (CORRETO E VALIDANDO JSON)
+# =========================
+@app.post("/api/colaboradores/ajuste")
+def api_ajustar_ponto():
+    r = proteger_api()
+    if r:
+        return r
+
+    dados = request.get_json(silent=True) or {}
+
+    expediente_id = dados.get("id")
+    entrada = dados.get("entrada")
+    saida = dados.get("saida")
+    checklist = dados.get("checklist")
+    motivo = dados.get("motivo")
+
+    if not expediente_id:
+        return jsonify({
+            "sucesso": False,
+            "erro": "id é obrigatório"
+        }), 400
+
+    conn = cur = None
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        campos = []
+        valores = []
+
+        if entrada:
+            campos.append("horario_inicio = %s")
+            valores.append(entrada)
+
+        if saida:
+            campos.append("horario_fim = %s")
+            valores.append(saida)
+
+        if checklist is not None:
+            checklist_json = _parse_checklist_json(checklist)
+            campos.append("checklist_entrada = %s")
+            valores.append(json.dumps(checklist_json))
+
+        if motivo:
+            campos.append("motivo_ajuste = %s")
+            valores.append(motivo)
+
+        campos.append("ajustado = TRUE")
+
+        if saida:
+            campos.append("status = 'finalizado'")
+
+        query = f"""
+            UPDATE expedientes
+            SET {", ".join(campos)}
+            WHERE id = %s
+        """
+
+        valores.append(expediente_id)
+
+        cur.execute(query, valores)
+
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True
+        }), 200
+
+    except ValueError as e:
+        if conn:
+            conn.rollback()
+        return jsonify({
+            "sucesso": False,
+            "erro": str(e)
+        }), 400
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("ERRO ajuste:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": str(e)
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+# =========================
+# API UPLOAD FOTO (S3)
+# =========================
+@app.post("/api/upload/foto")
+def api_upload_foto():
+    r = proteger_api_mobile()
+    if r:
+        return r
+
+    file = request.files.get("foto")
+
+    if not file:
+        return jsonify({"sucesso": False, "erro": "Foto não enviada"}), 400
+
+    nome = f"expedientes/{datetime.utcnow().timestamp()}.jpg"
+
+    try:
+        s3.upload_fileobj(
+            file,
+            os.getenv("AWS_BUCKET_NAME"),
+            nome
+        )
+
+        url = f"https://{os.getenv('AWS_BUCKET_NAME')}.s3.{os.getenv('AWS_REGION')}.amazonaws.com/{nome}"
+
+        return jsonify({
+            "sucesso": True,
+            "url": url
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "sucesso": False,
+            "erro": str(e)
+        }), 500
+    
 @app.post("/api/mobile/terms/accept")
 def api_mobile_terms_accept():
     r = proteger_api_mobile()
@@ -1815,49 +2087,42 @@ def api_mobile_logout_all():
             conn.close()
             
 # =========================
-# API MOBILE - INICIAR EXPEDIENTE
+# API MOBILE - INICIAR EXPEDIENTE (COM FOTO)
 # =========================
-@app.post("/api/mobile/iniciar-expediente")
-def api_mobile_iniciar_expediente():
+@app.post("/api/mobile/expediente/iniciar")
+def api_mobile_iniciar_expediente_completo():
     r = proteger_api_mobile()
     if r:
         return r
 
-    dados = request.get_json(silent=True) or {}
-
-    veiculo_id = dados.get("veiculo_id")
-    if not veiculo_id:
-        return jsonify({
-            "sucesso": False,
-            "erro": "veiculo_id é obrigatório"
-        }), 400
-
     motorista_id = int(g.mobile_auth["motorista_id"])
     usuario_id = int(g.mobile_auth["usuario_id"])
 
+    veiculo_id = request.form.get("veiculo_id")
+    raw_checklist = request.form.get("checklist")
+    foto = request.files.get("foto")
+
+    if not veiculo_id or not foto:
+        return jsonify({
+            "sucesso": False,
+            "erro": "veiculo_id e foto são obrigatórios"
+        }), 400
+
+    try:
+        checklist = _parse_checklist_json(raw_checklist)
+    except ValueError as e:
+        return jsonify({
+            "sucesso": False,
+            "erro": str(e)
+        }), 400
+
     conn = cur = None
+
     try:
         conn = get_db()
         cur = conn.cursor()
 
-        # garante que o veículo pertence ao mesmo usuário/gestor
-        cur.execute("""
-            SELECT id, modelo, placa
-            FROM veiculos
-            WHERE id = %s AND usuario_id = %s
-            LIMIT 1
-        """, (veiculo_id, usuario_id))
-
-        row = cur.fetchone()
-        if not row:
-            return jsonify({
-                "sucesso": False,
-                "erro": "Veículo não encontrado"
-            }), 404
-
-        veiculo_id_db, modelo, placa = row
-
-        # encerra vínculo ativo anterior desse motorista
+        # finaliza qualquer uso anterior do motorista
         cur.execute("""
             UPDATE veiculos_uso
             SET ativo = FALSE,
@@ -1866,16 +2131,16 @@ def api_mobile_iniciar_expediente():
               AND ativo = TRUE
         """, (motorista_id,))
 
-        # encerra vínculo ativo anterior desse veículo
+        # finaliza qualquer uso anterior do veículo
         cur.execute("""
             UPDATE veiculos_uso
             SET ativo = FALSE,
                 finalizado_em = CURRENT_TIMESTAMP
             WHERE veiculo_id = %s
               AND ativo = TRUE
-        """, (veiculo_id_db,))
+        """, (veiculo_id,))
 
-        # cria novo vínculo
+        # cria vínculo no monitoramento
         cur.execute("""
             INSERT INTO veiculos_uso (
                 motorista_id,
@@ -1884,32 +2149,59 @@ def api_mobile_iniciar_expediente():
                 ativo
             )
             VALUES (%s, %s, %s, TRUE)
-            RETURNING id, iniciado_em
         """, (
             motorista_id,
-            veiculo_id_db,
+            veiculo_id,
             usuario_id
         ))
 
-        vinculo_id, iniciado_em = cur.fetchone()
+        # upload S3
+        timestamp = datetime.utcnow().isoformat()
+        filename = f"entrada/{veiculo_id}_{motorista_id}_{timestamp}.jpg"
+
+        s3.upload_fileobj(
+            foto,
+            os.getenv("AWS_BUCKET_NAME"),
+            filename
+        )
+
+        url_foto = f"https://{os.getenv('AWS_BUCKET_NAME')}.s3.{os.getenv('AWS_REGION')}.amazonaws.com/{filename}"
+
+        # cria expediente
+        cur.execute("""
+            INSERT INTO expedientes (
+                usuario_id,
+                colaborador_id,
+                veiculo_id,
+                foto_entrada_url,
+                checklist_entrada,
+                horario_inicio,
+                status
+            )
+            VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP, 'em_andamento')
+            RETURNING id
+        """, (
+            usuario_id,
+            motorista_id,
+            veiculo_id,
+            url_foto,
+            json.dumps(checklist)
+        ))
+
+        expediente_id = cur.fetchone()[0]
+
         conn.commit()
 
         return jsonify({
             "sucesso": True,
-            "vinculo": {
-                "id": int(vinculo_id),
-                "motorista_id": motorista_id,
-                "veiculo_id": int(veiculo_id_db),
-                "modelo": modelo,
-                "placa": placa,
-                "iniciado_em": iniciado_em.isoformat() if iniciado_em else None
-            }
+            "expediente_id": int(expediente_id),
+            "foto_url": url_foto
         }), 200
 
     except Exception as e:
         if conn:
             conn.rollback()
-        print("ERRO api_mobile_iniciar_expediente:", e, flush=True)
+        print("ERRO iniciar expediente:", e, flush=True)
         return jsonify({
             "sucesso": False,
             "erro": "Erro ao iniciar expediente"
@@ -1920,11 +2212,11 @@ def api_mobile_iniciar_expediente():
             cur.close()
         if conn:
             conn.close()
-
-    # =========================
-# API MOBILE - FINALIZAR EXPEDIENTE
+            
 # =========================
-@app.post("/api/mobile/finalizar-expediente")
+# API MOBILE - FINALIZAR EXPEDIENTE (COM FOTO)
+# =========================
+@app.post("/api/mobile/expediente/finalizar")
 def api_mobile_finalizar_expediente():
     r = proteger_api_mobile()
     if r:
@@ -1932,11 +2224,58 @@ def api_mobile_finalizar_expediente():
 
     motorista_id = int(g.mobile_auth["motorista_id"])
 
+    expediente_id = request.form.get("expediente_id")
+    raw_checklist = request.form.get("checklist")
+    foto = request.files.get("foto")
+
+    if not expediente_id or not foto:
+        return jsonify({
+            "sucesso": False,
+            "erro": "expediente_id e foto são obrigatórios"
+        }), 400
+
+    try:
+        checklist = _parse_checklist_json(raw_checklist)
+    except ValueError as e:
+        return jsonify({
+            "sucesso": False,
+            "erro": str(e)
+        }), 400
+
     conn = cur = None
+
     try:
         conn = get_db()
         cur = conn.cursor()
 
+        # upload foto saída
+        timestamp = datetime.utcnow().isoformat()
+        filename = f"saida/{motorista_id}_{timestamp}.jpg"
+
+        s3.upload_fileobj(
+            foto,
+            os.getenv("AWS_BUCKET_NAME"),
+            filename
+        )
+
+        url_foto = f"https://{os.getenv('AWS_BUCKET_NAME')}.s3.{os.getenv('AWS_REGION')}.amazonaws.com/{filename}"
+
+        # finaliza expediente
+        cur.execute("""
+            UPDATE expedientes
+            SET
+                foto_saida_url = %s,
+                checklist_saida = %s,
+                horario_fim = CURRENT_TIMESTAMP,
+                status = 'finalizado'
+            WHERE id = %s
+        """, (
+            url_foto,
+            json.dumps(checklist),
+            expediente_id
+        ))
+
+        # remove vínculo do monitoramento
         cur.execute("""
             UPDATE veiculos_uso
             SET ativo = FALSE,
@@ -1948,13 +2287,14 @@ def api_mobile_finalizar_expediente():
         conn.commit()
 
         return jsonify({
-            "sucesso": True
+            "sucesso": True,
+            "foto_url": url_foto
         }), 200
 
     except Exception as e:
         if conn:
             conn.rollback()
-        print("ERRO api_mobile_finalizar_expediente:", e, flush=True)
+        print("ERRO finalizar expediente:", e, flush=True)
         return jsonify({
             "sucesso": False,
             "erro": "Erro ao finalizar expediente"
@@ -1965,8 +2305,8 @@ def api_mobile_finalizar_expediente():
             cur.close()
         if conn:
             conn.close()
-
-    # =========================
+            
+ # =========================
 # API MOBILE - EXPEDIENTE ATUAL
 # =========================
 @app.get("/api/mobile/expediente-atual")
@@ -2035,7 +2375,7 @@ def api_mobile_expediente_atual():
             cur.close()
         if conn:
             conn.close()
-            
+ 
 # =========================
 # API POSTOS
 # =========================

@@ -1,5 +1,6 @@
 from conexao import get_db
 
+
 def criar_tabelas():
     conn = get_db()
     cur = conn.cursor()
@@ -10,7 +11,8 @@ def criar_tabelas():
     cur.execute("""
     DO $$
     BEGIN
-        IF to_regclass('public."veículos"') IS NOT NULL AND to_regclass('public.veiculos') IS NULL THEN
+        IF to_regclass('public."veículos"') IS NOT NULL
+           AND to_regclass('public.veiculos') IS NULL THEN
             EXECUTE 'ALTER TABLE "veículos" RENAME TO veiculos';
         END IF;
     END$$;
@@ -54,10 +56,14 @@ def criar_tabelas():
     DO $$
     BEGIN
         IF EXISTS (
-            SELECT 1 FROM information_schema.columns
-            WHERE table_name='veiculos' AND column_name='nome'
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'veiculos'
+              AND column_name = 'nome'
         ) THEN
-            EXECUTE 'UPDATE veiculos SET nome = COALESCE(nome, modelo, ''SEM NOME'') WHERE nome IS NULL';
+            EXECUTE 'UPDATE veiculos
+                     SET nome = COALESCE(nome, modelo, ''SEM NOME'')
+                     WHERE nome IS NULL';
             BEGIN
                 EXECUTE 'ALTER TABLE veiculos ALTER COLUMN nome DROP NOT NULL';
             EXCEPTION WHEN others THEN
@@ -71,7 +77,8 @@ def criar_tabelas():
     DO $$
     BEGIN
         IF NOT EXISTS (
-            SELECT 1 FROM information_schema.table_constraints
+            SELECT 1
+            FROM information_schema.table_constraints
             WHERE constraint_name = 'fk_veiculos_usuario'
         ) THEN
             ALTER TABLE veiculos
@@ -87,10 +94,13 @@ def criar_tabelas():
     DO $$
     BEGIN
         IF NOT EXISTS (
-            SELECT 1 FROM pg_indexes
-            WHERE schemaname='public' AND indexname='ux_veiculos_usuario_placa'
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname = 'public'
+              AND indexname = 'ux_veiculos_usuario_placa'
         ) THEN
-            CREATE UNIQUE INDEX ux_veiculos_usuario_placa ON veiculos (usuario_id, placa);
+            CREATE UNIQUE INDEX ux_veiculos_usuario_placa
+            ON veiculos (usuario_id, placa);
         END IF;
     END$$;
     """)
@@ -126,7 +136,8 @@ def criar_tabelas():
     DO $$
     BEGIN
         IF NOT EXISTS (
-            SELECT 1 FROM information_schema.table_constraints
+            SELECT 1
+            FROM information_schema.table_constraints
             WHERE constraint_name = 'fk_motoristas_usuario'
         ) THEN
             ALTER TABLE motoristas
@@ -138,28 +149,28 @@ def criar_tabelas():
     END$$;
     """)
 
-    # remove índice antigo por usuário, se existir
     cur.execute("""
     DO $$
     BEGIN
         IF EXISTS (
             SELECT 1
             FROM pg_indexes
-            WHERE schemaname='public' AND indexname='ux_motoristas_usuario_email'
+            WHERE schemaname = 'public'
+              AND indexname = 'ux_motoristas_usuario_email'
         ) THEN
             DROP INDEX ux_motoristas_usuario_email;
         END IF;
     END$$;
     """)
 
-    # cria índice global para login mobile
     cur.execute("""
     DO $$
     BEGIN
         IF NOT EXISTS (
             SELECT 1
             FROM pg_indexes
-            WHERE schemaname='public' AND indexname='ux_motoristas_email'
+            WHERE schemaname = 'public'
+              AND indexname = 'ux_motoristas_email'
         ) THEN
             CREATE UNIQUE INDEX ux_motoristas_email
             ON motoristas (email)
@@ -191,7 +202,8 @@ def criar_tabelas():
     DO $$
     BEGIN
         IF NOT EXISTS (
-            SELECT 1 FROM information_schema.table_constraints
+            SELECT 1
+            FROM information_schema.table_constraints
             WHERE constraint_name = 'fk_postos_usuario'
         ) THEN
             ALTER TABLE postos
@@ -237,14 +249,16 @@ def criar_tabelas():
     DO $$
     BEGIN
         IF NOT EXISTS (
-            SELECT 1 FROM information_schema.table_constraints
+            SELECT 1
+            FROM information_schema.table_constraints
             WHERE constraint_name = 'fk_pc_usuario'
         ) THEN
             ALTER TABLE posto_combustiveis
             ADD CONSTRAINT fk_pc_usuario
             FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE;
         END IF;
-    EXCEPTION WHEN duplicate_object THEN NULL;
+    EXCEPTION WHEN duplicate_object THEN
+        NULL;
     END$$;
     """)
 
@@ -252,14 +266,16 @@ def criar_tabelas():
     DO $$
     BEGIN
         IF NOT EXISTS (
-            SELECT 1 FROM information_schema.table_constraints
+            SELECT 1
+            FROM information_schema.table_constraints
             WHERE constraint_name = 'fk_pc_posto'
         ) THEN
             ALTER TABLE posto_combustiveis
             ADD CONSTRAINT fk_pc_posto
             FOREIGN KEY (posto_id) REFERENCES postos(id) ON DELETE CASCADE;
         END IF;
-    EXCEPTION WHEN duplicate_object THEN NULL;
+    EXCEPTION WHEN duplicate_object THEN
+        NULL;
     END$$;
     """)
 
@@ -267,8 +283,10 @@ def criar_tabelas():
     DO $$
     BEGIN
         IF NOT EXISTS (
-            SELECT 1 FROM pg_indexes
-            WHERE schemaname='public' AND indexname='ux_pc_usuario_posto_tipo'
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname = 'public'
+              AND indexname = 'ux_pc_usuario_posto_tipo'
         ) THEN
             CREATE UNIQUE INDEX ux_pc_usuario_posto_tipo
             ON posto_combustiveis (usuario_id, posto_id, tipo);
@@ -386,7 +404,8 @@ def criar_tabelas():
         IF NOT EXISTS (
             SELECT 1
             FROM pg_indexes
-            WHERE schemaname='public' AND indexname='ux_motorista_sessoes_mobile_token_hash'
+            WHERE schemaname = 'public'
+              AND indexname = 'ux_motorista_sessoes_mobile_token_hash'
         ) THEN
             CREATE UNIQUE INDEX ux_motorista_sessoes_mobile_token_hash
             ON motorista_sessoes_mobile (token_hash);
@@ -400,7 +419,8 @@ def criar_tabelas():
         IF NOT EXISTS (
             SELECT 1
             FROM pg_indexes
-            WHERE schemaname='public' AND indexname='ix_motorista_sessoes_mobile_motorista'
+            WHERE schemaname = 'public'
+              AND indexname = 'ix_motorista_sessoes_mobile_motorista'
         ) THEN
             CREATE INDEX ix_motorista_sessoes_mobile_motorista
             ON motorista_sessoes_mobile (motorista_id);
@@ -408,7 +428,7 @@ def criar_tabelas():
     END$$;
     """)
 
- # =========================
+    # =========================
     # 9) TERMOS ACEITOS NO MOBILE
     # =========================
     cur.execute("""
@@ -442,7 +462,8 @@ def criar_tabelas():
         IF NOT EXISTS (
             SELECT 1
             FROM pg_indexes
-            WHERE schemaname='public' AND indexname='ux_motorista_termos_aceites_motorista'
+            WHERE schemaname = 'public'
+              AND indexname = 'ux_motorista_termos_aceites_motorista'
         ) THEN
             CREATE UNIQUE INDEX ux_motorista_termos_aceites_motorista
             ON motorista_termos_aceites (motorista_id);
@@ -456,15 +477,16 @@ def criar_tabelas():
         IF NOT EXISTS (
             SELECT 1
             FROM pg_indexes
-            WHERE schemaname='public' AND indexname='ix_motorista_termos_aceites_usuario'
+            WHERE schemaname = 'public'
+              AND indexname = 'ix_motorista_termos_aceites_usuario'
         ) THEN
             CREATE INDEX ix_motorista_termos_aceites_usuario
             ON motorista_termos_aceites (usuario_id);
         END IF;
     END$$;
     """)
-    
-      # =========================
+
+    # =========================
     # 10) VÍNCULO MOTORISTA-VEÍCULO EM USO
     # =========================
     cur.execute("""
@@ -497,7 +519,8 @@ def criar_tabelas():
         IF NOT EXISTS (
             SELECT 1
             FROM pg_indexes
-            WHERE schemaname='public' AND indexname='ix_veiculos_uso_motorista'
+            WHERE schemaname = 'public'
+              AND indexname = 'ix_veiculos_uso_motorista'
         ) THEN
             CREATE INDEX ix_veiculos_uso_motorista
             ON veiculos_uso (motorista_id);
@@ -511,7 +534,8 @@ def criar_tabelas():
         IF NOT EXISTS (
             SELECT 1
             FROM pg_indexes
-            WHERE schemaname='public' AND indexname='ix_veiculos_uso_veiculo'
+            WHERE schemaname = 'public'
+              AND indexname = 'ix_veiculos_uso_veiculo'
         ) THEN
             CREATE INDEX ix_veiculos_uso_veiculo
             ON veiculos_uso (veiculo_id);
@@ -525,10 +549,112 @@ def criar_tabelas():
         IF NOT EXISTS (
             SELECT 1
             FROM pg_indexes
-            WHERE schemaname='public' AND indexname='ix_veiculos_uso_usuario'
+            WHERE schemaname = 'public'
+              AND indexname = 'ix_veiculos_uso_usuario'
         ) THEN
             CREATE INDEX ix_veiculos_uso_usuario
             ON veiculos_uso (usuario_id);
+        END IF;
+    END$$;
+    """)
+
+    # =========================
+    # 11) EXPEDIENTES / COLABORADORES
+    # =========================
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS expedientes (
+        id BIGSERIAL PRIMARY KEY,
+        usuario_id BIGINT NOT NULL,
+        colaborador_id BIGINT NOT NULL,
+        veiculo_id BIGINT NOT NULL,
+        placa VARCHAR(20),
+        foto_entrada_url TEXT,
+        foto_saida_url TEXT,
+        checklist_entrada JSONB,
+        checklist_saida JSONB,
+        horario_inicio TIMESTAMP,
+        horario_fim TIMESTAMP,
+        status VARCHAR(30) DEFAULT 'em_andamento',
+        ajustado BOOLEAN DEFAULT FALSE,
+        motivo_ajuste TEXT,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+        FOREIGN KEY (colaborador_id) REFERENCES motoristas(id) ON DELETE CASCADE,
+        FOREIGN KEY (veiculo_id) REFERENCES veiculos(id) ON DELETE CASCADE
+    );
+    """)
+
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS colaborador_id BIGINT;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS veiculo_id BIGINT;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS placa VARCHAR(20);""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS foto_entrada_url TEXT;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS foto_saida_url TEXT;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS checklist_entrada JSONB;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS checklist_saida JSONB;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS horario_inicio TIMESTAMP;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS horario_fim TIMESTAMP;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'em_andamento';""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS ajustado BOOLEAN DEFAULT FALSE;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS motivo_ajuste TEXT;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname = 'public'
+              AND indexname = 'ix_expedientes_usuario'
+        ) THEN
+            CREATE INDEX ix_expedientes_usuario
+            ON expedientes (usuario_id);
+        END IF;
+    END$$;
+    """)
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname = 'public'
+              AND indexname = 'ix_expedientes_colaborador'
+        ) THEN
+            CREATE INDEX ix_expedientes_colaborador
+            ON expedientes (colaborador_id);
+        END IF;
+    END$$;
+    """)
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname = 'public'
+              AND indexname = 'ix_expedientes_veiculo'
+        ) THEN
+            CREATE INDEX ix_expedientes_veiculo
+            ON expedientes (veiculo_id);
+        END IF;
+    END$$;
+    """)
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname = 'public'
+              AND indexname = 'ix_expedientes_status'
+        ) THEN
+            CREATE INDEX ix_expedientes_status
+            ON expedientes (status);
         END IF;
     END$$;
     """)
@@ -537,6 +663,7 @@ def criar_tabelas():
     cur.close()
     conn.close()
     print("✅ init_db.py: tabelas criadas/alinhadas com sucesso.")
+
 
 if __name__ == "__main__":
     criar_tabelas()
