@@ -495,85 +495,83 @@ async function verChecklist(id) {
       throw new Error(data.erro || "Erro ao carregar checklist");
     }
 
-    const entrada = data.checklist_entrada_detalhe || {
-      itens: data.checklist_entrada || [],
-      veiculo_perfeito: null,
-      observacao: ""
-    };
-
-    const saida = data.checklist_saida_detalhe || {
-      itens: data.checklist_saida || [],
-      veiculo_perfeito: null,
-      observacao: ""
-    };
+    const entrada = data.checklist_entrada_detalhe || {};
+    const saida = data.checklist_saida_detalhe || {};
 
     const listaEntrada = document.getElementById("listaChecklistEntrada");
     const listaSaida = document.getElementById("listaChecklistSaida");
+
     const estadoEntrada = document.getElementById("checklistEstadoEntrada");
     const estadoSaida = document.getElementById("checklistEstadoSaida");
+
     const observacaoEntrada = document.getElementById("checklistObservacaoEntrada");
     const observacaoSaida = document.getElementById("checklistObservacaoSaida");
+
+    const extraEntrada = document.getElementById("checklistExtraEntrada");
+    const extraSaida = document.getElementById("checklistExtraSaida");
+
     const horaEntrada = document.getElementById("checklistHoraEntrada");
     const horaSaida = document.getElementById("checklistHoraSaida");
+
     const modal = document.getElementById("modalChecklist");
 
-    if (listaEntrada) {
-      listaEntrada.innerHTML = "";
-      if (Array.isArray(entrada.itens) && entrada.itens.length > 0) {
-        entrada.itens.forEach((item) => {
-          listaEntrada.innerHTML += `
-            <li>
-              <span class="check-icon"><i class="fa-solid fa-check"></i></span>
-              <span>${item}</span>
-            </li>
-          `;
-        });
-      } else {
-        listaEntrada.innerHTML = `<li class="checklist-vazio">Nenhum item marcado.</li>`;
-      }
-    }
+    // =========================
+    // ITENS (IGUAL MOBILE)
+    // =========================
+    const itensEntrada = entrada.itens_marcados || entrada.itens || [];
+    const itensSaida = saida.itens_marcados || saida.itens || [];
 
-    if (listaSaida) {
-      listaSaida.innerHTML = "";
-      if (Array.isArray(saida.itens) && saida.itens.length > 0) {
-        saida.itens.forEach((item) => {
-          listaSaida.innerHTML += `
-            <li>
-              <span class="check-icon"><i class="fa-solid fa-check"></i></span>
-              <span>${item}</span>
-            </li>
-          `;
-        });
-      } else {
-        listaSaida.innerHTML = `<li class="checklist-vazio">Nenhum item marcado.</li>`;
-      }
-    }
+    listaEntrada.innerHTML = montarItensChecklistHtml(itensEntrada);
+    listaSaida.innerHTML = montarItensChecklistHtml(itensSaida);
 
+    // =========================
+    // ESTADO VEÍCULO
+    // =========================
     aplicarEstado(estadoEntrada, entrada.veiculo_perfeito);
     aplicarEstado(estadoSaida, saida.veiculo_perfeito);
 
-    if (observacaoEntrada) {
-      observacaoEntrada.textContent = entrada.observacao || "Sem observação.";
+    // =========================
+    // OBSERVAÇÃO
+    // =========================
+    observacaoEntrada.textContent = entrada.observacao || "Sem observação.";
+    observacaoSaida.textContent = saida.observacao || "Sem observação.";
+
+    // =========================
+    // 🔥 DADOS COMPLETOS (MOBILE)
+    // =========================
+    if (extraEntrada) {
+      extraEntrada.innerHTML = `
+        <b>Cones:</b> ${entrada.quantidade_cones || "-"}<br>
+        <b>Dupla:</b> ${entrada.trabalhando_em_dupla_ou_mais ? "Sim" : "Não"}<br>
+        <b>Nomes:</b> ${entrada.nomes_dupla_ou_mais || "-"}<br>
+        <b>Veracidade:</b> ${entrada.confirmacao_veracidade ? "Confirmado" : "Não confirmado"}
+      `;
     }
 
-    if (observacaoSaida) {
-      observacaoSaida.textContent = saida.observacao || "Sem observação.";
+    if (extraSaida) {
+      extraSaida.innerHTML = `
+        <b>Cones:</b> ${saida.quantidade_cones || "-"}<br>
+        <b>Dupla:</b> ${saida.trabalhando_em_dupla_ou_mais ? "Sim" : "Não"}<br>
+        <b>Nomes:</b> ${saida.nomes_dupla_ou_mais || "-"}<br>
+        <b>Veracidade:</b> ${saida.confirmacao_veracidade ? "Confirmado" : "Não confirmado"}
+      `;
     }
 
-    if (horaEntrada) {
-      horaEntrada.textContent = data.horaEntrada || "-";
-    }
+    // =========================
+    // HORÁRIOS
+    // =========================
+    if (horaEntrada) horaEntrada.textContent = data.horaEntrada || "-";
+    if (horaSaida) horaSaida.textContent = data.horaSaida || "-";
 
-    if (horaSaida) {
-      horaSaida.textContent = data.horaSaida || "-";
-    }
-
+    // =========================
+    // ABRIR MODAL
+    // =========================
     if (modal) {
       modal.classList.remove("hidden");
     }
 
   } catch (e) {
-    console.error("Erro ao carregar checklist:", e);
+    console.error("Erro checklist:", e);
     alert(e.message || "Erro ao carregar checklist.");
   }
 }

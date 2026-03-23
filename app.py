@@ -1643,8 +1643,26 @@ def api_colaboradores_registros():
         return r
 
     uid = usuario_id_atual()
-
     conn = cur = None
+
+    def normalizar_checklist(valor):
+        if not valor:
+            return []
+
+        try:
+            if isinstance(valor, str):
+                valor = json.loads(valor)
+
+            if isinstance(valor, dict):
+                return valor.get("itens_marcados", [])
+
+            if isinstance(valor, list):
+                return valor
+
+        except:
+            pass
+
+        return []
 
     try:
         conn = get_db()
@@ -1659,6 +1677,8 @@ def api_colaboradores_registros():
                 e.horario_inicio,
                 e.horario_fim,
                 e.status,
+                e.checklist_entrada,
+                e.checklist_saida,
                 e.foto_entrada_url,
                 e.foto_saida_url,
                 e.ajustado
@@ -1674,19 +1694,32 @@ def api_colaboradores_registros():
         data = []
 
         for r in rows:
+            checklist_inicio = normalizar_checklist(r[7])
+            checklist_fim = normalizar_checklist(r[8])
+
             data.append({
                 "id": r[0],
                 "colaborador": r[1],
                 "veiculo": r[2],
                 "placa": r[3],
+
                 "data": r[4].date().isoformat() if r[4] else "",
+
                 "horaEntrada": r[4].strftime("%H:%M") if r[4] else "",
                 "horaSaida": r[5].strftime("%H:%M") if r[5] else "",
+
                 "status": r[6],
-                "checklistDisponivel": False,
-                "fotoEntrada": r[7],
-                "fotoSaida": r[8],
-                "ajustado": bool(r[9])
+
+                # 🔥 CHECKLIST AGORA FUNCIONA
+                "checklistEntrada": checklist_inicio,
+                "checklistSaida": checklist_fim,
+
+                # 🔥 FOTOS
+                "fotoEntrada": r[9],
+                "fotoSaida": r[10],
+
+                # 🔥 AJUSTE
+                "ajustado": bool(r[11])
             })
 
         return jsonify(data), 200
