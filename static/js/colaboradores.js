@@ -227,7 +227,7 @@ function renderizarTabelaPrincipal(lista) {
   lista.forEach((r) => {
     const tr = document.createElement("tr");
 
-        const checklistBotao = `
+    const checklistBotao = `
       <button type="button" class="action-btn action-btn-view" onclick="verChecklist(${r.id})">
         <i class="fa-solid fa-clipboard-check"></i>
         <span>Ver checklist</span>
@@ -247,18 +247,33 @@ function renderizarTabelaPrincipal(lista) {
       <td>${escaparHtml(r.data || "-")}</td>
       <td>${escaparHtml(r.horaEntrada || "-")}</td>
       <td>${escaparHtml(r.horaSaida || "-")}</td>
+
       <td>
         <span class="status-badge ${formatarClasseStatus(r.status)}">
           ${formatarTextoStatus(r.status)}
         </span>
       </td>
+
       <td>${checklistBotao}</td>
+
       <td>
-        ${r.fotoEntrada ? `<a href="${r.fotoEntrada}" target="_blank" rel="noopener noreferrer">Ver</a>` : "-"}
+        ${r.fotoEntrada ? `<a href="${r.fotoEntrada}" target="_blank">Ver</a>` : "-"}
       </td>
+
       <td>
-        ${r.fotoSaida ? `<a href="${r.fotoSaida}" target="_blank" rel="noopener noreferrer">Ver</a>` : "-"}
+        ${r.fotoSaida ? `<a href="${r.fotoSaida}" target="_blank">Ver</a>` : "-"}
       </td>
+
+      <td>
+        ${r.odometroEntrada || "-"} 
+        ${r.odometroSaida ? " → " + r.odometroSaida : ""}
+      </td>
+
+      <td>
+        ${r.fotoOdometroEntrada ? `<a href="${r.fotoOdometroEntrada}" target="_blank">Entrada</a>` : "-"}
+        ${r.fotoOdometroSaida ? `<br><a href="${r.fotoOdometroSaida}" target="_blank">Saída</a>` : ""}
+      </td>
+
       <td>${ajusteBotao}</td>
     `;
 
