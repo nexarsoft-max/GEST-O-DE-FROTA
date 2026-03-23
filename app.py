@@ -1358,37 +1358,106 @@ def api_detalhe_expediente(expediente_id):
 
     def _normalizar_checklist(valor):
         if valor is None:
-            return []
+            return {
+                "itens": [],
+                "veiculo_perfeito": None,
+                "observacao": ""
+            }
 
         if isinstance(valor, str):
             texto = valor.strip()
             if not texto:
-                return []
+                return {
+                    "itens": [],
+                    "veiculo_perfeito": None,
+                    "observacao": ""
+                }
+
             try:
                 valor = json.loads(texto)
             except Exception:
-                return [texto]
+                return {
+                    "itens": [texto],
+                    "veiculo_perfeito": None,
+                    "observacao": ""
+                }
 
         if isinstance(valor, list):
-            return [str(item) for item in valor]
+            return {
+                "itens": [str(item) for item in valor],
+                "veiculo_perfeito": None,
+                "observacao": ""
+            }
 
         if isinstance(valor, dict):
-            # caso venha {"itens":[...]} ou {"checklist":[...]}
-            for chave in ("itens", "items", "checklist", "checklist_entrada", "checklist_saida"):
-                conteudo = valor.get(chave)
-                if isinstance(conteudo, list):
-                    return [str(item) for item in conteudo]
+            itens_lista = []
 
-            # caso venha {"pneu": true, "farol": false}
-            marcados = []
-            for chave, v in valor.items():
-                if v is True:
-                    marcados.append(str(chave))
-                elif isinstance(v, str) and v.strip().lower() in ("ok", "sim", "true", "1", "conforme"):
-                    marcados.append(str(chave))
-            return marcados
+            # prioridade 1: lista pronta enviada pelo mobile
+            if isinstance(valor.get("itens_marcados"), list):
+                itens_lista = [
+                    str(item).strip()
+                    for item in valor.get("itens_marcados", [])
+                    if str(item).strip()
+                ]
 
-        return [str(valor)]
+            # prioridade 2: mapa completo de itens { "Step": true, "Cones": false, ... }
+            elif isinstance(valor.get("itens"), dict):
+                itens_lista = [
+                    str(chave).strip()
+                    for chave, marcado in valor.get("itens", {}).items()
+                    if (
+                        marcado is True
+                        or str(marcado).strip().lower() in ("ok", "sim", "true", "1", "conforme")
+                    )
+                    and str(chave).strip()
+                ]
+
+            # prioridade 3: itens já em lista
+            elif isinstance(valor.get("itens"), list):
+                itens_lista = [
+                    str(item).strip()
+                    for item in valor.get("itens", [])
+                    if str(item).strip()
+                ]
+
+            # compatibilidade com formatos antigos
+            elif isinstance(valor.get("checklist"), list):
+                itens_lista = [
+                    str(item).strip()
+                    for item in valor.get("checklist", [])
+                    if str(item).strip()
+                ]
+
+            elif isinstance(valor.get("items"), list):
+                itens_lista = [
+                    str(item).strip()
+                    for item in valor.get("items", [])
+                    if str(item).strip()
+                ]
+
+            else:
+                itens_lista = [
+                    str(chave).strip()
+                    for chave, marcado in valor.items()
+                    if (
+                        marcado is True
+                        or str(marcado).strip().lower() in ("ok", "sim", "true", "1", "conforme")
+                    )
+                    and str(chave).strip()
+                    and chave not in ("veiculo_perfeito", "observacao", "tipo", "placa", "modelo")
+                ]
+
+            return {
+                "itens": itens_lista,
+                "veiculo_perfeito": valor.get("veiculo_perfeito"),
+                "observacao": str(valor.get("observacao") or "").strip()
+            }
+
+        return {
+            "itens": [str(valor).strip()] if str(valor).strip() else [],
+            "veiculo_perfeito": None,
+            "observacao": ""
+        }
 
     try:
         conn = get_db()
@@ -1421,8 +1490,10 @@ def api_detalhe_expediente(expediente_id):
 
         return jsonify({
             "sucesso": True,
-            "checklist_entrada": checklist_entrada,
-            "checklist_saida": checklist_saida,
+            "checklist_entrada": checklist_entrada["itens"],
+            "checklist_saida": checklist_saida["itens"],
+            "checklist_entrada_detalhe": checklist_entrada,
+            "checklist_saida_detalhe": checklist_saida,
             "fotoEntrada": row[2] or "",
             "fotoSaida": row[3] or "",
             "horaEntrada": row[4].strftime("%H:%M") if row[4] else "",
@@ -1441,7 +1512,7 @@ def api_detalhe_expediente(expediente_id):
             cur.close()
         if conn:
             conn.close()
-        
+
 @app.get("/api/mobile/terms/status")
 def api_mobile_terms_status():
     r = proteger_api_mobile()

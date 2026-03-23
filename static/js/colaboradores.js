@@ -97,6 +97,70 @@ function escaparHtml(texto) {
     .replaceAll("'", "&#039;");
 }
 
+function normalizarChecklistDetalhe(valor) {
+  if (!valor) {
+    return {
+      itens: [],
+      veiculo_perfeito: null,
+      observacao: ""
+    };
+  }
+
+  if (Array.isArray(valor)) {
+    return {
+      itens: valor.map((item) => String(item)),
+      veiculo_perfeito: null,
+      observacao: ""
+    };
+  }
+
+  if (typeof valor === "object") {
+    const itens = Array.isArray(valor.itens)
+      ? valor.itens.map((item) => String(item))
+      : [];
+
+    return {
+      itens,
+      veiculo_perfeito: valor.veiculo_perfeito,
+      observacao: (valor.observacao || "").toString().trim()
+    };
+  }
+
+  return {
+    itens: [String(valor)],
+    veiculo_perfeito: null,
+    observacao: ""
+  };
+}
+
+function montarItensChecklistHtml(lista) {
+  if (!Array.isArray(lista) || !lista.length) {
+    return `<li class="checklist-vazio">Nenhum item marcado.</li>`;
+  }
+
+  return lista
+    .map(
+      (item) => `
+        <li>
+          <span class="check-icon"><i class="fa-solid fa-check"></i></span>
+          <span>${escaparHtml(item)}</span>
+        </li>
+      `
+    )
+    .join("");
+}
+
+function formatarEstadoVeiculo(valor, textoPositivo = "Sim", textoNegativo = "Não") {
+  if (valor === true) return textoPositivo;
+  if (valor === false) return textoNegativo;
+  return "Não informado";
+}
+
+function fecharModalChecklist() {
+  const modal = document.getElementById("modalChecklist");
+  if (modal) modal.classList.add("hidden");
+}
+
 // =========================
 // CARREGAR REGISTROS
 // =========================
@@ -163,15 +227,17 @@ function renderizarTabelaPrincipal(lista) {
   lista.forEach((r) => {
     const tr = document.createElement("tr");
 
-    const checklistBotao = `
-      <button type="button" class="btn-link-action" onclick="verChecklist(${r.id})">
-        Ver
+        const checklistBotao = `
+      <button type="button" class="action-btn action-btn-view" onclick="verChecklist(${r.id})">
+        <i class="fa-solid fa-clipboard-check"></i>
+        <span>Ver checklist</span>
       </button>
     `;
 
     const ajusteBotao = `
-      <button type="button" class="btn-link-action" onclick="abrirAjuste(${r.id})">
-        ${r.ajustado ? "Ajustado" : "Ajustar"}
+      <button type="button" class="action-btn action-btn-adjust" onclick="abrirAjuste(${r.id})">
+        <i class="fa-solid fa-pen-to-square"></i>
+        <span>${r.ajustado ? "Ajustado" : "Ajustar"}</span>
       </button>
     `;
 
@@ -398,42 +464,61 @@ async function verChecklist(id) {
       throw new Error(data.erro || "Erro ao carregar checklist");
     }
 
-    const entrada = normalizarChecklistParaLista(data.checklist_entrada);
-    const saida = normalizarChecklistParaLista(data.checklist_saida);
+    const entrada = normalizarChecklistDetalhe(
+      data.checklist_entrada_detalhe || { itens: data.checklist_entrada || [] }
+    );
+
+    const saida = normalizarChecklistDetalhe(
+      data.checklist_saida_detalhe || { itens: data.checklist_saida || [] }
+    );
 
     const listaEntrada = document.getElementById("listaChecklistEntrada");
     const listaSaida = document.getElementById("listaChecklistSaida");
+    const estadoEntrada = document.getElementById("checklistEstadoEntrada");
+    const estadoSaida = document.getElementById("checklistEstadoSaida");
+    const observacaoEntrada = document.getElementById("checklistObservacaoEntrada");
+    const observacaoSaida = document.getElementById("checklistObservacaoSaida");
+    const horaEntrada = document.getElementById("checklistHoraEntrada");
+    const horaSaida = document.getElementById("checklistHoraSaida");
+    const modal = document.getElementById("modalChecklist");
 
-    listaEntrada.innerHTML = "";
-    listaSaida.innerHTML = "";
+    if (listaEntrada) listaEntrada.innerHTML = montarItensChecklistHtml(entrada.itens);
+    if (listaSaida) listaSaida.innerHTML = montarItensChecklistHtml(saida.itens);
 
-    if (entrada.length === 0) {
-      listaEntrada.innerHTML = "<li>Sem checklist</li>";
-    } else {
-      entrada.forEach(item => {
-        listaEntrada.innerHTML += `<li>✔ ${item}</li>`;
-      });
+    if (estadoEntrada) {
+      estadoEntrada.textContent = formatarEstadoVeiculo(
+        entrada.veiculo_perfeito,
+        "Sim",
+        "Não"
+      );
     }
 
-    if (saida.length === 0) {
-      listaSaida.innerHTML = "<li>Sem checklist</li>";
-    } else {
-      saida.forEach(item => {
-        listaSaida.innerHTML += `<li>✔ ${item}</li>`;
-      });
+    if (estadoSaida) {
+      estadoSaida.textContent = formatarEstadoVeiculo(
+        saida.veiculo_perfeito,
+        "Sim",
+        "Não"
+      );
     }
 
-    document.getElementById("modalChecklist").classList.remove("hidden");
+    if (observacaoEntrada) {
+      observacaoEntrada.textContent = entrada.observacao || "Sem observação.";
+    }
 
+    if (observacaoSaida) {
+      observacaoSaida.textContent = saida.observacao || "Sem observação.";
+    }
+
+    if (horaEntrada) horaEntrada.textContent = data.horaEntrada || "-";
+    if (horaSaida) horaSaida.textContent = data.horaSaida || "-";
+
+    if (modal) modal.classList.remove("hidden");
   } catch (e) {
-    console.error(e);
-    alert("Erro ao carregar checklist");
+    console.error("Erro ao carregar checklist:", e);
+    alert(e.message || "Erro ao carregar checklist.");
   }
 }
 
-function fecharModalChecklist() {
-  document.getElementById("modalChecklist").classList.add("hidden");
-}
 // =========================
 // ABRIR AJUSTE
 // =========================

@@ -378,5 +378,78 @@
 
   </div>
 </div>
+
+
+<!-- MODAL CHECKLIST -->
+<div id="modalChecklist" class="checklist-modal hidden">
+  <div class="checklist-modal-card">
+    <div class="checklist-modal-header">
+      <div>
+        <p class="checklist-modal-kicker">Detalhes do expediente</p>
+        <h3>Checklist do veículo</h3>
+      </div>
+      <button type="button" class="checklist-modal-close" onclick="fecharModalChecklist()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="checklist-modal-body">
+      <div class="checklist-resumo-grid">
+        <div class="checklist-resumo-card">
+          <span>Hora de entrada</span>
+          <strong id="checklistHoraEntrada">-</strong>
+        </div>
+        <div class="checklist-resumo-card">
+          <span>Hora de saída</span>
+          <strong id="checklistHoraSaida">-</strong>
+        </div>
+      </div>
+
+      <div class="checklist-colunas">
+        <section class="checklist-coluna">
+          <div class="checklist-coluna-topo">
+            <h4>Checklist de entrada</h4>
+            <span class="checklist-badge">Início</span>
+          </div>
+
+          <div class="checklist-estado-box">
+            <span>Veículo em perfeito estado</span>
+            <strong id="checklistEstadoEntrada">-</strong>
+          </div>
+
+          <div class="checklist-lista-wrap">
+            <ul id="listaChecklistEntrada" class="checklist-lista"></ul>
+          </div>
+
+          <div class="checklist-observacao">
+            <span>Observação</span>
+            <p id="checklistObservacaoEntrada">Sem observação.</p>
+          </div>
+        </section>
+
+        <section class="checklist-coluna">
+          <div class="checklist-coluna-topo">
+            <h4>Checklist de saída</h4>
+            <span class="checklist-badge saida">Encerramento</span>
+          </div>
+
+          <div class="checklist-estado-box">
+            <span>Veículo devolvido em perfeito estado</span>
+            <strong id="checklistEstadoSaida">-</strong>
+          </div>
+
+          <div class="checklist-lista-wrap">
+            <ul id="listaChecklistSaida" class="checklist-lista"></ul>
+          </div>
+
+          <div class="checklist-observacao">
+            <span>Observação</span>
+            <p id="checklistObservacaoSaida">Sem observação.</p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
