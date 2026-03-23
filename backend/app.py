@@ -2283,6 +2283,14 @@ def api_mobile_iniciar_expediente_completo():
         }), 400
 
     try:
+        veiculo_id = int(veiculo_id)
+    except (TypeError, ValueError):
+        return jsonify({
+            "sucesso": False,
+            "erro": "veiculo_id inválido"
+        }), 400
+
+    try:
         checklist = _parse_checklist_json(raw_checklist)
     except ValueError as e:
         return jsonify({
@@ -2296,7 +2304,27 @@ def api_mobile_iniciar_expediente_completo():
         conn = get_db()
         cur = conn.cursor()
 
-        # finaliza qualquer uso anterior do motorista
+        # garante que não fique expediente antigo em aberto para o mesmo motorista
+        cur.execute("""
+            UPDATE expedientes
+            SET
+                horario_fim = CURRENT_TIMESTAMP,
+                status = 'finalizado'
+            WHERE colaborador_id = %s
+              AND status = 'em_andamento'
+        """, (motorista_id,))
+
+        # garante que não fique expediente antigo em aberto para o mesmo veículo
+        cur.execute("""
+            UPDATE expedientes
+            SET
+                horario_fim = CURRENT_TIMESTAMP,
+                status = 'finalizado'
+            WHERE veiculo_id = %s
+              AND status = 'em_andamento'
+        """, (veiculo_id,))
+
+        # finaliza qualquer uso anterior do motorista no monitoramento
         cur.execute("""
             UPDATE veiculos_uso
             SET ativo = FALSE,
@@ -2305,7 +2333,7 @@ def api_mobile_iniciar_expediente_completo():
               AND ativo = TRUE
         """, (motorista_id,))
 
-        # finaliza qualquer uso anterior do veículo
+        # finaliza qualquer uso anterior do veículo no monitoramento
         cur.execute("""
             UPDATE veiculos_uso
             SET ativo = FALSE,
@@ -2314,7 +2342,7 @@ def api_mobile_iniciar_expediente_completo():
               AND ativo = TRUE
         """, (veiculo_id,))
 
-        # cria vínculo no monitoramento
+        # cria vínculo atual no monitoramento
         cur.execute("""
             INSERT INTO veiculos_uso (
                 motorista_id,
@@ -2329,7 +2357,7 @@ def api_mobile_iniciar_expediente_completo():
             usuario_id
         ))
 
-        # upload S3
+        # upload da foto de entrada
         timestamp = datetime.utcnow().isoformat()
         filename = f"entrada/{veiculo_id}_{motorista_id}_{timestamp}.jpg"
 
@@ -2341,7 +2369,7 @@ def api_mobile_iniciar_expediente_completo():
 
         url_foto = f"https://{os.getenv('AWS_BUCKET_NAME')}.s3.{os.getenv('AWS_REGION')}.amazonaws.com/{filename}"
 
-        # cria expediente
+        # cria expediente novo
         cur.execute("""
             INSERT INTO expedientes (
                 usuario_id,
@@ -2402,10 +2430,10 @@ def api_mobile_finalizar_expediente():
     raw_checklist = request.form.get("checklist")
     foto = request.files.get("foto")
 
-    if not expediente_id or not foto:
+    if not foto:
         return jsonify({
             "sucesso": False,
-            "erro": "expediente_id e foto são obrigatórios"
+            "erro": "foto é obrigatória"
         }), 400
 
     try:
@@ -2422,6 +2450,50 @@ def api_mobile_finalizar_expediente():
         conn = get_db()
         cur = conn.cursor()
 
+        expediente_row = None
+
+        # se veio expediente_id, tenta localizar um expediente do motorista logado
+        if expediente_id:
+            try:
+                expediente_id_int = int(expediente_id)
+            except (TypeError, ValueError):
+                return jsonify({
+                    "sucesso": False,
+                    "erro": "expediente_id inválido"
+                }), 400
+
+            cur.execute("""
+                SELECT id, veiculo_id
+                FROM expedientes
+                WHERE id = %s
+                  AND colaborador_id = %s
+                  AND status = 'em_andamento'
+                LIMIT 1
+            """, (expediente_id_int, motorista_id))
+
+            expediente_row = cur.fetchone()
+
+        # fallback seguro: se não encontrou pelo ID, busca o expediente aberto do motorista logado
+        if not expediente_row:
+            cur.execute("""
+                SELECT id, veiculo_id
+                FROM expedientes
+                WHERE colaborador_id = %s
+                  AND status = 'em_andamento'
+                ORDER BY horario_inicio DESC, id DESC
+                LIMIT 1
+            """, (motorista_id,))
+
+            expediente_row = cur.fetchone()
+
+        if not expediente_row:
+            return jsonify({
+                "sucesso": False,
+                "erro": "Nenhum expediente ativo foi encontrado para este usuário"
+            }), 404
+
+        expediente_id_encontrado, veiculo_id = expediente_row
+
         # upload foto saída
         timestamp = datetime.utcnow().isoformat()
         filename = f"saida/{motorista_id}_{timestamp}.jpg"
@@ -2434,7 +2506,7 @@ def api_mobile_finalizar_expediente():
 
         url_foto = f"https://{os.getenv('AWS_BUCKET_NAME')}.s3.{os.getenv('AWS_REGION')}.amazonaws.com/{filename}"
 
-        # finaliza expediente
+        # finaliza somente o expediente do usuário logado
         cur.execute("""
             UPDATE expedientes
             SET
@@ -2443,13 +2515,22 @@ def api_mobile_finalizar_expediente():
                 horario_fim = CURRENT_TIMESTAMP,
                 status = 'finalizado'
             WHERE id = %s
+              AND colaborador_id = %s
+              AND status = 'em_andamento'
         """, (
             url_foto,
             json.dumps(checklist),
-            expediente_id
+            expediente_id_encontrado,
+            motorista_id
         ))
 
-        # remove vínculo do monitoramento
+        if cur.rowcount == 0:
+            return jsonify({
+                "sucesso": False,
+                "erro": "Não foi possível finalizar o expediente ativo"
+            }), 409
+
+        # remove vínculo do monitoramento do motorista
         cur.execute("""
             UPDATE veiculos_uso
             SET ativo = FALSE,
@@ -2458,10 +2539,20 @@ def api_mobile_finalizar_expediente():
               AND ativo = TRUE
         """, (motorista_id,))
 
+        # remove vínculo ativo do mesmo veículo, se ainda existir
+        cur.execute("""
+            UPDATE veiculos_uso
+            SET ativo = FALSE,
+                finalizado_em = CURRENT_TIMESTAMP
+            WHERE veiculo_id = %s
+              AND ativo = TRUE
+        """, (veiculo_id,))
+
         conn.commit()
 
         return jsonify({
             "sucesso": True,
+            "expediente_id": int(expediente_id_encontrado),
             "foto_url": url_foto
         }), 200
 
@@ -2480,7 +2571,7 @@ def api_mobile_finalizar_expediente():
         if conn:
             conn.close()
             
- # =========================
+# =========================
 # API MOBILE - EXPEDIENTE ATUAL
 # =========================
 @app.get("/api/mobile/expediente-atual")
@@ -2498,18 +2589,18 @@ def api_mobile_expediente_atual():
 
         cur.execute("""
             SELECT
-                vu.id,
-                vu.veiculo_id,
-                vu.iniciado_em,
+                e.id,
+                e.veiculo_id,
+                e.horario_inicio,
                 v.modelo,
                 v.placa,
                 v.cidade
-            FROM veiculos_uso vu
+            FROM expedientes e
             INNER JOIN veiculos v
-                ON v.id = vu.veiculo_id
-            WHERE vu.motorista_id = %s
-              AND vu.ativo = TRUE
-            ORDER BY vu.id DESC
+                ON v.id = e.veiculo_id
+            WHERE e.colaborador_id = %s
+              AND e.status = 'em_andamento'
+            ORDER BY e.horario_inicio DESC, e.id DESC
             LIMIT 1
         """, (motorista_id,))
 
@@ -2519,21 +2610,21 @@ def api_mobile_expediente_atual():
             return jsonify({
                 "sucesso": True,
                 "expediente_ativo": False,
-                "vinculo": None
+                "expediente": None
             }), 200
 
-        vinculo_id, veiculo_id, iniciado_em, modelo, placa, cidade = row
+        expediente_id, veiculo_id, horario_inicio, modelo, placa, cidade = row
 
         return jsonify({
             "sucesso": True,
             "expediente_ativo": True,
-            "vinculo": {
-                "id": int(vinculo_id),
+            "expediente": {
+                "id": int(expediente_id),
                 "veiculo_id": int(veiculo_id),
                 "modelo": modelo,
                 "placa": placa,
                 "cidade": cidade,
-                "iniciado_em": iniciado_em.isoformat() if iniciado_em else None
+                "horario_inicio": horario_inicio.isoformat() if horario_inicio else None
             }
         }), 200
 
@@ -2549,7 +2640,7 @@ def api_mobile_expediente_atual():
             cur.close()
         if conn:
             conn.close()
- 
+             
 # =========================
 # API POSTOS
 # =========================
