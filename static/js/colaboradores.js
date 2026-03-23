@@ -398,24 +398,42 @@ async function verChecklist(id) {
       throw new Error(data.erro || "Erro ao carregar checklist");
     }
 
-    const checklistEntrada = normalizarChecklistParaLista(data.checklist_entrada);
-    const checklistSaida = normalizarChecklistParaLista(data.checklist_saida);
+    const entrada = normalizarChecklistParaLista(data.checklist_entrada);
+    const saida = normalizarChecklistParaLista(data.checklist_saida);
 
-    const textoEntrada = checklistEntrada.length
-      ? checklistEntrada.join("\n")
-      : "Sem checklist de entrada";
+    const listaEntrada = document.getElementById("listaChecklistEntrada");
+    const listaSaida = document.getElementById("listaChecklistSaida");
 
-    const textoSaida = checklistSaida.length
-      ? checklistSaida.join("\n")
-      : "Sem checklist de saída";
+    listaEntrada.innerHTML = "";
+    listaSaida.innerHTML = "";
 
-    alert(`CHECKLIST DE ENTRADA:\n\n${textoEntrada}\n\nCHECKLIST DE SAÍDA:\n\n${textoSaida}`);
+    if (entrada.length === 0) {
+      listaEntrada.innerHTML = "<li>Sem checklist</li>";
+    } else {
+      entrada.forEach(item => {
+        listaEntrada.innerHTML += `<li>✔ ${item}</li>`;
+      });
+    }
+
+    if (saida.length === 0) {
+      listaSaida.innerHTML = "<li>Sem checklist</li>";
+    } else {
+      saida.forEach(item => {
+        listaSaida.innerHTML += `<li>✔ ${item}</li>`;
+      });
+    }
+
+    document.getElementById("modalChecklist").classList.remove("hidden");
+
   } catch (e) {
-    console.error("Erro ao carregar checklist:", e);
-    alert(e.message || "Erro ao carregar checklist.");
+    console.error(e);
+    alert("Erro ao carregar checklist");
   }
 }
 
+function fecharModalChecklist() {
+  document.getElementById("modalChecklist").classList.add("hidden");
+}
 // =========================
 // ABRIR AJUSTE
 // =========================
