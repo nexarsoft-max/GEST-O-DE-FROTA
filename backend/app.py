@@ -1643,6 +1643,7 @@ def api_colaboradores_registros():
         return r
 
     uid = usuario_id_atual()
+
     conn = cur = None
 
     try:
@@ -1655,60 +1656,81 @@ def api_colaboradores_registros():
                 m.nome,
                 v.modelo,
                 v.placa,
-                e.data,
-                e.hora_inicio,
-                e.hora_fim,
-                e.checklist_entrada,
-                e.checklist_saida,
+                e.horario_inicio,
+                e.horario_fim,
+                e.status,
                 e.foto_entrada_url,
                 e.foto_saida_url,
-                e.ajuste_manual,
-                e.odometro_entrada,
-                e.odometro_saida,
-                e.foto_odometro_entrada_url,
-                e.foto_odometro_saida_url
+                e.ajustado
             FROM expedientes e
-            JOIN motoristas m ON e.motorista_id = m.id
-            JOIN veiculos v ON e.veiculo_id = v.id
+            LEFT JOIN motoristas m ON m.id = e.colaborador_id
+            LEFT JOIN veiculos v ON v.id = e.veiculo_id
             WHERE e.usuario_id = %s
-            ORDER BY e.data DESC, e.hora_inicio DESC
+            ORDER BY e.id DESC
         """, (uid,))
 
         rows = cur.fetchall()
 
-        registros = []
+        data = []
 
         for r in rows:
-            registros.append({
+            data.append({
                 "id": r[0],
                 "colaborador": r[1],
                 "veiculo": r[2],
                 "placa": r[3],
-                "data": str(r[4]),
-                "horaEntrada": r[5],
-                "horaSaida": r[6],
-
-                "status": "finalizado" if r[6] else "em_andamento",
-
-                "checklistEntrada": r[7],
-                "checklistSaida": r[8],
-                "checklistDisponivel": bool(r[7] or r[8]),
-
-                "fotoEntrada": r[9],
-                "fotoSaida": r[10],
-
-                "odometroEntrada": r[12],
-                "odometroSaida": r[13],
-                "fotoOdometroEntrada": r[14],
-                "fotoOdometroSaida": r[15],
-
-                "ajustado": bool(r[11])
+                "data": r[4].date().isoformat() if r[4] else "",
+                "horaEntrada": r[4].strftime("%H:%M") if r[4] else "",
+                "horaSaida": r[5].strftime("%H:%M") if r[5] else "",
+                "status": r[6],
+                "checklistDisponivel": False,
+                "fotoEntrada": r[7],
+                "fotoSaida": r[8],
+                "ajustado": bool(r[9])
             })
 
-        return jsonify(registros), 200
+        return jsonify(data), 200
 
     except Exception as e:
         print("ERRO api_colaboradores_registros:", e, flush=True)
+        return jsonify({"erro": str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+            
+# =========================
+# API COLABORADORES - PENDÊNCIAS
+# =========================
+@app.get("/api/colaboradores/pendencias")
+def api_colaboradores_pendencias():
+    r = proteger_api()
+    if r:
+        return r
+
+    uid = usuario_id_atual()
+
+    conn = None
+    cur = None
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT COUNT(*)
+            FROM veiculos_uso
+            WHERE usuario_id = %s
+            AND ativo = TRUE
+        """, (uid,))
+
+        total = cur.fetchone()[0]
+
+        return jsonify({"pendencias": total}), 200
+
+    except Exception as e:
         return jsonify({"erro": str(e)}), 500
 
     finally:
