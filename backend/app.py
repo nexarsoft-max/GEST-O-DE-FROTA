@@ -1353,7 +1353,43 @@ def api_detalhe_expediente(expediente_id):
     if r:
         return r
 
+    uid = usuario_id_atual()
     conn = cur = None
+
+    def _normalizar_checklist(valor):
+        if valor is None:
+            return []
+
+        if isinstance(valor, str):
+            texto = valor.strip()
+            if not texto:
+                return []
+            try:
+                valor = json.loads(texto)
+            except Exception:
+                return [texto]
+
+        if isinstance(valor, list):
+            return [str(item) for item in valor]
+
+        if isinstance(valor, dict):
+            # caso venha {"itens":[...]} ou {"checklist":[...]}
+            for chave in ("itens", "items", "checklist", "checklist_entrada", "checklist_saida"):
+                conteudo = valor.get(chave)
+                if isinstance(conteudo, list):
+                    return [str(item) for item in conteudo]
+
+            # caso venha {"pneu": true, "farol": false}
+            marcados = []
+            for chave, v in valor.items():
+                if v is True:
+                    marcados.append(str(chave))
+                elif isinstance(v, str) and v.strip().lower() in ("ok", "sim", "true", "1", "conforme"):
+                    marcados.append(str(chave))
+            return marcados
+
+        return [str(valor)]
+
     try:
         conn = get_db()
         cur = conn.cursor()
@@ -1368,30 +1404,37 @@ def api_detalhe_expediente(expediente_id):
                 horario_fim
             FROM expedientes
             WHERE id = %s
-        """, (expediente_id,))
+              AND usuario_id = %s
+            LIMIT 1
+        """, (expediente_id, uid))
 
         row = cur.fetchone()
 
         if not row:
-            return jsonify({"erro": "Não encontrado"}), 404
+            return jsonify({
+                "sucesso": False,
+                "erro": "Expediente não encontrado"
+            }), 404
 
-        checklist_entrada = row[0] if row[0] else []
-        checklist_saida = row[1] if row[1] else []
-
-        if isinstance(checklist_entrada, str):
-            checklist_entrada = json.loads(checklist_entrada)
-
-        if isinstance(checklist_saida, str):
-            checklist_saida = json.loads(checklist_saida)
+        checklist_entrada = _normalizar_checklist(row[0])
+        checklist_saida = _normalizar_checklist(row[1])
 
         return jsonify({
+            "sucesso": True,
             "checklist_entrada": checklist_entrada,
             "checklist_saida": checklist_saida,
-            "fotoEntrada": row[2],
-            "fotoSaida": row[3],
+            "fotoEntrada": row[2] or "",
+            "fotoSaida": row[3] or "",
             "horaEntrada": row[4].strftime("%H:%M") if row[4] else "",
             "horaSaida": row[5].strftime("%H:%M") if row[5] else ""
         }), 200
+
+    except Exception as e:
+        print("ERRO api_detalhe_expediente:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": "Erro ao carregar detalhe do expediente"
+        }), 500
 
     finally:
         if cur:

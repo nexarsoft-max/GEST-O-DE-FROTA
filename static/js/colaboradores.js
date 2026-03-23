@@ -329,6 +329,64 @@ function aplicarFiltrosHistorico() {
 }
 
 // =========================
+// HELPER PARA NORMALIZAR CHECKLIST
+// =========================
+function normalizarChecklistParaLista(valor) {
+  if (valor == null) return [];
+
+  if (Array.isArray(valor)) {
+    return valor.map((item) => String(item));
+  }
+
+  if (typeof valor === "string") {
+    const texto = valor.trim();
+    if (!texto) return [];
+
+    try {
+      return normalizarChecklistParaLista(JSON.parse(texto));
+    } catch {
+      return [texto];
+    }
+  }
+
+  if (typeof valor === "object") {
+    const chavesPreferidas = [
+      "itens",
+      "items",
+      "checklist",
+      "checklist_entrada",
+      "checklist_saida"
+    ];
+
+    for (const chave of chavesPreferidas) {
+      if (Array.isArray(valor[chave])) {
+        return valor[chave].map((item) => String(item));
+      }
+    }
+
+    const marcados = [];
+    for (const [chave, v] of Object.entries(valor)) {
+      const valorTexto = String(v).trim().toLowerCase();
+
+      if (
+        v === true ||
+        valorTexto === "ok" ||
+        valorTexto === "sim" ||
+        valorTexto === "true" ||
+        valorTexto === "1" ||
+        valorTexto === "conforme"
+      ) {
+        marcados.push(String(chave));
+      }
+    }
+
+    return marcados;
+  }
+
+  return [String(valor)];
+}
+
+// =========================
 // VER CHECKLIST
 // =========================
 async function verChecklist(id) {
@@ -336,13 +394,12 @@ async function verChecklist(id) {
     const res = await fetch(`/api/colaboradores/${id}/detalhe`);
     const data = await res.json();
 
-    const checklistEntrada = Array.isArray(data.checklist_entrada)
-      ? data.checklist_entrada
-      : [];
+    if (!res.ok || data.sucesso === false) {
+      throw new Error(data.erro || "Erro ao carregar checklist");
+    }
 
-    const checklistSaida = Array.isArray(data.checklist_saida)
-      ? data.checklist_saida
-      : [];
+    const checklistEntrada = normalizarChecklistParaLista(data.checklist_entrada);
+    const checklistSaida = normalizarChecklistParaLista(data.checklist_saida);
 
     const textoEntrada = checklistEntrada.length
       ? checklistEntrada.join("\n")
@@ -355,7 +412,7 @@ async function verChecklist(id) {
     alert(`CHECKLIST DE ENTRADA:\n\n${textoEntrada}\n\nCHECKLIST DE SAÍDA:\n\n${textoSaida}`);
   } catch (e) {
     console.error("Erro ao carregar checklist:", e);
-    alert("Erro ao carregar checklist.");
+    alert(e.message || "Erro ao carregar checklist.");
   }
 }
 
@@ -369,9 +426,11 @@ async function abrirAjuste(id) {
     const res = await fetch(`/api/colaboradores/${id}/detalhe`);
     const data = await res.json();
 
-    checklistAtual = Array.isArray(data.checklist_entrada)
-      ? data.checklist_entrada
-      : [];
+    if (!res.ok || data.sucesso === false) {
+      throw new Error(data.erro || "Erro ao abrir ajuste");
+    }
+
+    checklistAtual = normalizarChecklistParaLista(data.checklist_entrada);
 
     const inputEntrada = document.getElementById("ajusteEntrada");
     const inputSaida = document.getElementById("ajusteSaida");
@@ -402,7 +461,7 @@ async function abrirAjuste(id) {
     if (modal) modal.classList.remove("hidden");
   } catch (e) {
     console.error("Erro ao abrir ajuste:", e);
-    alert("Erro ao abrir ajuste.");
+    alert(e.message || "Erro ao abrir ajuste.");
   }
 }
 
