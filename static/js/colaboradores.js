@@ -451,6 +451,22 @@ function normalizarChecklistParaLista(valor) {
 
   return [String(valor)];
 }
+  function aplicarEstado(elemento, valor) {
+  if (!elemento) return;
+
+  elemento.classList.remove("bom", "ruim", "neutro");
+
+  if (valor === true) {
+    elemento.textContent = "Veículo OK";
+    elemento.classList.add("estado-badge", "bom");
+  } else if (valor === false) {
+    elemento.textContent = "Com problema";
+    elemento.classList.add("estado-badge", "ruim");
+  } else {
+    elemento.textContent = "Não informado";
+    elemento.classList.add("estado-badge", "neutro");
+  }
+}
 
 // =========================
 // VER CHECKLIST
@@ -464,13 +480,17 @@ async function verChecklist(id) {
       throw new Error(data.erro || "Erro ao carregar checklist");
     }
 
-    const entrada = normalizarChecklistDetalhe(
-      data.checklist_entrada_detalhe || { itens: data.checklist_entrada || [] }
-    );
+    const entrada = data.checklist_entrada_detalhe || {
+      itens: data.checklist_entrada || [],
+      veiculo_perfeito: null,
+      observacao: ""
+    };
 
-    const saida = normalizarChecklistDetalhe(
-      data.checklist_saida_detalhe || { itens: data.checklist_saida || [] }
-    );
+    const saida = data.checklist_saida_detalhe || {
+      itens: data.checklist_saida || [],
+      veiculo_perfeito: null,
+      observacao: ""
+    };
 
     const listaEntrada = document.getElementById("listaChecklistEntrada");
     const listaSaida = document.getElementById("listaChecklistSaida");
@@ -482,24 +502,40 @@ async function verChecklist(id) {
     const horaSaida = document.getElementById("checklistHoraSaida");
     const modal = document.getElementById("modalChecklist");
 
-    if (listaEntrada) listaEntrada.innerHTML = montarItensChecklistHtml(entrada.itens);
-    if (listaSaida) listaSaida.innerHTML = montarItensChecklistHtml(saida.itens);
-
-    if (estadoEntrada) {
-      estadoEntrada.textContent = formatarEstadoVeiculo(
-        entrada.veiculo_perfeito,
-        "Sim",
-        "Não"
-      );
+    if (listaEntrada) {
+      listaEntrada.innerHTML = "";
+      if (Array.isArray(entrada.itens) && entrada.itens.length > 0) {
+        entrada.itens.forEach((item) => {
+          listaEntrada.innerHTML += `
+            <li>
+              <span class="check-icon"><i class="fa-solid fa-check"></i></span>
+              <span>${item}</span>
+            </li>
+          `;
+        });
+      } else {
+        listaEntrada.innerHTML = `<li class="checklist-vazio">Nenhum item marcado.</li>`;
+      }
     }
 
-    if (estadoSaida) {
-      estadoSaida.textContent = formatarEstadoVeiculo(
-        saida.veiculo_perfeito,
-        "Sim",
-        "Não"
-      );
+    if (listaSaida) {
+      listaSaida.innerHTML = "";
+      if (Array.isArray(saida.itens) && saida.itens.length > 0) {
+        saida.itens.forEach((item) => {
+          listaSaida.innerHTML += `
+            <li>
+              <span class="check-icon"><i class="fa-solid fa-check"></i></span>
+              <span>${item}</span>
+            </li>
+          `;
+        });
+      } else {
+        listaSaida.innerHTML = `<li class="checklist-vazio">Nenhum item marcado.</li>`;
+      }
     }
+
+    aplicarEstado(estadoEntrada, entrada.veiculo_perfeito);
+    aplicarEstado(estadoSaida, saida.veiculo_perfeito);
 
     if (observacaoEntrada) {
       observacaoEntrada.textContent = entrada.observacao || "Sem observação.";
@@ -509,16 +545,23 @@ async function verChecklist(id) {
       observacaoSaida.textContent = saida.observacao || "Sem observação.";
     }
 
-    if (horaEntrada) horaEntrada.textContent = data.horaEntrada || "-";
-    if (horaSaida) horaSaida.textContent = data.horaSaida || "-";
+    if (horaEntrada) {
+      horaEntrada.textContent = data.horaEntrada || "-";
+    }
 
-    if (modal) modal.classList.remove("hidden");
+    if (horaSaida) {
+      horaSaida.textContent = data.horaSaida || "-";
+    }
+
+    if (modal) {
+      modal.classList.remove("hidden");
+    }
+
   } catch (e) {
     console.error("Erro ao carregar checklist:", e);
     alert(e.message || "Erro ao carregar checklist.");
   }
 }
-
 // =========================
 // ABRIR AJUSTE
 // =========================

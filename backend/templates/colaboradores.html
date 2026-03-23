@@ -355,98 +355,102 @@
 
   </div>
 </div>
-<!-- MODAL CHECKLIST -->
-<div id="modalChecklist" class="modal hidden">
-  <div class="modal-content">
 
-    <div class="modal-header">
-      <h2>Checklist do Veículo</h2>
-      <button onclick="fecharModalChecklist()">✕</button>
-    </div>
-
-    <div class="modal-body">
-      <div class="checklist-bloco">
-        <h3>Entrada</h3>
-        <ul id="listaChecklistEntrada"></ul>
-      </div>
-
-      <div class="checklist-bloco">
-        <h3>Saída</h3>
-        <ul id="listaChecklistSaida"></ul>
-      </div>
-    </div>
-
-  </div>
-</div>
 
 
 <!-- MODAL CHECKLIST -->
 <div id="modalChecklist" class="checklist-modal hidden">
   <div class="checklist-modal-card">
+
+    <!-- HEADER -->
     <div class="checklist-modal-header">
       <div>
         <p class="checklist-modal-kicker">Detalhes do expediente</p>
         <h3>Checklist do veículo</h3>
       </div>
+
       <button type="button" class="checklist-modal-close" onclick="fecharModalChecklist()">
         <i class="fa-solid fa-xmark"></i>
       </button>
     </div>
 
+    <!-- BODY -->
     <div class="checklist-modal-body">
+
+      <!-- HORÁRIOS -->
       <div class="checklist-resumo-grid">
         <div class="checklist-resumo-card">
           <span>Hora de entrada</span>
           <strong id="checklistHoraEntrada">-</strong>
         </div>
+
         <div class="checklist-resumo-card">
           <span>Hora de saída</span>
           <strong id="checklistHoraSaida">-</strong>
         </div>
       </div>
 
+      <!-- COLUNAS -->
       <div class="checklist-colunas">
+
+        <!-- ENTRADA -->
         <section class="checklist-coluna">
+
           <div class="checklist-coluna-topo">
             <h4>Checklist de entrada</h4>
             <span class="checklist-badge">Início</span>
           </div>
 
+          <!-- ESTADO -->
           <div class="checklist-estado-box">
-            <span>Veículo em perfeito estado</span>
-            <strong id="checklistEstadoEntrada">-</strong>
+            <span>Estado do veículo</span>
+            <strong id="checklistEstadoEntrada" class="estado-badge neutro">
+              Não informado
+            </strong>
           </div>
 
+          <!-- LISTA -->
           <div class="checklist-lista-wrap">
             <ul id="listaChecklistEntrada" class="checklist-lista"></ul>
           </div>
 
+          <!-- OBS -->
           <div class="checklist-observacao">
             <span>Observação</span>
             <p id="checklistObservacaoEntrada">Sem observação.</p>
           </div>
+
         </section>
 
+        <!-- SAÍDA -->
         <section class="checklist-coluna">
+
           <div class="checklist-coluna-topo">
             <h4>Checklist de saída</h4>
             <span class="checklist-badge saida">Encerramento</span>
           </div>
 
+          <!-- ESTADO -->
           <div class="checklist-estado-box">
-            <span>Veículo devolvido em perfeito estado</span>
-            <strong id="checklistEstadoSaida">-</strong>
+            <span>Estado do veículo</span>
+            <strong id="checklistEstadoSaida" class="estado-badge neutro">
+              Não informado
+            </strong>
           </div>
 
+          <!-- LISTA -->
           <div class="checklist-lista-wrap">
             <ul id="listaChecklistSaida" class="checklist-lista"></ul>
           </div>
 
+          <!-- OBS -->
           <div class="checklist-observacao">
             <span>Observação</span>
             <p id="checklistObservacaoSaida">Sem observação.</p>
           </div>
+
         </section>
+
       </div>
     </div>
   </div>
