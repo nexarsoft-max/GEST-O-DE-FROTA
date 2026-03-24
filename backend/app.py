@@ -14,24 +14,40 @@ from conexao import get_db
 print(">>> APP.PY CARREGADO:", __file__, flush=True)
 
 # =========================
-# S3 CONFIG
+# R2 CONFIG (Render ENV)
 # =========================
 import boto3
 import os
 
-AWS_ACCESS_KEY_ID = (os.getenv("AWS_ACCESS_KEY_ID") or "").strip()
-AWS_SECRET_ACCESS_KEY = (os.getenv("AWS_SECRET_ACCESS_KEY") or "").strip()
-AWS_REGION = (os.getenv("AWS_REGION") or "").strip()
-AWS_BUCKET_NAME = (os.getenv("AWS_BUCKET_NAME") or "").strip()
+R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID")
+R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY")
+R2_ENDPOINT = os.getenv("R2_ENDPOINT")
+R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME")
+R2_PUBLIC_BASE_URL = os.getenv("R2_PUBLIC_BASE_URL")
 
-print("REGION DEBUG:", repr(AWS_REGION))
+print("R2 ENDPOINT:", R2_ENDPOINT, flush=True)
+print("R2 BUCKET:", R2_BUCKET_NAME, flush=True)
+print("R2 PUBLIC URL:", R2_PUBLIC_BASE_URL, flush=True)
 
 s3 = boto3.client(
     "s3",
-    aws_access_key_id=AWS_ACCESS_KEY_ID,
-    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    region_name=AWS_REGION
+    endpoint_url=R2_ENDPOINT,
+    aws_access_key_id=R2_ACCESS_KEY_ID,
+    aws_secret_access_key=R2_SECRET_ACCESS_KEY,
+    region_name="auto"
 )
+
+s3 = boto3.client(
+    "s3",
+    endpoint_url=R2_ENDPOINT,
+    aws_access_key_id=R2_ACCESS_KEY_ID,
+    aws_secret_access_key=R2_SECRET_ACCESS_KEY,
+    region_name="auto"
+)
+
+def montar_url_publica_r2(chave_arquivo: str) -> str:
+    return f"{R2_PUBLIC_BASE_URL}/{chave_arquivo.lstrip('/')}"
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
@@ -1915,16 +1931,17 @@ def api_upload_foto():
     if not file:
         return jsonify({"sucesso": False, "erro": "Foto não enviada"}), 400
 
-    nome = f"expedientes/{datetime.utcnow().timestamp()}.jpg"
+    nome = f"expedientes/{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}.jpg"
 
     try:
         s3.upload_fileobj(
             file,
-            os.getenv("AWS_BUCKET_NAME"),
-            nome
+            R2_BUCKET_NAME,
+            nome,
+            ExtraArgs={"ContentType": file.content_type or "image/jpeg"}
         )
 
-        url = f"https://{os.getenv('AWS_BUCKET_NAME')}.s3.{os.getenv('AWS_REGION')}.amazonaws.com/{nome}"
+        url = montar_url_publica_r2(nome)
 
         return jsonify({
             "sucesso": True,
@@ -2340,6 +2357,7 @@ def api_mobile_iniciar_expediente_completo():
     veiculo_id = request.form.get("veiculo_id")
     raw_checklist = request.form.get("checklist")
     foto = request.files.get("foto")
+    foto_odometro = request.files.get("foto_odometro")
 
     if not veiculo_id or not foto:
         return jsonify({
@@ -2422,47 +2440,86 @@ def api_mobile_iniciar_expediente_completo():
             usuario_id
         ))
 
-        # upload da foto de entrada
-        timestamp = datetime.utcnow().isoformat()
-        filename = f"entrada/{veiculo_id}_{motorista_id}_{timestamp}.jpg"
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
 
+        # upload da foto de entrada
+        filename_entrada = f"entrada/{veiculo_id}_{motorista_id}_{timestamp}.jpg"
         s3.upload_fileobj(
             foto,
-            os.getenv("AWS_BUCKET_NAME"),
-            filename
+            R2_BUCKET_NAME,
+            filename_entrada,
+            ExtraArgs={"ContentType": foto.content_type or "image/jpeg"}
         )
+        url_foto_entrada = montar_url_publica_r2(filename_entrada)
 
-        url_foto = f"https://{os.getenv('AWS_BUCKET_NAME')}.s3.{os.getenv('AWS_REGION')}.amazonaws.com/{filename}"
-
-        # cria expediente novo
-        cur.execute("""
-            INSERT INTO expedientes (
-                usuario_id,
-                colaborador_id,
-                veiculo_id,
-                foto_entrada_url,
-                checklist_entrada,
-                horario_inicio,
-                status
+        # upload da foto do odômetro (se vier)
+        url_foto_odometro = None
+        if foto_odometro:
+            filename_odometro = f"odometro/entrada_{veiculo_id}_{motorista_id}_{timestamp}.jpg"
+            s3.upload_fileobj(
+                foto_odometro,
+                R2_BUCKET_NAME,
+                filename_odometro,
+                ExtraArgs={"ContentType": foto_odometro.content_type or "image/jpeg"}
             )
-            VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP, 'em_andamento')
-            RETURNING id
-        """, (
-            usuario_id,
-            motorista_id,
-            veiculo_id,
-            url_foto,
-            json.dumps(checklist)
-        ))
+            url_foto_odometro = montar_url_publica_r2(filename_odometro)
+
+        # tenta salvar com foto do odômetro se a coluna existir
+        try:
+            cur.execute("""
+                INSERT INTO expedientes (
+                    usuario_id,
+                    colaborador_id,
+                    veiculo_id,
+                    foto_entrada_url,
+                    foto_odometro_entrada_url,
+                    checklist_entrada,
+                    horario_inicio,
+                    status
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, 'em_andamento')
+                RETURNING id
+            """, (
+                usuario_id,
+                motorista_id,
+                veiculo_id,
+                url_foto_entrada,
+                url_foto_odometro,
+                json.dumps(checklist)
+            ))
+        except Exception:
+            conn.rollback()
+            conn = get_db()
+            cur = conn.cursor()
+
+            cur.execute("""
+                INSERT INTO expedientes (
+                    usuario_id,
+                    colaborador_id,
+                    veiculo_id,
+                    foto_entrada_url,
+                    checklist_entrada,
+                    horario_inicio,
+                    status
+                )
+                VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP, 'em_andamento')
+                RETURNING id
+            """, (
+                usuario_id,
+                motorista_id,
+                veiculo_id,
+                url_foto_entrada,
+                json.dumps(checklist)
+            ))
 
         expediente_id = cur.fetchone()[0]
-
         conn.commit()
 
         return jsonify({
             "sucesso": True,
             "expediente_id": int(expediente_id),
-            "foto_url": url_foto
+            "foto_url": url_foto_entrada,
+            "foto_odometro_url": url_foto_odometro
         }), 200
 
     except Exception as e:
@@ -2495,10 +2552,10 @@ def api_mobile_finalizar_expediente():
     raw_checklist = request.form.get("checklist")
     foto = request.files.get("foto")
 
-    if not foto:
+    if not expediente_id or not foto:
         return jsonify({
             "sucesso": False,
-            "erro": "foto é obrigatória"
+            "erro": "expediente_id e foto são obrigatórios"
         }), 400
 
     try:
@@ -2515,63 +2572,18 @@ def api_mobile_finalizar_expediente():
         conn = get_db()
         cur = conn.cursor()
 
-        expediente_row = None
-
-        # se veio expediente_id, tenta localizar um expediente do motorista logado
-        if expediente_id:
-            try:
-                expediente_id_int = int(expediente_id)
-            except (TypeError, ValueError):
-                return jsonify({
-                    "sucesso": False,
-                    "erro": "expediente_id inválido"
-                }), 400
-
-            cur.execute("""
-                SELECT id, veiculo_id
-                FROM expedientes
-                WHERE id = %s
-                  AND colaborador_id = %s
-                  AND status = 'em_andamento'
-                LIMIT 1
-            """, (expediente_id_int, motorista_id))
-
-            expediente_row = cur.fetchone()
-
-        # fallback seguro: se não encontrou pelo ID, busca o expediente aberto do motorista logado
-        if not expediente_row:
-            cur.execute("""
-                SELECT id, veiculo_id
-                FROM expedientes
-                WHERE colaborador_id = %s
-                  AND status = 'em_andamento'
-                ORDER BY horario_inicio DESC, id DESC
-                LIMIT 1
-            """, (motorista_id,))
-
-            expediente_row = cur.fetchone()
-
-        if not expediente_row:
-            return jsonify({
-                "sucesso": False,
-                "erro": "Nenhum expediente ativo foi encontrado para este usuário"
-            }), 404
-
-        expediente_id_encontrado, veiculo_id = expediente_row
-
-        # upload foto saída
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
         filename = f"saida/{motorista_id}_{timestamp}.jpg"
 
         s3.upload_fileobj(
             foto,
-            os.getenv("AWS_BUCKET_NAME"),
-            filename
+            R2_BUCKET_NAME,
+            filename,
+            ExtraArgs={"ContentType": foto.content_type or "image/jpeg"}
         )
 
-        url_foto = f"https://{os.getenv('AWS_BUCKET_NAME')}.s3.{os.getenv('AWS_REGION')}.amazonaws.com/{filename}"
+        url_foto = montar_url_publica_r2(filename)
 
-        # finaliza somente o expediente do usuário logado
         cur.execute("""
             UPDATE expedientes
             SET
@@ -2580,22 +2592,13 @@ def api_mobile_finalizar_expediente():
                 horario_fim = CURRENT_TIMESTAMP,
                 status = 'finalizado'
             WHERE id = %s
-              AND colaborador_id = %s
-              AND status = 'em_andamento'
         """, (
             url_foto,
             json.dumps(checklist),
-            expediente_id_encontrado,
-            motorista_id
+            expediente_id
         ))
 
-        if cur.rowcount == 0:
-            return jsonify({
-                "sucesso": False,
-                "erro": "Não foi possível finalizar o expediente ativo"
-            }), 409
-
-        # remove vínculo do monitoramento do motorista
+        # remove vínculo do monitoramento
         cur.execute("""
             UPDATE veiculos_uso
             SET ativo = FALSE,
@@ -2604,20 +2607,10 @@ def api_mobile_finalizar_expediente():
               AND ativo = TRUE
         """, (motorista_id,))
 
-        # remove vínculo ativo do mesmo veículo, se ainda existir
-        cur.execute("""
-            UPDATE veiculos_uso
-            SET ativo = FALSE,
-                finalizado_em = CURRENT_TIMESTAMP
-            WHERE veiculo_id = %s
-              AND ativo = TRUE
-        """, (veiculo_id,))
-
         conn.commit()
 
         return jsonify({
             "sucesso": True,
-            "expediente_id": int(expediente_id_encontrado),
             "foto_url": url_foto
         }), 200
 
@@ -2635,8 +2628,7 @@ def api_mobile_finalizar_expediente():
             cur.close()
         if conn:
             conn.close()
-            
-# =========================
+            # =========================
 # API MOBILE - EXPEDIENTE ATUAL
 # =========================
 @app.get("/api/mobile/expediente-atual")
