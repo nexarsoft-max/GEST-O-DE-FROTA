@@ -1361,7 +1361,11 @@ def api_detalhe_expediente(expediente_id):
             return {
                 "itens": [],
                 "veiculo_perfeito": None,
-                "observacao": ""
+                "observacao": "",
+                "quantidade_cones": "",
+                "trabalhando_em_dupla_ou_mais": None,
+                "nomes_dupla_ou_mais": "",
+                "confirmacao_veracidade": False
             }
 
         if isinstance(valor, str):
@@ -1370,7 +1374,11 @@ def api_detalhe_expediente(expediente_id):
                 return {
                     "itens": [],
                     "veiculo_perfeito": None,
-                    "observacao": ""
+                    "observacao": "",
+                    "quantidade_cones": "",
+                    "trabalhando_em_dupla_ou_mais": None,
+                    "nomes_dupla_ou_mais": "",
+                    "confirmacao_veracidade": False
                 }
 
             try:
@@ -1379,20 +1387,27 @@ def api_detalhe_expediente(expediente_id):
                 return {
                     "itens": [texto],
                     "veiculo_perfeito": None,
-                    "observacao": ""
+                    "observacao": "",
+                    "quantidade_cones": "",
+                    "trabalhando_em_dupla_ou_mais": None,
+                    "nomes_dupla_ou_mais": "",
+                    "confirmacao_veracidade": False
                 }
 
         if isinstance(valor, list):
             return {
                 "itens": [str(item) for item in valor],
                 "veiculo_perfeito": None,
-                "observacao": ""
+                "observacao": "",
+                "quantidade_cones": "",
+                "trabalhando_em_dupla_ou_mais": None,
+                "nomes_dupla_ou_mais": "",
+                "confirmacao_veracidade": False
             }
 
         if isinstance(valor, dict):
             itens_lista = []
 
-            # prioridade 1: lista pronta enviada pelo mobile
             if isinstance(valor.get("itens_marcados"), list):
                 itens_lista = [
                     str(item).strip()
@@ -1400,7 +1415,6 @@ def api_detalhe_expediente(expediente_id):
                     if str(item).strip()
                 ]
 
-            # prioridade 2: mapa completo de itens { "Step": true, "Cones": false, ... }
             elif isinstance(valor.get("itens"), dict):
                 itens_lista = [
                     str(chave).strip()
@@ -1412,7 +1426,6 @@ def api_detalhe_expediente(expediente_id):
                     and str(chave).strip()
                 ]
 
-            # prioridade 3: itens já em lista
             elif isinstance(valor.get("itens"), list):
                 itens_lista = [
                     str(item).strip()
@@ -1420,7 +1433,6 @@ def api_detalhe_expediente(expediente_id):
                     if str(item).strip()
                 ]
 
-            # compatibilidade com formatos antigos
             elif isinstance(valor.get("checklist"), list):
                 itens_lista = [
                     str(item).strip()
@@ -1444,19 +1456,39 @@ def api_detalhe_expediente(expediente_id):
                         or str(marcado).strip().lower() in ("ok", "sim", "true", "1", "conforme")
                     )
                     and str(chave).strip()
-                    and chave not in ("veiculo_perfeito", "observacao", "tipo", "placa", "modelo")
+                    and chave not in (
+                        "veiculo_perfeito",
+                        "observacao",
+                        "tipo",
+                        "placa",
+                        "modelo",
+                        "quantidade_cones",
+                        "trabalhando_em_dupla_ou_mais",
+                        "nomes_dupla_ou_mais",
+                        "confirmacao_veracidade",
+                        "veiculo_danificado",
+                        "estado_veiculo"
+                    )
                 ]
 
             return {
                 "itens": itens_lista,
                 "veiculo_perfeito": valor.get("veiculo_perfeito"),
-                "observacao": str(valor.get("observacao") or "").strip()
+                "observacao": str(valor.get("observacao") or "").strip(),
+                "quantidade_cones": str(valor.get("quantidade_cones") or "").strip(),
+                "trabalhando_em_dupla_ou_mais": valor.get("trabalhando_em_dupla_ou_mais"),
+                "nomes_dupla_ou_mais": str(valor.get("nomes_dupla_ou_mais") or "").strip(),
+                "confirmacao_veracidade": bool(valor.get("confirmacao_veracidade"))
             }
 
         return {
             "itens": [str(valor).strip()] if str(valor).strip() else [],
             "veiculo_perfeito": None,
-            "observacao": ""
+            "observacao": "",
+            "quantidade_cones": "",
+            "trabalhando_em_dupla_ou_mais": None,
+            "nomes_dupla_ou_mais": "",
+            "confirmacao_veracidade": False
         }
 
     try:
