@@ -1459,3 +1459,28 @@ textarea{
   background: #e5e7eb;
   color: #374151;
 }
+
+
+
+.checklist-info-extra {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f7f5ff;
+  border: 1px solid #e4dcff;
+}
+
+.checklist-info-extra span {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  color: #7c3aed;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.checklist-info-extra p {
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: #3f3953;
+}

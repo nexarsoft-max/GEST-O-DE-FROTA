@@ -102,7 +102,11 @@ function normalizarChecklistDetalhe(valor) {
     return {
       itens: [],
       veiculo_perfeito: null,
-      observacao: ""
+      observacao: "",
+      quantidade_cones: "",
+      trabalhando_em_dupla_ou_mais: null,
+      nomes_dupla_ou_mais: "",
+      confirmacao_veracidade: false
     };
   }
 
@@ -110,7 +114,11 @@ function normalizarChecklistDetalhe(valor) {
     return {
       itens: valor.map((item) => String(item)),
       veiculo_perfeito: null,
-      observacao: ""
+      observacao: "",
+      quantidade_cones: "",
+      trabalhando_em_dupla_ou_mais: null,
+      nomes_dupla_ou_mais: "",
+      confirmacao_veracidade: false
     };
   }
 
@@ -122,14 +130,24 @@ function normalizarChecklistDetalhe(valor) {
     return {
       itens,
       veiculo_perfeito: valor.veiculo_perfeito,
-      observacao: (valor.observacao || "").toString().trim()
+      observacao: (valor.observacao || "").toString().trim(),
+
+      // 🔥 NOVOS CAMPOS
+      quantidade_cones: valor.quantidade_cones || "",
+      trabalhando_em_dupla_ou_mais: valor.trabalhando_em_dupla_ou_mais,
+      nomes_dupla_ou_mais: valor.nomes_dupla_ou_mais || "",
+      confirmacao_veracidade: valor.confirmacao_veracidade === true
     };
   }
 
   return {
     itens: [String(valor)],
     veiculo_perfeito: null,
-    observacao: ""
+    observacao: "",
+    quantidade_cones: "",
+    trabalhando_em_dupla_ou_mais: null,
+    nomes_dupla_ou_mais: "",
+    confirmacao_veracidade: false
   };
 }
 
@@ -507,65 +525,85 @@ async function verChecklist(id) {
     const observacaoEntrada = document.getElementById("checklistObservacaoEntrada");
     const observacaoSaida = document.getElementById("checklistObservacaoSaida");
 
-    const extraEntrada = document.getElementById("checklistExtraEntrada");
-    const extraSaida = document.getElementById("checklistExtraSaida");
-
     const horaEntrada = document.getElementById("checklistHoraEntrada");
     const horaSaida = document.getElementById("checklistHoraSaida");
 
     const modal = document.getElementById("modalChecklist");
 
-    // =========================
-    // ITENS (IGUAL MOBILE)
-    // =========================
+    // ITENS
     const itensEntrada = entrada.itens_marcados || entrada.itens || [];
     const itensSaida = saida.itens_marcados || saida.itens || [];
 
-    listaEntrada.innerHTML = montarItensChecklistHtml(itensEntrada);
-    listaSaida.innerHTML = montarItensChecklistHtml(itensSaida);
+    if (listaEntrada) listaEntrada.innerHTML = montarItensChecklistHtml(itensEntrada);
+    if (listaSaida) listaSaida.innerHTML = montarItensChecklistHtml(itensSaida);
 
-    // =========================
-    // ESTADO VEÍCULO
-    // =========================
+    // ESTADO DO VEÍCULO
     aplicarEstado(estadoEntrada, entrada.veiculo_perfeito);
     aplicarEstado(estadoSaida, saida.veiculo_perfeito);
 
-    // =========================
     // OBSERVAÇÃO
-    // =========================
-    observacaoEntrada.textContent = entrada.observacao || "Sem observação.";
-    observacaoSaida.textContent = saida.observacao || "Sem observação.";
-
-    // =========================
-    // 🔥 DADOS COMPLETOS (MOBILE)
-    // =========================
-    if (extraEntrada) {
-      extraEntrada.innerHTML = `
-        <b>Cones:</b> ${entrada.quantidade_cones || "-"}<br>
-        <b>Dupla:</b> ${entrada.trabalhando_em_dupla_ou_mais ? "Sim" : "Não"}<br>
-        <b>Nomes:</b> ${entrada.nomes_dupla_ou_mais || "-"}<br>
-        <b>Veracidade:</b> ${entrada.confirmacao_veracidade ? "Confirmado" : "Não confirmado"}
-      `;
+    if (observacaoEntrada) {
+      observacaoEntrada.textContent = entrada.observacao || "Sem observação.";
     }
 
-    if (extraSaida) {
-      extraSaida.innerHTML = `
-        <b>Cones:</b> ${saida.quantidade_cones || "-"}<br>
-        <b>Dupla:</b> ${saida.trabalhando_em_dupla_ou_mais ? "Sim" : "Não"}<br>
-        <b>Nomes:</b> ${saida.nomes_dupla_ou_mais || "-"}<br>
-        <b>Veracidade:</b> ${saida.confirmacao_veracidade ? "Confirmado" : "Não confirmado"}
-      `;
+    if (observacaoSaida) {
+      observacaoSaida.textContent = saida.observacao || "Sem observação.";
     }
 
-    // =========================
     // HORÁRIOS
-    // =========================
     if (horaEntrada) horaEntrada.textContent = data.horaEntrada || "-";
     if (horaSaida) horaSaida.textContent = data.horaSaida || "-";
 
-    // =========================
-    // ABRIR MODAL
-    // =========================
+    // ENTRADA
+    const conesEntrada = document.getElementById("checklistConesEntrada");
+    const duplaEntrada = document.getElementById("checklistDuplaEntrada");
+    const nomesEntrada = document.getElementById("checklistNomesEntrada");
+    const veracidadeEntrada = document.getElementById("checklistVeracidadeEntrada");
+
+    if (conesEntrada) {
+      conesEntrada.textContent = entrada.quantidade_cones || "-";
+    }
+
+    if (duplaEntrada) {
+      duplaEntrada.textContent =
+        entrada.trabalhando_em_dupla_ou_mais === true ? "Sim" :
+        entrada.trabalhando_em_dupla_ou_mais === false ? "Não" : "-";
+    }
+
+    if (nomesEntrada) {
+      nomesEntrada.textContent = entrada.nomes_dupla_ou_mais || "-";
+    }
+
+    if (veracidadeEntrada) {
+      veracidadeEntrada.textContent =
+        entrada.confirmacao_veracidade ? "Confirmado" : "Não confirmado";
+    }
+
+    // SAÍDA
+    const conesSaida = document.getElementById("checklistConesSaida");
+    const duplaSaida = document.getElementById("checklistDuplaSaida");
+    const nomesSaida = document.getElementById("checklistNomesSaida");
+    const veracidadeSaida = document.getElementById("checklistVeracidadeSaida");
+
+    if (conesSaida) {
+      conesSaida.textContent = saida.quantidade_cones || "-";
+    }
+
+    if (duplaSaida) {
+      duplaSaida.textContent =
+        saida.trabalhando_em_dupla_ou_mais === true ? "Sim" :
+        saida.trabalhando_em_dupla_ou_mais === false ? "Não" : "-";
+    }
+
+    if (nomesSaida) {
+      nomesSaida.textContent = saida.nomes_dupla_ou_mais || "-";
+    }
+
+    if (veracidadeSaida) {
+      veracidadeSaida.textContent =
+        saida.confirmacao_veracidade ? "Confirmado" : "Não confirmado";
+    }
+
     if (modal) {
       modal.classList.remove("hidden");
     }
