@@ -3886,58 +3886,9 @@ def api_dashboard():
         if conn:
             conn.close()
 
-# =========================
-# CORREÇÃO TEMPORÁRIA AWS → R2
-# =========================
-@app.get("/corrigir-fotos")
-def corrigir_fotos():
-    conn = cur = None
-    try:
-        conn = get_db()
-        cur = conn.cursor()
 
-        cur.execute("""
-            UPDATE expedientes
-            SET foto_entrada_url = REPLACE(
-                foto_entrada_url,
-                'https://gorota-vehicle-photos.s3.us-east-1.amazonaws.com',
-                'https://pub-561cfae6f6e84157963a7bee03def00e.r2.dev'
-            )
-        """)
-
-        cur.execute("""
-            UPDATE expedientes
-            SET foto_saida_url = REPLACE(
-                foto_saida_url,
-                'https://gorota-vehicle-photos.s3.us-east-1.amazonaws.com',
-                'https://pub-561cfae6f6e84157963a7bee03def00e.r2.dev'
-            )
-        """)
-
-        cur.execute("""
-            UPDATE expedientes
-            SET foto_odometro_entrada_url = REPLACE(
-                foto_odometro_entrada_url,
-                'https://gorota-vehicle-photos.s3.us-east-1.amazonaws.com',
-                'https://pub-561cfae6f6e84157963a7bee03def00e.r2.dev'
-            )
-        """)
-
-        conn.commit()
-
-        return {"sucesso": True, "msg": "URLs corrigidas"}
-
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        return {"sucesso": False, "erro": str(e)}
-
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
-# =========================
+            
+            # =========================
 # START
 # =========================
 if __name__ == "__main__":
