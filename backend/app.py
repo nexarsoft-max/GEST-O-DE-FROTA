@@ -37,16 +37,9 @@ s3 = boto3.client(
     region_name="auto"
 )
 
-s3 = boto3.client(
-    "s3",
-    endpoint_url=R2_ENDPOINT,
-    aws_access_key_id=R2_ACCESS_KEY_ID,
-    aws_secret_access_key=R2_SECRET_ACCESS_KEY,
-    region_name="auto"
-)
-
 def montar_url_publica_r2(chave_arquivo: str) -> str:
     return f"{R2_PUBLIC_BASE_URL}/{chave_arquivo.lstrip('/')}"
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
@@ -2387,7 +2380,6 @@ def api_mobile_iniciar_expediente_completo():
         conn = get_db()
         cur = conn.cursor()
 
-        # garante que não fique expediente antigo em aberto para o mesmo motorista
         cur.execute("""
             UPDATE expedientes
             SET
@@ -2397,7 +2389,6 @@ def api_mobile_iniciar_expediente_completo():
               AND status = 'em_andamento'
         """, (motorista_id,))
 
-        # garante que não fique expediente antigo em aberto para o mesmo veículo
         cur.execute("""
             UPDATE expedientes
             SET
@@ -2407,7 +2398,6 @@ def api_mobile_iniciar_expediente_completo():
               AND status = 'em_andamento'
         """, (veiculo_id,))
 
-        # finaliza qualquer uso anterior do motorista no monitoramento
         cur.execute("""
             UPDATE veiculos_uso
             SET ativo = FALSE,
@@ -2416,7 +2406,6 @@ def api_mobile_iniciar_expediente_completo():
               AND ativo = TRUE
         """, (motorista_id,))
 
-        # finaliza qualquer uso anterior do veículo no monitoramento
         cur.execute("""
             UPDATE veiculos_uso
             SET ativo = FALSE,
@@ -2425,7 +2414,6 @@ def api_mobile_iniciar_expediente_completo():
               AND ativo = TRUE
         """, (veiculo_id,))
 
-        # cria vínculo atual no monitoramento
         cur.execute("""
             INSERT INTO veiculos_uso (
                 motorista_id,
@@ -2442,7 +2430,6 @@ def api_mobile_iniciar_expediente_completo():
 
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
 
-        # upload da foto de entrada
         filename_entrada = f"entrada/{veiculo_id}_{motorista_id}_{timestamp}.jpg"
         s3.upload_fileobj(
             foto,
@@ -2452,7 +2439,6 @@ def api_mobile_iniciar_expediente_completo():
         )
         url_foto_entrada = montar_url_publica_r2(filename_entrada)
 
-        # upload da foto do odômetro (se vier)
         url_foto_odometro = None
         if foto_odometro:
             filename_odometro = f"odometro/entrada_{veiculo_id}_{motorista_id}_{timestamp}.jpg"
@@ -2464,7 +2450,6 @@ def api_mobile_iniciar_expediente_completo():
             )
             url_foto_odometro = montar_url_publica_r2(filename_odometro)
 
-        # tenta salvar com foto do odômetro se a coluna existir
         try:
             cur.execute("""
                 INSERT INTO expedientes (
@@ -2536,7 +2521,7 @@ def api_mobile_iniciar_expediente_completo():
             cur.close()
         if conn:
             conn.close()
-            
+
 # =========================
 # API MOBILE - FINALIZAR EXPEDIENTE (COM FOTO)
 # =========================
@@ -2598,7 +2583,6 @@ def api_mobile_finalizar_expediente():
             expediente_id
         ))
 
-        # remove vínculo do monitoramento
         cur.execute("""
             UPDATE veiculos_uso
             SET ativo = FALSE,
@@ -2627,7 +2611,8 @@ def api_mobile_finalizar_expediente():
         if cur:
             cur.close()
         if conn:
-            conn.close()
+            conn.close()            
+            
             # =========================
 # API MOBILE - EXPEDIENTE ATUAL
 # =========================
@@ -3901,7 +3886,57 @@ def api_dashboard():
         if conn:
             conn.close()
 
+# =========================
+# CORREÇÃO TEMPORÁRIA AWS → R2
+# =========================
+@app.get("/corrigir-fotos")
+def corrigir_fotos():
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
 
+        cur.execute("""
+            UPDATE expedientes
+            SET foto_entrada_url = REPLACE(
+                foto_entrada_url,
+                'https://gorota-vehicle-photos.s3.us-east-1.amazonaws.com',
+                'https://pub-561cfae6f6e84157963a7bee03def00e.r2.dev'
+            )
+        """)
+
+        cur.execute("""
+            UPDATE expedientes
+            SET foto_saida_url = REPLACE(
+                foto_saida_url,
+                'https://gorota-vehicle-photos.s3.us-east-1.amazonaws.com',
+                'https://pub-561cfae6f6e84157963a7bee03def00e.r2.dev'
+            )
+        """)
+
+        cur.execute("""
+            UPDATE expedientes
+            SET foto_odometro_entrada_url = REPLACE(
+                foto_odometro_entrada_url,
+                'https://gorota-vehicle-photos.s3.us-east-1.amazonaws.com',
+                'https://pub-561cfae6f6e84157963a7bee03def00e.r2.dev'
+            )
+        """)
+
+        conn.commit()
+
+        return {"sucesso": True, "msg": "URLs corrigidas"}
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        return {"sucesso": False, "erro": str(e)}
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 # =========================
 # START
 # =========================
