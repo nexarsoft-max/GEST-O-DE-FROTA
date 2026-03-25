@@ -2352,10 +2352,16 @@ def api_mobile_iniciar_expediente_completo():
     foto = request.files.get("foto")
     foto_odometro = request.files.get("foto_odometro")
 
-    if not veiculo_id or not foto:
+    if not veiculo_id:
         return jsonify({
             "sucesso": False,
-            "erro": "veiculo_id e foto são obrigatórios"
+            "erro": "veiculo_id é obrigatório"
+        }), 400
+
+    if not foto:
+        return jsonify({
+            "sucesso": False,
+            "erro": "foto é obrigatória"
         }), 400
 
     try:
@@ -2380,6 +2386,7 @@ def api_mobile_iniciar_expediente_completo():
         conn = get_db()
         cur = conn.cursor()
 
+        # fecha expediente antigo do mesmo colaborador
         cur.execute("""
             UPDATE expedientes
             SET
@@ -2389,6 +2396,7 @@ def api_mobile_iniciar_expediente_completo():
               AND status = 'em_andamento'
         """, (motorista_id,))
 
+        # fecha expediente antigo do mesmo veículo
         cur.execute("""
             UPDATE expedientes
             SET
@@ -2398,6 +2406,7 @@ def api_mobile_iniciar_expediente_completo():
               AND status = 'em_andamento'
         """, (veiculo_id,))
 
+        # encerra vínculos antigos do motorista
         cur.execute("""
             UPDATE veiculos_uso
             SET ativo = FALSE,
@@ -2406,6 +2415,7 @@ def api_mobile_iniciar_expediente_completo():
               AND ativo = TRUE
         """, (motorista_id,))
 
+        # encerra vínculos antigos do veículo
         cur.execute("""
             UPDATE veiculos_uso
             SET ativo = FALSE,
@@ -2414,6 +2424,7 @@ def api_mobile_iniciar_expediente_completo():
               AND ativo = TRUE
         """, (veiculo_id,))
 
+        # cria vínculo novo
         cur.execute("""
             INSERT INTO veiculos_uso (
                 motorista_id,
@@ -2450,7 +2461,17 @@ def api_mobile_iniciar_expediente_completo():
             )
             url_foto_odometro = montar_url_publica_r2(filename_odometro)
 
-        try:
+        # verifica se a coluna existe
+        cur.execute("""
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'expedientes'
+              AND column_name = 'foto_odometro_entrada_url'
+            LIMIT 1
+        """)
+        tem_coluna_odometro = cur.fetchone() is not None
+
+        if tem_coluna_odometro:
             cur.execute("""
                 INSERT INTO expedientes (
                     usuario_id,
@@ -2470,13 +2491,9 @@ def api_mobile_iniciar_expediente_completo():
                 veiculo_id,
                 url_foto_entrada,
                 url_foto_odometro,
-                json.dumps(checklist)
+                json.dumps(checklist),
             ))
-        except Exception:
-            conn.rollback()
-            conn = get_db()
-            cur = conn.cursor()
-
+        else:
             cur.execute("""
                 INSERT INTO expedientes (
                     usuario_id,
@@ -2494,7 +2511,7 @@ def api_mobile_iniciar_expediente_completo():
                 motorista_id,
                 veiculo_id,
                 url_foto_entrada,
-                json.dumps(checklist)
+                json.dumps(checklist),
             ))
 
         expediente_id = cur.fetchone()[0]
@@ -2513,7 +2530,7 @@ def api_mobile_iniciar_expediente_completo():
         print("ERRO iniciar expediente:", e, flush=True)
         return jsonify({
             "sucesso": False,
-            "erro": "Erro ao iniciar expediente"
+            "erro": f"Erro ao iniciar expediente: {str(e)}"
         }), 500
 
     finally:
@@ -2521,7 +2538,7 @@ def api_mobile_iniciar_expediente_completo():
             cur.close()
         if conn:
             conn.close()
-
+            
 # =========================
 # API MOBILE - FINALIZAR EXPEDIENTE (COM FOTO)
 # =========================
@@ -2537,10 +2554,10 @@ def api_mobile_finalizar_expediente():
     raw_checklist = request.form.get("checklist")
     foto = request.files.get("foto")
 
-    if not expediente_id or not foto:
+    if not foto:
         return jsonify({
             "sucesso": False,
-            "erro": "expediente_id e foto são obrigatórios"
+            "erro": "foto é obrigatória"
         }), 400
 
     try:
@@ -2556,6 +2573,54 @@ def api_mobile_finalizar_expediente():
     try:
         conn = get_db()
         cur = conn.cursor()
+
+        expediente_id_int = None
+
+        if expediente_id:
+            try:
+                expediente_id_int = int(expediente_id)
+            except (TypeError, ValueError):
+                return jsonify({
+                    "sucesso": False,
+                    "erro": "expediente_id inválido"
+                }), 400
+        else:
+            cur.execute("""
+                SELECT id
+                FROM expedientes
+                WHERE colaborador_id = %s
+                  AND status = 'em_andamento'
+                ORDER BY horario_inicio DESC, id DESC
+                LIMIT 1
+            """, (motorista_id,))
+            row = cur.fetchone()
+
+            if not row:
+                return jsonify({
+                    "sucesso": False,
+                    "erro": "Nenhum expediente em andamento encontrado para finalizar"
+                }), 404
+
+            expediente_id_int = int(row[0])
+
+        cur.execute("""
+            SELECT id, veiculo_id
+            FROM expedientes
+            WHERE id = %s
+              AND colaborador_id = %s
+              AND status = 'em_andamento'
+            LIMIT 1
+        """, (expediente_id_int, motorista_id))
+
+        expediente_row = cur.fetchone()
+
+        if not expediente_row:
+            return jsonify({
+                "sucesso": False,
+                "erro": "Expediente não encontrado ou já finalizado"
+            }), 404
+
+        _, veiculo_id = expediente_row
 
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
         filename = f"saida/{motorista_id}_{timestamp}.jpg"
@@ -2577,24 +2642,35 @@ def api_mobile_finalizar_expediente():
                 horario_fim = CURRENT_TIMESTAMP,
                 status = 'finalizado'
             WHERE id = %s
+              AND colaborador_id = %s
         """, (
             url_foto,
             json.dumps(checklist),
-            expediente_id
+            expediente_id_int,
+            motorista_id
         ))
+
+        if cur.rowcount == 0:
+            conn.rollback()
+            return jsonify({
+                "sucesso": False,
+                "erro": "Não foi possível finalizar o expediente"
+            }), 400
 
         cur.execute("""
             UPDATE veiculos_uso
             SET ativo = FALSE,
                 finalizado_em = CURRENT_TIMESTAMP
             WHERE motorista_id = %s
+              AND veiculo_id = %s
               AND ativo = TRUE
-        """, (motorista_id,))
+        """, (motorista_id, veiculo_id))
 
         conn.commit()
 
         return jsonify({
             "sucesso": True,
+            "expediente_id": expediente_id_int,
             "foto_url": url_foto
         }), 200
 
@@ -2604,14 +2680,14 @@ def api_mobile_finalizar_expediente():
         print("ERRO finalizar expediente:", e, flush=True)
         return jsonify({
             "sucesso": False,
-            "erro": "Erro ao finalizar expediente"
+            "erro": f"Erro ao finalizar expediente: {str(e)}"
         }), 500
 
     finally:
         if cur:
             cur.close()
         if conn:
-            conn.close()            
+            conn.close()   
             
             # =========================
 # API MOBILE - EXPEDIENTE ATUAL
