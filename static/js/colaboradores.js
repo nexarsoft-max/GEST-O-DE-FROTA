@@ -87,6 +87,10 @@ function montarTextoFiltrosHistorico(filtros) {
   return partes.length ? partes.join(" | ") : "Nenhum filtro aplicado";
 }
 
+function escaparAspas(texto) {
+  return String(texto || "").replace(/'/g, "\\'");
+}
+
 function escaparHtml(texto) {
   return (texto || "")
     .toString()
@@ -95,6 +99,34 @@ function escaparHtml(texto) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function abrirModalImagem(url, titulo = "Visualizar imagem") {
+  const modal = document.getElementById("modalImagem");
+  const img = document.getElementById("imagemModalPreview");
+  const tituloEl = document.getElementById("imagemModalTitulo");
+
+  if (!modal || !img) return;
+
+  if (tituloEl) tituloEl.textContent = titulo;
+  img.src = url;
+  img.alt = titulo;
+
+  modal.classList.remove("hidden");
+}
+
+function fecharModalImagem() {
+  const modal = document.getElementById("modalImagem");
+  const img = document.getElementById("imagemModalPreview");
+
+  if (img) {
+    img.src = "";
+    img.alt = "";
+  }
+
+  if (modal) {
+    modal.classList.add("hidden");
+  }
 }
 
 function normalizarChecklistDetalhe(valor) {
@@ -207,7 +239,11 @@ function calcularResumoCards(lista) {
     lista.map((item) => normalizarTexto(item.colaborador)).filter(Boolean)
   ).size;
 
-  const checklistsRealizados = lista.filter((item) => item.checklistDisponivel === true).length;
+  const checklistsRealizados = lista.filter((item) => {
+    return (Array.isArray(item.checklistEntrada) && item.checklistEntrada.length > 0)
+        || (Array.isArray(item.checklistSaida) && item.checklistSaida.length > 0);
+  }).length;
+
   const entradas = lista.filter((item) => item.horaEntrada).length;
   const saidas = lista.filter((item) => item.horaSaida).length;
 
@@ -275,21 +311,23 @@ function renderizarTabelaPrincipal(lista) {
       <td>${checklistBotao}</td>
 
       <td>
-        ${r.fotoEntrada ? `<a href="${r.fotoEntrada}" target="_blank">Ver</a>` : "-"}
+        ${r.fotoEntrada
+          ? `<button type="button" class="btn-link-action" onclick="abrirModalImagem('${escaparAspas(r.fotoEntrada)}', 'Foto de entrada')">Ver</button>`
+          : "-"}
       </td>
 
       <td>
-        ${r.fotoSaida ? `<a href="${r.fotoSaida}" target="_blank">Ver</a>` : "-"}
+        ${r.fotoSaida
+          ? `<button type="button" class="btn-link-action" onclick="abrirModalImagem('${escaparAspas(r.fotoSaida)}', 'Foto de saída')">Ver</button>`
+          : "-"}
       </td>
 
-      <td>
-        ${r.odometroEntrada || "-"} 
-        ${r.odometroSaida ? " → " + r.odometroSaida : ""}
-      </td>
+      <td>-</td>
 
       <td>
-        ${r.fotoOdometroEntrada ? `<a href="${r.fotoOdometroEntrada}" target="_blank">Entrada</a>` : "-"}
-        ${r.fotoOdometroSaida ? `<br><a href="${r.fotoOdometroSaida}" target="_blank">Saída</a>` : ""}
+        ${r.fotoOdometro
+          ? `<button type="button" class="btn-link-action" onclick="abrirModalImagem('${escaparAspas(r.fotoOdometro)}', 'Foto do odômetro')">Ver</button>`
+          : "-"}
       </td>
 
       <td>${ajusteBotao}</td>
@@ -359,10 +397,14 @@ function renderizarHistorico(lista) {
         <button type="button" class="btn-link-action" onclick="verChecklist(${r.id})">Ver</button>
       </td>
       <td>
-        ${r.fotoEntrada ? `<a href="${r.fotoEntrada}" target="_blank" rel="noopener noreferrer">Ver</a>` : "-"}
+        ${r.fotoEntrada
+          ? `<button type="button" class="btn-link-action" onclick="abrirModalImagem('${escaparAspas(r.fotoEntrada)}', 'Foto de entrada')">Ver</button>`
+          : "-"}
       </td>
       <td>
-        ${r.fotoSaida ? `<a href="${r.fotoSaida}" target="_blank" rel="noopener noreferrer">Ver</a>` : "-"}
+        ${r.fotoSaida
+          ? `<button type="button" class="btn-link-action" onclick="abrirModalImagem('${escaparAspas(r.fotoSaida)}', 'Foto de saída')">Ver</button>`
+          : "-"}
       </td>
       <td>
         <button type="button" class="btn-link-action" onclick="abrirAjuste(${r.id})">
@@ -513,8 +555,8 @@ async function verChecklist(id) {
       throw new Error(data.erro || "Erro ao carregar checklist");
     }
 
-    const entrada = data.checklist_entrada_detalhe || {};
-    const saida = data.checklist_saida_detalhe || {};
+   const entrada = normalizarChecklistDetalhe(data.checklist_entrada_detalhe);
+   const saida = normalizarChecklistDetalhe(data.checklist_saida_detalhe);
 
     const listaEntrada = document.getElementById("listaChecklistEntrada");
     const listaSaida = document.getElementById("listaChecklistSaida");
@@ -627,28 +669,36 @@ async function abrirAjuste(id) {
       throw new Error(data.erro || "Erro ao abrir ajuste");
     }
 
-    checklistAtual = normalizarChecklistParaLista(data.checklist_entrada);
+    checklistAtual = Array.isArray(data.checklist_entrada)
+      ? data.checklist_entrada
+      : [];
 
-    const inputEntrada = document.getElementById("ajusteEntrada");
-    const inputSaida = document.getElementById("ajusteSaida");
-    const inputMotivo = document.getElementById("ajusteMotivo");
-
-    if (inputEntrada) inputEntrada.value = data.horaEntrada || "";
-    if (inputSaida) inputSaida.value = data.horaSaida || "";
-    if (inputMotivo) inputMotivo.value = "";
+    document.getElementById("ajusteEntrada").value = data.horaEntrada || "";
+    document.getElementById("ajusteSaida").value = data.horaSaida || "";
+    document.getElementById("ajusteMotivo").value = "";
 
     const fotoEntradaPreview = document.getElementById("fotoEntradaPreview");
     const fotoSaidaPreview = document.getElementById("fotoSaidaPreview");
+    const fotoOdometroPreview = document.getElementById("fotoOdometroPreview");
 
+    // FOTO ENTRADA
     if (fotoEntradaPreview) {
       fotoEntradaPreview.innerHTML = data.fotoEntrada
-        ? `<a href="${data.fotoEntrada}" target="_blank" rel="noopener noreferrer">Ver foto entrada</a>`
+        ? `<button type="button" class="btn-link-action" onclick="abrirModalImagem('${escaparAspas(data.fotoEntrada)}', 'Foto de entrada')">Ver foto entrada</button>`
         : "-";
     }
 
+    // FOTO SAÍDA
     if (fotoSaidaPreview) {
       fotoSaidaPreview.innerHTML = data.fotoSaida
-        ? `<a href="${data.fotoSaida}" target="_blank" rel="noopener noreferrer">Ver foto saída</a>`
+        ? `<button type="button" class="btn-link-action" onclick="abrirModalImagem('${escaparAspas(data.fotoSaida)}', 'Foto de saída')">Ver foto saída</button>`
+        : "-";
+    }
+
+    // 🔥 FOTO ODÔMETRO (ESSA É A QUE FALTAVA)
+    if (fotoOdometroPreview) {
+      fotoOdometroPreview.innerHTML = data.fotoOdometro
+        ? `<button type="button" class="btn-link-action" onclick="abrirModalImagem('${escaparAspas(data.fotoOdometro)}', 'Foto do odômetro')">Ver foto odômetro</button>`
         : "-";
     }
 
@@ -656,6 +706,7 @@ async function abrirAjuste(id) {
 
     const modal = document.getElementById("modalAjuste");
     if (modal) modal.classList.remove("hidden");
+
   } catch (e) {
     console.error("Erro ao abrir ajuste:", e);
     alert(e.message || "Erro ao abrir ajuste.");

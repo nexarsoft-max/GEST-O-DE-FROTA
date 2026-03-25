@@ -1468,7 +1468,7 @@ def api_detalhe_expediente(expediente_id):
                         or str(marcado).strip().lower() in ("ok", "sim", "true", "1", "conforme")
                     )
                     and str(chave).strip()
-                    and chave not in (
+                    and str(chave).strip() not in (
                         "veiculo_perfeito",
                         "observacao",
                         "tipo",
@@ -1513,6 +1513,7 @@ def api_detalhe_expediente(expediente_id):
                 checklist_saida,
                 foto_entrada_url,
                 foto_saida_url,
+                COALESCE(foto_odometro_entrada_url, ''),
                 horario_inicio,
                 horario_fim
             FROM expedientes
@@ -1540,8 +1541,9 @@ def api_detalhe_expediente(expediente_id):
             "checklist_saida_detalhe": checklist_saida,
             "fotoEntrada": row[2] or "",
             "fotoSaida": row[3] or "",
-            "horaEntrada": row[4].strftime("%H:%M") if row[4] else "",
-            "horaSaida": row[5].strftime("%H:%M") if row[5] else ""
+            "fotoOdometro": row[4] or "",
+            "horaEntrada": row[5].strftime("%H:%M") if row[5] else "",
+            "horaSaida": row[6].strftime("%H:%M") if row[6] else ""
         }), 200
 
     except Exception as e:
