@@ -13,28 +13,31 @@ from conexao import get_db
 
 print(">>> APP.PY CARREGADO:", __file__, flush=True)
 
-# =========================
-# R2 CONFIG (Render ENV)
-# =========================
 import boto3
-import os
+from botocore.config import Config
 
-R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID")
-R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY")
-R2_ENDPOINT = os.getenv("R2_ENDPOINT")
-R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME")
-R2_PUBLIC_BASE_URL = os.getenv("R2_PUBLIC_BASE_URL")
+# =========================
+# R2 CONFIG (FORÇADO P/ TESTE)
+# =========================
+R2_ACCESS_KEY_ID = "066d4a5c98cff2006d82521b6a5d97ac"
+R2_SECRET_ACCESS_KEY = "ebd7c1c570887cf5fa7bf23b471ab8416947a261fd030e0332cd9f84bc16ad76"
+R2_ENDPOINT = "https://99db8fa8481df243709f145dff6147e1.r2.cloudflarestorage.com"
+R2_BUCKET_NAME = "gorota-vehicle-photos"
+R2_PUBLIC_BASE_URL = "https://pub-561cfae6f6e84157963a7bee03def00e.r2.dev"
 
-print("R2 ENDPOINT:", R2_ENDPOINT, flush=True)
-print("R2 BUCKET:", R2_BUCKET_NAME, flush=True)
-print("R2 PUBLIC URL:", R2_PUBLIC_BASE_URL, flush=True)
+print("R2_ACCESS_KEY_ID:", repr(R2_ACCESS_KEY_ID), flush=True)
+print("R2_SECRET_ACCESS_KEY:", repr(R2_SECRET_ACCESS_KEY[:8] + "..."), flush=True)
+print("R2_ENDPOINT:", repr(R2_ENDPOINT), flush=True)
+print("R2_BUCKET_NAME:", repr(R2_BUCKET_NAME), flush=True)
+print("R2_PUBLIC_BASE_URL:", repr(R2_PUBLIC_BASE_URL), flush=True)
 
 s3 = boto3.client(
     "s3",
     endpoint_url=R2_ENDPOINT,
     aws_access_key_id=R2_ACCESS_KEY_ID,
     aws_secret_access_key=R2_SECRET_ACCESS_KEY,
-    region_name="auto"
+    region_name="auto",
+    config=Config(signature_version="s3v4")
 )
 
 def montar_url_publica_r2(chave_arquivo: str) -> str:
