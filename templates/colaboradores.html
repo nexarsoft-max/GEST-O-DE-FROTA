@@ -320,13 +320,6 @@
   </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/colaboradores.js') }}"></script>
-
-<script>
-  window.addEventListener("pageshow", function (event) {
-    if (event.persisted) window.location.reload();
-  });
-</script>
 
 
 <div id="modalAjuste" class="modal-overlay hidden">
@@ -347,8 +340,21 @@
     <div id="checklistContainer"></div>
 
     <h3>Fotos</h3>
-    <div id="fotoEntradaPreview"></div>
-    <div id="fotoSaidaPreview"></div>
+
+    <div class="ajuste-campo-preview">
+      <label>Foto entrada</label>
+      <div id="fotoEntradaPreview">-</div>
+    </div>
+
+    <div class="ajuste-campo-preview">
+      <label>Foto saída</label>
+      <div id="fotoSaidaPreview">-</div>
+    </div>
+
+    <div class="ajuste-campo-preview">
+      <label>Foto do odômetro</label>
+      <div id="fotoOdometroPreview">-</div>
+    </div>
 
     <br>
 
@@ -357,7 +363,6 @@
 
   </div>
 </div>
-
 
 
 <!-- MODAL CHECKLIST -->
@@ -480,5 +485,46 @@
       </div>
     </div>
   </div>
-</div></body>
+</div>
+
+
+
+
+
+<div id="modalImagem" class="checklist-modal hidden">
+  <div class="checklist-modal-card" style="max-width: 900px;">
+    <div class="checklist-modal-header">
+      <div>
+        <p class="checklist-modal-kicker">Visualização</p>
+        <h3 id="imagemModalTitulo">Imagem</h3>
+      </div>
+
+      <button type="button" class="checklist-modal-close" onclick="fecharModalImagem()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="checklist-modal-body" style="display:flex; justify-content:center; align-items:center;">
+      <img
+        id="imagemModalPreview"
+        src=""
+        alt="Pré-visualização"
+        style="max-width:100%; max-height:75vh; border-radius:16px; object-fit:contain;"
+      />
+    </div>
+  </div>
+</div>
+
+
+
+<script src="{{ url_for('static', filename='js/colaboradores.js') }}"></script>
+
+<script>
+  window.addEventListener("pageshow", function (event) {
+    if (event.persisted) window.location.reload();
+  });
+</script>
+
+
+</body>
 </html>

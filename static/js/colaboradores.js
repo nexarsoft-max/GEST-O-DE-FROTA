@@ -106,6 +106,13 @@ function abrirModalImagem(url, titulo = "Visualizar imagem") {
   const img = document.getElementById("imagemModalPreview");
   const tituloEl = document.getElementById("imagemModalTitulo");
 
+  console.log("abrirModalImagem()", {
+    modal,
+    img,
+    url,
+    titulo
+  });
+
   if (!modal || !img || !url) {
     console.error("Modal de imagem não encontrado ou URL vazia.", { modal, img, url });
     return;
