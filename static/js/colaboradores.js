@@ -106,13 +106,18 @@ function abrirModalImagem(url, titulo = "Visualizar imagem") {
   const img = document.getElementById("imagemModalPreview");
   const tituloEl = document.getElementById("imagemModalTitulo");
 
-  if (!modal || !img) return;
+  if (!modal || !img || !url) {
+    console.error("Modal de imagem não encontrado ou URL vazia.", { modal, img, url });
+    return;
+  }
 
   if (tituloEl) tituloEl.textContent = titulo;
   img.src = url;
   img.alt = titulo;
 
   modal.classList.remove("hidden");
+  modal.style.display = "flex";
+  document.body.style.overflow = "hidden";
 }
 
 function fecharModalImagem() {
@@ -126,7 +131,10 @@ function fecharModalImagem() {
 
   if (modal) {
     modal.classList.add("hidden");
+    modal.style.display = "none";
   }
+
+  document.body.style.overflow = "";
 }
 
 function normalizarChecklistDetalhe(valor) {
@@ -822,3 +830,11 @@ if (clearHistoryButton) {
 document.addEventListener("DOMContentLoaded", () => {
   carregarRegistros();
 });
+
+window.abrirModalImagem = abrirModalImagem;
+window.fecharModalImagem = fecharModalImagem;
+window.abrirAjuste = abrirAjuste;
+window.fecharModal = fecharModal;
+window.verChecklist = verChecklist;
+window.fecharModalChecklist = fecharModalChecklist;
+window.salvarAjuste = salvarAjuste;

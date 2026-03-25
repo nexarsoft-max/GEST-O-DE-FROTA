@@ -1558,7 +1558,7 @@ def api_detalhe_expediente(expediente_id):
             cur.close()
         if conn:
             conn.close()
-
+            
 @app.get("/api/mobile/terms/status")
 def api_mobile_terms_status():
     r = proteger_api_mobile()
