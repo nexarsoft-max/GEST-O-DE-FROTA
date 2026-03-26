@@ -484,6 +484,24 @@
 </div>
 
 
+<div id="modalImagem" class="checklist-modal hidden">
+  <div class="checklist-modal-card">
+    <div class="checklist-modal-header">
+      <div>
+        <p class="checklist-modal-kicker">Visualização</p>
+        <h3 id="imagemModalTitulo">Imagem do registro</h3>
+      </div>
+      <button type="button" class="checklist-modal-close" onclick="fecharModalImagem()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="checklist-modal-body">
+      <img id="imagemModalPreview" src="" alt="Imagem do registro">
+    </div>
+  </div>
+</div>
+
 <div id="modalAjuste" class="checklist-modal hidden">
   <div class="checklist-modal-card modal-ajuste-card">
     <div class="checklist-modal-header">
@@ -528,7 +546,7 @@
 
     <div class="campo-ajuste campo-ajuste-motivo">
       <label for="ajusteMotivo">Motivo do ajuste</label>
-      <textarea id="ajusteMotivo" rows="4" placeholder="Explique o motivo do ajuste realizado..."></textarea>
+      <textarea id="ajusteMotivo" rows="4" placeholder="Explique o motivo do ajuste realizado."></textarea>
     </div>
 
     <div class="modal-ajuste-acoes">
@@ -537,7 +555,5 @@
     </div>
   </div>
 </div>
-
-
 </body>
 </html>

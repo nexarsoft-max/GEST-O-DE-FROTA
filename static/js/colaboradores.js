@@ -690,6 +690,28 @@ async function verChecklist(id) {
 // =========================
 // ABRIR AJUSTE
 // =========================
+function renderizarPreviewFoto(containerId, url, titulo) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (!url || !String(url).trim()) {
+    container.innerHTML = `<span class="preview-foto-vazio">-</span>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="preview-foto-card">
+      <button
+        type="button"
+        class="btn-link-action"
+        onclick="abrirModalImagem('${escaparAspas(url)}', '${escaparAspas(titulo || "Foto")}')"
+      >
+        Ver ${escaparHtml((titulo || "foto").toLowerCase())}
+      </button>
+    </div>
+  `;
+}
+
 async function abrirAjuste(id) {
   try {
     expedienteSelecionado = id;
@@ -942,6 +964,101 @@ async function abrirAjuste(id) {
     renderizarPreviewFoto("fotoSaidaPreview", data.fotoSaida, "Foto de saída");
     renderizarPreviewFoto("fotoOdometroPreview", data.fotoOdometro, "Foto do odômetro");
 
+    const modal = document.getElementById("modalAjuste");
+    if (modal) {
+      modal.classList.remove("hidden");
+      modal.style.display = "flex";
+    }
+    document.body.style.overflow = "hidden";
+  } catch (e) {
+    console.error("Erro ao abrir ajuste:", e);
+    alert(e.message || "Erro ao abrir ajuste");
+  }
+}
+
+function coletarChecklistEditavel(containerId, detalheOriginal = {}) {
+  const container = document.getElementById(containerId);
+  const checks = container ? [...container.querySelectorAll('input[type="checkbox"]')] : [];
+  const itensMarcados = checks.filter((i) => i.checked).map((i) => i.value);
+
+  return {
+    ...detalheOriginal,
+    itens: itensMarcados,
+    itens_marcados: itensMarcados
+  };
+}
+
+function fecharAjuste() {
+  const modal = document.getElementById("modalAjuste");
+  if (modal) {
+    modal.classList.add("hidden");
+    modal.style.display = "none";
+  }
+
+  ajusteExpedienteId = null;
+  ajusteChecklistEntradaDetalhe = {};
+  ajusteChecklistSaidaDetalhe = {};
+  document.body.style.overflow = "";
+}
+
+async function salvarAjuste() {
+  try {
+    const payload = {
+      id: ajusteExpedienteId,
+      entrada: document.getElementById("ajusteHoraEntrada").value || null,
+      saida: document.getElementById("ajusteHoraSaida").value || null,
+      motivo: document.getElementById("ajusteMotivo").value.trim(),
+      checklistEntrada: coletarChecklistEditavel("ajusteChecklistEntrada", ajusteChecklistEntradaDetalhe),
+      checklistSaida: coletarChecklistEditavel("ajusteChecklistSaida", ajusteChecklistSaidaDetalhe)
+    };
+
+    const res = await fetch("/api/colaboradores/ajuste", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.sucesso === false) {
+      throw new Error(data.erro || "Erro ao salvar ajuste");
+    }
+
+    fecharAjuste();
+    await carregarRegistros();
+    aplicarFiltrosTabelaPrincipal();
+    aplicarFiltrosHistorico();
+  } catch (e) {
+    console.error("Erro ao salvar ajuste:", e);
+    alert(e.message || "Erro ao salvar ajuste");
+  }
+}
+async function abrirAjuste(id) {
+  try {
+    const res = await fetch(`/api/colaboradores/${id}/detalhe`);
+    const data = await res.json();
+
+    if (!res.ok || data.sucesso === false) {
+      throw new Error(data.erro || "Erro ao carregar ajuste");
+    }
+
+    ajusteExpedienteId = id;
+    ajusteChecklistEntradaDetalhe = data.checklist_entrada_detalhe || {};
+    ajusteChecklistSaidaDetalhe = data.checklist_saida_detalhe || {};
+
+    document.getElementById("ajusteHoraEntrada").value = data.horaEntrada || "";
+    document.getElementById("ajusteHoraSaida").value = data.horaSaida || "";
+    document.getElementById("ajusteMotivo").value = "";
+
+    renderizarChecklistEditavel("ajusteChecklistEntrada", ajusteChecklistEntradaDetalhe);
+    renderizarChecklistEditavel("ajusteChecklistSaida", ajusteChecklistSaidaDetalhe);
+
+    renderizarPreviewFoto("fotoEntradaPreview", data.fotoEntrada, "Foto de entrada");
+    renderizarPreviewFoto("fotoSaidaPreview", data.fotoSaida, "Foto de saída");
+    renderizarPreviewFoto("fotoOdometroPreview", data.fotoOdometro, "Foto do odômetro");
+
     document.getElementById("modalAjuste").classList.remove("hidden");
     document.getElementById("modalAjuste").style.display = "flex";
     document.body.style.overflow = "hidden";
@@ -1009,7 +1126,7 @@ document.addEventListener("DOMContentLoaded", () => {
 window.abrirModalImagem = abrirModalImagem;
 window.fecharModalImagem = fecharModalImagem;
 window.abrirAjuste = abrirAjuste;
-window.fecharModal = fecharModal;
+window.fecharAjuste = fecharAjuste;
 window.verChecklist = verChecklist;
 window.fecharModalChecklist = fecharModalChecklist;
 window.salvarAjuste = salvarAjuste;
