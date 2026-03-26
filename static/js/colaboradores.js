@@ -234,8 +234,15 @@ async function carregarRegistros() {
     const res = await fetch("/api/colaboradores/registros");
     const data = await res.json();
 
+    if (!res.ok) {
+      throw new Error(data.erro || "Erro ao carregar registros");
+    }
+
     registrosColaboradores.length = 0;
-    registrosColaboradores.push(...data);
+
+    if (Array.isArray(data)) {
+      registrosColaboradores.push(...data);
+    }
 
     renderizarTabelaPrincipal(registrosColaboradores);
     renderizarHistorico([]);
@@ -243,6 +250,11 @@ async function carregarRegistros() {
     resetarCardsHistorico();
   } catch (e) {
     console.error("Erro ao carregar registros:", e);
+    registrosColaboradores.length = 0;
+    renderizarTabelaPrincipal([]);
+    renderizarHistorico([]);
+    calcularResumoCards([]);
+    resetarCardsHistorico();
   }
 }
 
