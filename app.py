@@ -1368,133 +1368,9 @@ def api_detalhe_expediente(expediente_id):
     uid = usuario_id_atual()
     conn = cur = None
 
-    def _normalizar_checklist(valor):
-        if valor is None:
-            return {
-                "itens": [],
-                "veiculo_perfeito": None,
-                "observacao": "",
-                "quantidade_cones": "",
-                "trabalhando_em_dupla_ou_mais": None,
-                "nomes_dupla_ou_mais": "",
-                "confirmacao_veracidade": False
-            }
-
-        if isinstance(valor, str):
-            texto = valor.strip()
-            if not texto:
-                return {
-                    "itens": [],
-                    "veiculo_perfeito": None,
-                    "observacao": "",
-                    "quantidade_cones": "",
-                    "trabalhando_em_dupla_ou_mais": None,
-                    "nomes_dupla_ou_mais": "",
-                    "confirmacao_veracidade": False
-                }
-
-            try:
-                valor = json.loads(texto)
-            except Exception:
-                return {
-                    "itens": [texto],
-                    "veiculo_perfeito": None,
-                    "observacao": "",
-                    "quantidade_cones": "",
-                    "trabalhando_em_dupla_ou_mais": None,
-                    "nomes_dupla_ou_mais": "",
-                    "confirmacao_veracidade": False
-                }
-
-        if isinstance(valor, list):
-            return {
-                "itens": [str(item) for item in valor],
-                "veiculo_perfeito": None,
-                "observacao": "",
-                "quantidade_cones": "",
-                "trabalhando_em_dupla_ou_mais": None,
-                "nomes_dupla_ou_mais": "",
-                "confirmacao_veracidade": False
-            }
-
-        if isinstance(valor, dict):
-            itens_lista = []
-
-            if isinstance(valor.get("itens_marcados"), list):
-                itens_lista = [
-                    str(item).strip()
-                    for item in valor.get("itens_marcados", [])
-                    if str(item).strip()
-                ]
-
-            elif isinstance(valor.get("itens"), dict):
-                itens_lista = [
-                    str(chave).strip()
-                    for chave, marcado in valor.get("itens", {}).items()
-                    if (
-                        marcado is True
-                        or str(marcado).strip().lower() in ("ok", "sim", "true", "1", "conforme")
-                    )
-                    and str(chave).strip()
-                ]
-
-            elif isinstance(valor.get("itens"), list):
-                itens_lista = [
-                    str(item).strip()
-                    for item in valor.get("itens", [])
-                    if str(item).strip()
-                ]
-
-            elif isinstance(valor.get("checklist"), list):
-                itens_lista = [
-                    str(item).strip()
-                    for item in valor.get("checklist", [])
-                    if str(item).strip()
-                ]
-
-            elif isinstance(valor.get("items"), list):
-                itens_lista = [
-                    str(item).strip()
-                    for item in valor.get("items", [])
-                    if str(item).strip()
-                ]
-
-            else:
-                itens_lista = [
-                    str(chave).strip()
-                    for chave, marcado in valor.items()
-                    if (
-                        marcado is True
-                        or str(marcado).strip().lower() in ("ok", "sim", "true", "1", "conforme")
-                    )
-                    and str(chave).strip()
-                    and str(chave).strip() not in (
-                        "veiculo_perfeito",
-                        "observacao",
-                        "tipo",
-                        "placa",
-                        "modelo",
-                        "quantidade_cones",
-                        "trabalhando_em_dupla_ou_mais",
-                        "nomes_dupla_ou_mais",
-                        "confirmacao_veracidade",
-                        "veiculo_danificado",
-                        "estado_veiculo"
-                    )
-                ]
-
-            return {
-                "itens": itens_lista,
-                "veiculo_perfeito": valor.get("veiculo_perfeito"),
-                "observacao": str(valor.get("observacao") or "").strip(),
-                "quantidade_cones": str(valor.get("quantidade_cones") or "").strip(),
-                "trabalhando_em_dupla_ou_mais": valor.get("trabalhando_em_dupla_ou_mais"),
-                "nomes_dupla_ou_mais": str(valor.get("nomes_dupla_ou_mais") or "").strip(),
-                "confirmacao_veracidade": bool(valor.get("confirmacao_veracidade"))
-            }
-
+    def _checklist_vazio():
         return {
-            "itens": [str(valor).strip()] if str(valor).strip() else [],
+            "itens": [],
             "veiculo_perfeito": None,
             "observacao": "",
             "quantidade_cones": "",
@@ -1503,17 +1379,157 @@ def api_detalhe_expediente(expediente_id):
             "confirmacao_veracidade": False
         }
 
+    def _normalizar_checklist(valor):
+        try:
+            if valor is None:
+                return _checklist_vazio()
+
+            if isinstance(valor, str):
+                texto = valor.strip()
+                if not texto:
+                    return _checklist_vazio()
+
+                try:
+                    valor = json.loads(texto)
+                except Exception:
+                    return {
+                        "itens": [texto],
+                        "veiculo_perfeito": None,
+                        "observacao": "",
+                        "quantidade_cones": "",
+                        "trabalhando_em_dupla_ou_mais": None,
+                        "nomes_dupla_ou_mais": "",
+                        "confirmacao_veracidade": False
+                    }
+
+            if isinstance(valor, list):
+                return {
+                    "itens": [str(item).strip() for item in valor if str(item).strip()],
+                    "veiculo_perfeito": None,
+                    "observacao": "",
+                    "quantidade_cones": "",
+                    "trabalhando_em_dupla_ou_mais": None,
+                    "nomes_dupla_ou_mais": "",
+                    "confirmacao_veracidade": False
+                }
+
+            if isinstance(valor, dict):
+                itens_lista = []
+
+                if isinstance(valor.get("itens_marcados"), list):
+                    itens_lista = [
+                        str(item).strip()
+                        for item in valor.get("itens_marcados", [])
+                        if str(item).strip()
+                    ]
+
+                elif isinstance(valor.get("itens"), dict):
+                    itens_lista = [
+                        str(chave).strip()
+                        for chave, marcado in valor.get("itens", {}).items()
+                        if (
+                            marcado is True
+                            or str(marcado).strip().lower() in ("ok", "sim", "true", "1", "conforme")
+                        )
+                        and str(chave).strip()
+                    ]
+
+                elif isinstance(valor.get("itens"), list):
+                    itens_lista = [
+                        str(item).strip()
+                        for item in valor.get("itens", [])
+                        if str(item).strip()
+                    ]
+
+                elif isinstance(valor.get("checklist"), list):
+                    itens_lista = [
+                        str(item).strip()
+                        for item in valor.get("checklist", [])
+                        if str(item).strip()
+                    ]
+
+                elif isinstance(valor.get("items"), list):
+                    itens_lista = [
+                        str(item).strip()
+                        for item in valor.get("items", [])
+                        if str(item).strip()
+                    ]
+
+                else:
+                    itens_lista = [
+                        str(chave).strip()
+                        for chave, marcado in valor.items()
+                        if (
+                            marcado is True
+                            or str(marcado).strip().lower() in ("ok", "sim", "true", "1", "conforme")
+                        )
+                        and str(chave).strip()
+                        and str(chave).strip() not in (
+                            "veiculo_perfeito",
+                            "observacao",
+                            "tipo",
+                            "placa",
+                            "modelo",
+                            "quantidade_cones",
+                            "trabalhando_em_dupla_ou_mais",
+                            "nomes_dupla_ou_mais",
+                            "confirmacao_veracidade",
+                            "veiculo_danificado",
+                            "estado_veiculo"
+                        )
+                    ]
+
+                return {
+                    "itens": itens_lista,
+                    "veiculo_perfeito": valor.get("veiculo_perfeito"),
+                    "observacao": str(valor.get("observacao") or "").strip(),
+                    "quantidade_cones": str(valor.get("quantidade_cones") or "").strip(),
+                    "trabalhando_em_dupla_ou_mais": valor.get("trabalhando_em_dupla_ou_mais"),
+                    "nomes_dupla_ou_mais": str(valor.get("nomes_dupla_ou_mais") or "").strip(),
+                    "confirmacao_veracidade": bool(valor.get("confirmacao_veracidade"))
+                }
+
+            return {
+                "itens": [str(valor).strip()] if str(valor).strip() else [],
+                "veiculo_perfeito": None,
+                "observacao": "",
+                "quantidade_cones": "",
+                "trabalhando_em_dupla_ou_mais": None,
+                "nomes_dupla_ou_mais": "",
+                "confirmacao_veracidade": False
+            }
+
+        except Exception as erro_normalizacao:
+            print("ERRO _normalizar_checklist:", erro_normalizacao, flush=True)
+            return _checklist_vazio()
+
     try:
         conn = get_db()
         cur = conn.cursor()
 
+        # protege caso a coluna ainda não exista em algum banco
         cur.execute("""
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'expedientes'
+              AND column_name = 'foto_odometro_entrada_url'
+            LIMIT 1
+        """)
+        tem_foto_odometro = cur.fetchone() is not None
+
+        campo_foto_odometro = (
+            "COALESCE(foto_odometro_entrada_url, '')"
+            if tem_foto_odometro
+            else "''"
+        )
+
+        cur.execute(f"""
             SELECT
                 checklist_entrada,
                 checklist_saida,
-                foto_entrada_url,
-                foto_saida_url,
-                COALESCE(foto_odometro_entrada_url, ''),
+                COALESCE(foto_entrada_url, ''),
+                COALESCE(foto_saida_url, ''),
+                {campo_foto_odometro} AS foto_odometro,
                 horario_inicio,
                 horario_fim
             FROM expedientes
@@ -1550,7 +1566,7 @@ def api_detalhe_expediente(expediente_id):
         print("ERRO api_detalhe_expediente:", e, flush=True)
         return jsonify({
             "sucesso": False,
-            "erro": "Erro ao carregar detalhe do expediente"
+            "erro": f"Erro ao carregar detalhe do expediente: {str(e)}"
         }), 500
 
     finally:

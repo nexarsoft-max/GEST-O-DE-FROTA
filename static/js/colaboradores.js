@@ -848,6 +848,18 @@ if (clearHistoryButton) {
   });
 }
 
+document.addEventListener("click", (event) => {
+  const modalImagem = document.getElementById("modalImagem");
+  const modalChecklist = document.getElementById("modalChecklist");
+
+  if (modalImagem && event.target === modalImagem) {
+    fecharModalImagem();
+  }
+
+  if (modalChecklist && event.target === modalChecklist) {
+    fecharModalChecklist();
+  }
+});
 // =========================
 // INIT
 // =========================
