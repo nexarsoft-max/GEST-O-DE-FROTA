@@ -1727,6 +1727,7 @@ def api_colaboradores_registros():
                 e.checklist_saida,
                 e.foto_entrada_url,
                 e.foto_saida_url,
+                COALESCE(e.foto_odometro_entrada_url, ''),
                 e.ajustado
             FROM expedientes e
             LEFT JOIN motoristas m ON m.id = e.colaborador_id
@@ -1763,9 +1764,10 @@ def api_colaboradores_registros():
                 # 🔥 FOTOS
                 "fotoEntrada": r[9],
                 "fotoSaida": r[10],
+                "fotoOdometro": r[11],
 
                 # 🔥 AJUSTE
-                "ajustado": bool(r[11])
+                "ajustado": bool(r[12])
             })
 
         return jsonify(data), 200

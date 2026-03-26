@@ -337,8 +337,6 @@ function renderizarTabelaPrincipal(lista) {
           : "-"}
       </td>
 
-      <td>-</td>
-
       <td>
         ${r.fotoOdometro
           ? `<button type="button" class="btn-link-action" onclick="abrirModalImagem('${escaparAspas(r.fotoOdometro)}', 'Foto do odômetro')">Ver</button>`
@@ -419,6 +417,11 @@ function renderizarHistorico(lista) {
       <td>
         ${r.fotoSaida
           ? `<button type="button" class="btn-link-action" onclick="abrirModalImagem('${escaparAspas(r.fotoSaida)}', 'Foto de saída')">Ver</button>`
+          : "-"}
+      </td>
+      <td>
+        ${r.fotoOdometro
+          ? `<button type="button" class="btn-link-action" onclick="abrirModalImagem('${escaparAspas(r.fotoOdometro)}', 'Foto do odômetro')">Ver</button>`
           : "-"}
       </td>
       <td>
