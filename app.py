@@ -1714,7 +1714,23 @@ def api_colaboradores_registros():
         conn = get_db()
         cur = conn.cursor()
 
+        # ✅ verifica se a coluna existe no banco antes de usar
         cur.execute("""
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'expedientes'
+              AND column_name = 'foto_odometro_entrada_url'
+            LIMIT 1
+        """)
+        tem_foto_odometro = cur.fetchone() is not None
+
+        campo_foto_odometro = (
+            "COALESCE(e.foto_odometro_entrada_url, '')"
+            if tem_foto_odometro
+            else "''"
+        )
+
+        cur.execute(f"""
             SELECT
                 e.id,
                 m.nome,
@@ -1727,7 +1743,7 @@ def api_colaboradores_registros():
                 e.checklist_saida,
                 e.foto_entrada_url,
                 e.foto_saida_url,
-                COALESCE(e.foto_odometro_entrada_url, ''),
+                {campo_foto_odometro} AS foto_odometro,
                 e.ajustado
             FROM expedientes e
             LEFT JOIN motoristas m ON m.id = e.colaborador_id
@@ -1757,16 +1773,13 @@ def api_colaboradores_registros():
 
                 "status": r[6],
 
-                # 🔥 CHECKLIST AGORA FUNCIONA
                 "checklistEntrada": checklist_inicio,
                 "checklistSaida": checklist_fim,
 
-                # 🔥 FOTOS
-                "fotoEntrada": r[9],
-                "fotoSaida": r[10],
-                "fotoOdometro": r[11],
+                "fotoEntrada": r[9] or "",
+                "fotoSaida": r[10] or "",
+                "fotoOdometro": r[11] or "",
 
-                # 🔥 AJUSTE
                 "ajustado": bool(r[12])
             })
 
@@ -1781,7 +1794,7 @@ def api_colaboradores_registros():
             cur.close()
         if conn:
             conn.close()
-            
+
 # =========================
 # API COLABORADORES - PENDÊNCIAS
 # =========================

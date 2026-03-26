@@ -234,6 +234,8 @@ async function carregarRegistros() {
     const res = await fetch("/api/colaboradores/registros");
     const data = await res.json();
 
+    console.log("Resposta /api/colaboradores/registros:", data);
+
     if (!res.ok) {
       throw new Error(data.erro || "Erro ao carregar registros");
     }
