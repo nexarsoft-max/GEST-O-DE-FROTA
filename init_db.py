@@ -558,7 +558,7 @@ def criar_tabelas():
     END$$;
     """)
 
-    # =========================
+        # =========================
     # 11) EXPEDIENTES / COLABORADORES
     # =========================
     cur.execute("""
@@ -570,6 +570,7 @@ def criar_tabelas():
         placa VARCHAR(20),
         foto_entrada_url TEXT,
         foto_saida_url TEXT,
+        foto_odometro_entrada_url TEXT,
         checklist_entrada JSONB,
         checklist_saida JSONB,
         horario_inicio TIMESTAMP,
@@ -590,6 +591,7 @@ def criar_tabelas():
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS placa VARCHAR(20);""")
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS foto_entrada_url TEXT;""")
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS foto_saida_url TEXT;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS foto_odometro_entrada_url TEXT;""")
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS checklist_entrada JSONB;""")
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS checklist_saida JSONB;""")
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS horario_inicio TIMESTAMP;""")
