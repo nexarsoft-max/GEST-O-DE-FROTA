@@ -1867,7 +1867,8 @@ def api_ajustar_ponto():
     expediente_id = dados.get("id")
     entrada = dados.get("entrada")
     saida = dados.get("saida")
-    checklist = dados.get("checklist")
+    checklist_entrada = dados.get("checklistEntrada")
+    checklist_saida = dados.get("checklistSaida")
     motivo = dados.get("motivo")
 
     if not expediente_id:
@@ -1893,10 +1894,15 @@ def api_ajustar_ponto():
             campos.append("horario_fim = %s")
             valores.append(saida)
 
-        if checklist is not None:
-            checklist_json = _parse_checklist_json(checklist)
+        if checklist_entrada is not None:
+            checklist_entrada_json = _parse_checklist_json(checklist_entrada)
             campos.append("checklist_entrada = %s")
-            valores.append(json.dumps(checklist_json))
+            valores.append(json.dumps(checklist_entrada_json))
+
+        if checklist_saida is not None:
+            checklist_saida_json = _parse_checklist_json(checklist_saida)
+            campos.append("checklist_saida = %s")
+            valores.append(json.dumps(checklist_saida_json))
 
         if motivo:
             campos.append("motivo_ajuste = %s")
@@ -1906,6 +1912,8 @@ def api_ajustar_ponto():
 
         if saida:
             campos.append("status = 'finalizado'")
+        else:
+            campos.append("status = 'em_andamento'")
 
         query = f"""
             UPDATE expedientes
@@ -1917,10 +1925,18 @@ def api_ajustar_ponto():
 
         cur.execute(query, valores)
 
+        if cur.rowcount == 0:
+            conn.rollback()
+            return jsonify({
+                "sucesso": False,
+                "erro": "Expediente não encontrado"
+            }), 404
+
         conn.commit()
 
         return jsonify({
-            "sucesso": True
+            "sucesso": True,
+            "mensagem": "Ajuste salvo com sucesso"
         }), 200
 
     except ValueError as e:

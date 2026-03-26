@@ -483,27 +483,61 @@
   </div>
 </div>
 
-<!-- MODAL DE IMAGEM -->
-<div id="modalImagem" class="checklist-modal hidden">
-  <div class="checklist-modal-card">
+
+<div id="modalAjuste" class="checklist-modal hidden">
+  <div class="checklist-modal-card modal-ajuste-card">
     <div class="checklist-modal-header">
       <div>
-        <p class="checklist-modal-kicker">Visualização</p>
-        <h3 id="imagemModalTitulo">Imagem do registro</h3>
+        <p class="checklist-modal-kicker">Ajuste operacional</p>
+        <h3>Ajustar ponto e checklist</h3>
       </div>
-
-      <button type="button" class="checklist-modal-close" onclick="fecharModalImagem()">
+      <button type="button" class="checklist-modal-close" onclick="fecharAjuste()">
         <i class="fa-solid fa-xmark"></i>
       </button>
     </div>
 
-    <div class="checklist-modal-body">
-      <div style="width:100%;">
-        <img id="imagemModalPreview" src="" alt="Imagem do registro">
+    <div class="modal-ajuste-topo">
+      <div class="campo-ajuste">
+        <label for="ajusteHoraEntrada">Hora entrada</label>
+        <input type="time" id="ajusteHoraEntrada">
       </div>
+
+      <div class="campo-ajuste">
+        <label for="ajusteHoraSaida">Hora saída</label>
+        <input type="time" id="ajusteHoraSaida">
+      </div>
+    </div>
+
+    <div class="modal-ajuste-grid">
+      <section class="ajuste-coluna">
+        <h4>Checklist de entrada</h4>
+        <div id="ajusteChecklistEntrada"></div>
+      </section>
+
+      <section class="ajuste-coluna">
+        <h4>Checklist de saída</h4>
+        <div id="ajusteChecklistSaida"></div>
+      </section>
+    </div>
+
+    <div class="modal-ajuste-fotos">
+      <div id="fotoEntradaPreview"></div>
+      <div id="fotoSaidaPreview"></div>
+      <div id="fotoOdometroPreview"></div>
+    </div>
+
+    <div class="campo-ajuste campo-ajuste-motivo">
+      <label for="ajusteMotivo">Motivo do ajuste</label>
+      <textarea id="ajusteMotivo" rows="4" placeholder="Explique o motivo do ajuste realizado..."></textarea>
+    </div>
+
+    <div class="modal-ajuste-acoes">
+      <button type="button" class="btn-secundario" onclick="fecharAjuste()">Cancelar</button>
+      <button type="button" class="btn-primario" onclick="salvarAjuste()">Salvar ajuste</button>
     </div>
   </div>
 </div>
+
 
 </body>
 </html>

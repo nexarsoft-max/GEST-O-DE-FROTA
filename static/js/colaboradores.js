@@ -788,8 +788,27 @@ async function salvarAjuste() {
     const saida = document.getElementById("ajusteSaida")?.value || "";
     const motivo = document.getElementById("ajusteMotivo")?.value || "";
 
-    const checkboxes = document.querySelectorAll("#checklistContainer input:checked");
-    const checklist = Array.from(checkboxes).map((cb) => cb.value);
+    const checkboxesEntrada = document.querySelectorAll(
+      "#ajusteChecklistEntrada input:checked"
+    );
+    const checkboxesSaida = document.querySelectorAll(
+      "#ajusteChecklistSaida input:checked"
+    );
+
+    const itensEntrada = Array.from(checkboxesEntrada).map((cb) => cb.value);
+    const itensSaida = Array.from(checkboxesSaida).map((cb) => cb.value);
+
+    const checklistEntrada = {
+      ...(window.ajusteChecklistEntradaDetalhe || {}),
+      itens: itensEntrada,
+      itens_marcados: itensEntrada
+    };
+
+    const checklistSaida = {
+      ...(window.ajusteChecklistSaidaDetalhe || {}),
+      itens: itensSaida,
+      itens_marcados: itensSaida
+    };
 
     const res = await fetch("/api/colaboradores/ajuste", {
       method: "POST",
@@ -800,7 +819,8 @@ async function salvarAjuste() {
         id: expedienteSelecionado,
         entrada,
         saida,
-        checklist,
+        checklistEntrada,
+        checklistSaida,
         motivo
       })
     });
@@ -860,6 +880,125 @@ document.addEventListener("click", (event) => {
     fecharModalChecklist();
   }
 });
+
+
+function renderizarChecklistEditavel(containerId, detalhe = {}) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const itens = Array.isArray(detalhe.itens) ? detalhe.itens : [];
+  const todosItensBase = [
+    "power meet pon",
+    "Step",
+    "Cones",
+    "bobina de fibra",
+    "Escada principal",
+    "Escada de alumínio",
+    "martelete",
+    "kit FTTH",
+    "KIT EPI COMPLETO"
+  ];
+
+  container.innerHTML = "";
+
+  todosItensBase.forEach((item) => {
+    const marcado = itens.includes(item);
+
+    const bloco = document.createElement("label");
+    bloco.className = "item-ajuste-checklist";
+    bloco.innerHTML = `
+      <input type="checkbox" value="${escaparHtml(item)}" ${marcado ? "checked" : ""}>
+      <span>${escaparHtml(item)}</span>
+    `;
+    container.appendChild(bloco);
+  });
+}
+
+let ajusteExpedienteId = null;
+let ajusteChecklistEntradaDetalhe = {};
+let ajusteChecklistSaidaDetalhe = {};
+
+async function abrirAjuste(id) {
+  try {
+    const res = await fetch(`/api/colaboradores/${id}/detalhe`);
+    const data = await res.json();
+
+    if (!res.ok || data.sucesso === false) {
+      throw new Error(data.erro || "Erro ao carregar ajuste");
+    }
+
+    ajusteExpedienteId = id;
+    ajusteChecklistEntradaDetalhe = data.checklist_entrada_detalhe || {};
+    ajusteChecklistSaidaDetalhe = data.checklist_saida_detalhe || {};
+
+    document.getElementById("ajusteHoraEntrada").value = data.horaEntrada || "";
+    document.getElementById("ajusteHoraSaida").value = data.horaSaida || "";
+    document.getElementById("ajusteMotivo").value = "";
+
+    renderizarChecklistEditavel("ajusteChecklistEntrada", ajusteChecklistEntradaDetalhe);
+    renderizarChecklistEditavel("ajusteChecklistSaida", ajusteChecklistSaidaDetalhe);
+
+    renderizarPreviewFoto("fotoEntradaPreview", data.fotoEntrada, "Foto de entrada");
+    renderizarPreviewFoto("fotoSaidaPreview", data.fotoSaida, "Foto de saída");
+    renderizarPreviewFoto("fotoOdometroPreview", data.fotoOdometro, "Foto do odômetro");
+
+    document.getElementById("modalAjuste").classList.remove("hidden");
+    document.getElementById("modalAjuste").style.display = "flex";
+    document.body.style.overflow = "hidden";
+  } catch (e) {
+    console.error("Erro ao abrir ajuste:", e);
+    alert(e.message || "Erro ao abrir ajuste");
+  }
+}
+
+
+function coletarChecklistEditavel(containerId, detalheOriginal = {}) {
+  const container = document.getElementById(containerId);
+  const checks = container ? [...container.querySelectorAll('input[type="checkbox"]')] : [];
+  const itensMarcados = checks.filter(i => i.checked).map(i => i.value);
+
+  return {
+    ...detalheOriginal,
+    itens: itensMarcados,
+    itens_marcados: itensMarcados
+  };
+}
+
+async function salvarAjuste() {
+  try {
+    const payload = {
+      id: ajusteExpedienteId,
+      entrada: document.getElementById("ajusteHoraEntrada").value || null,
+      saida: document.getElementById("ajusteHoraSaida").value || null,
+      motivo: document.getElementById("ajusteMotivo").value.trim(),
+      checklistEntrada: coletarChecklistEditavel("ajusteChecklistEntrada", ajusteChecklistEntradaDetalhe),
+      checklistSaida: coletarChecklistEditavel("ajusteChecklistSaida", ajusteChecklistSaidaDetalhe)
+    };
+
+    const res = await fetch("/api/colaboradores/ajuste", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.sucesso === false) {
+      throw new Error(data.erro || "Erro ao salvar ajuste");
+    }
+
+    fecharAjuste();
+    await carregarRegistros();
+  } catch (e) {
+    console.error("Erro ao salvar ajuste:", e);
+    alert(e.message || "Erro ao salvar ajuste");
+  }
+}
+
+
+
 // =========================
 // INIT
 // =========================
