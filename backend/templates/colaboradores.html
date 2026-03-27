@@ -31,7 +31,7 @@
       <a href="{{ url_for('dashboard') }}" class="item-menu ativo">Executivo</a>
       <a href="{{ url_for('geral_informacao') }}" class="item-menu">Registros</a>
       <a href="{{ url_for('abastecimento') }}" class="item-menu">Registrar abastecimento</a>
-      <a href="{{ url_for('cadastro') }}" class="item-menu">Cadastrar</a>
+      <a href="{{ url_for('cadastro') }}" class="item-menu ">Cadastrar</a>
       <a href="{{ url_for('termos') }}" class="item-menu">Termos</a>
       <a href="{{ url_for('logout') }}" class="item-menu sair">Sair</a>
     </nav>
@@ -314,7 +314,7 @@
     </div>
 
     <div class="nexar-chat-input">
-      <input type="text" placeholder="Digite sua dúvida.">
+      <input type="text" placeholder="Digite sua dúvida...">
     </div>
   </div>
 </div>
@@ -322,6 +322,7 @@
 <!-- MODAL CHECKLIST -->
 <div id="modalChecklist" class="checklist-modal hidden">
   <div class="checklist-modal-card">
+
     <div class="checklist-modal-header">
       <div>
         <p class="checklist-modal-kicker">Detalhes do expediente</p>
@@ -334,6 +335,7 @@
     </div>
 
     <div class="checklist-modal-body">
+
       <div class="checklist-resumo-grid">
         <div class="checklist-resumo-card">
           <span>Hora de entrada</span>
@@ -347,6 +349,7 @@
       </div>
 
       <div class="checklist-colunas">
+
         <section class="checklist-coluna">
           <div class="checklist-coluna-topo">
             <h4>Checklist de entrada</h4>
@@ -366,6 +369,7 @@
 
           <div class="checklist-info-extra">
             <span>Informações adicionais</span>
+
             <p><strong>Cones:</strong> <span id="checklistConesEntrada">-</span></p>
             <p><strong>Dupla:</strong> <span id="checklistDuplaEntrada">-</span></p>
             <p><strong>Nomes:</strong> <span id="checklistNomesEntrada">-</span></p>
@@ -397,6 +401,7 @@
 
           <div class="checklist-info-extra">
             <span>Informações adicionais</span>
+
             <p><strong>Cones:</strong> <span id="checklistConesSaida">-</span></p>
             <p><strong>Dupla:</strong> <span id="checklistDuplaSaida">-</span></p>
             <p><strong>Nomes:</strong> <span id="checklistNomesSaida">-</span></p>
@@ -408,6 +413,7 @@
             <p id="checklistObservacaoSaida">Sem observação.</p>
           </div>
         </section>
+
       </div>
     </div>
   </div>
@@ -432,7 +438,7 @@
   </div>
 </div>
 
-<!-- MODAL AJUSTE -->
+<!-- MODAL AJUSTE NOVO -->
 <div id="modalAjuste" class="checklist-modal hidden">
   <div class="checklist-modal-card modal-ajuste-card">
     <div class="checklist-modal-header">
@@ -440,6 +446,7 @@
         <p class="checklist-modal-kicker">Ajuste operacional</p>
         <h3>Ajustar ponto e checklist</h3>
       </div>
+
       <button type="button" class="checklist-modal-close" onclick="fecharAjuste()">
         <i class="fa-solid fa-xmark"></i>
       </button>
@@ -467,9 +474,7 @@
 
           <div class="checklist-estado-box">
             <span>Estado do veículo</span>
-            <strong id="ajusteEstadoEntradaTexto" class="estado-badge neutro">
-              Não informado
-            </strong>
+            <strong id="ajusteEstadoEntradaTexto" class="estado-badge neutro">Não informado</strong>
           </div>
 
           <div class="checklist-lista-wrap">
@@ -481,7 +486,7 @@
 
             <div class="campo-ajuste">
               <label for="ajusteConesEntrada">Cones</label>
-              <input type="text" id="ajusteConesEntrada">
+              <input type="text" id="ajusteConesEntrada" placeholder="Quantidade de cones">
             </div>
 
             <div class="campo-ajuste">
@@ -495,7 +500,7 @@
 
             <div class="campo-ajuste">
               <label for="ajusteNomesEntrada">Nomes</label>
-              <input type="text" id="ajusteNomesEntrada">
+              <input type="text" id="ajusteNomesEntrada" placeholder="Nome(s) da dupla">
             </div>
 
             <div class="campo-ajuste">
@@ -509,7 +514,7 @@
 
           <div class="checklist-observacao">
             <span>Observação</span>
-            <textarea id="ajusteObservacaoEntrada" rows="4" class="textarea-ajuste"></textarea>
+            <textarea id="ajusteObservacaoEntrada" rows="4" class="textarea-ajuste" placeholder="Observação da entrada"></textarea>
           </div>
         </section>
 
@@ -521,9 +526,7 @@
 
           <div class="checklist-estado-box">
             <span>Estado do veículo</span>
-            <strong id="ajusteEstadoSaidaTexto" class="estado-badge neutro">
-              Não informado
-            </strong>
+            <strong id="ajusteEstadoSaidaTexto" class="estado-badge neutro">Não informado</strong>
           </div>
 
           <div class="checklist-lista-wrap">
@@ -535,7 +538,7 @@
 
             <div class="campo-ajuste">
               <label for="ajusteConesSaida">Cones</label>
-              <input type="text" id="ajusteConesSaida">
+              <input type="text" id="ajusteConesSaida" placeholder="Quantidade de cones">
             </div>
 
             <div class="campo-ajuste">
@@ -549,7 +552,7 @@
 
             <div class="campo-ajuste">
               <label for="ajusteNomesSaida">Nomes</label>
-              <input type="text" id="ajusteNomesSaida">
+              <input type="text" id="ajusteNomesSaida" placeholder="Nome(s) da dupla">
             </div>
 
             <div class="campo-ajuste">
@@ -563,7 +566,7 @@
 
           <div class="checklist-observacao">
             <span>Observação</span>
-            <textarea id="ajusteObservacaoSaida" rows="4" class="textarea-ajuste"></textarea>
+            <textarea id="ajusteObservacaoSaida" rows="4" class="textarea-ajuste" placeholder="Observação da saída"></textarea>
           </div>
         </section>
       </div>
@@ -587,7 +590,12 @@
 
       <div class="campo-ajuste campo-ajuste-motivo">
         <label for="ajusteMotivo">Motivo do ajuste</label>
-        <textarea id="ajusteMotivo" rows="4" class="textarea-ajuste" placeholder="Explique o motivo do ajuste realizado."></textarea>
+        <textarea
+          id="ajusteMotivo"
+          rows="4"
+          class="textarea-ajuste"
+          placeholder="Explique o motivo do ajuste realizado."
+        ></textarea>
       </div>
 
       <div class="modal-ajuste-acoes">
@@ -597,7 +605,6 @@
     </div>
   </div>
 </div>
-
 <script src="{{ url_for('static', filename='js/colaboradores.js') }}"></script>
 
 <script>

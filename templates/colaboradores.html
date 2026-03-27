@@ -40,19 +40,21 @@
   <main class="conteudo">
     <header class="topo">
       <h1>Visão Executiva</h1>
-<div class="topo-botoes">
-  <a class="item-menu" href="{{ url_for('dashboard') }}">
-    Consumo
-  </a>
 
-  <a class="item-menu" href="{{ url_for('monitoramento') }}">
-    Monitoramento
-  </a>
+      <div class="topo-botoes">
+        <a class="item-menu" href="{{ url_for('dashboard') }}">
+          Consumo
+        </a>
 
-  <a class="item-menu ativo" href="{{ url_for('colaboradores') }}">
-    Colaboradores
-  </a>
-</div>    </header>
+        <a class="item-menu" href="{{ url_for('monitoramento') }}">
+          Monitoramento
+        </a>
+
+        <a class="item-menu ativo" href="{{ url_for('colaboradores') }}">
+          Colaboradores
+        </a>
+      </div>
+    </header>
 
     <section class="cards-grid">
       <article class="metric-card">
@@ -289,9 +291,6 @@
   </main>
 </div>
 
-
-  
-
 <div class="nexar-chat-wrapper">
   <input type="checkbox" id="nexar-chat-toggle">
   <label for="nexar-chat-toggle" class="nexar-chat-button">💬</label>
@@ -320,52 +319,10 @@
   </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/colaboradores.js') }}"></script>
-
-<script>
-  window.addEventListener("pageshow", function (event) {
-    if (event.persisted) window.location.reload();
-  });
-</script>
-
-
-<div id="modalAjuste" class="modal-overlay hidden">
-  <div class="modal-box">
-
-    <h2>Ajustar ponto</h2>
-
-    <label>Hora entrada</label>
-    <input type="time" id="ajusteEntrada">
-
-    <label>Hora saída</label>
-    <input type="time" id="ajusteSaida">
-
-    <label>Motivo</label>
-    <textarea id="ajusteMotivo"></textarea>
-
-    <h3>Checklist</h3>
-    <div id="checklistContainer"></div>
-
-    <h3>Fotos</h3>
-<div id="fotoEntradaPreview"></div>
-<div id="fotoSaidaPreview"></div>
-<div id="fotoOdometroPreview"></div>
-
-    <br>
-
-    <button onclick="salvarAjuste()">Salvar</button>
-    <button onclick="fecharModal()">Cancelar</button>
-
-  </div>
-</div>
-
-
-
 <!-- MODAL CHECKLIST -->
 <div id="modalChecklist" class="checklist-modal hidden">
   <div class="checklist-modal-card">
 
-    <!-- HEADER -->
     <div class="checklist-modal-header">
       <div>
         <p class="checklist-modal-kicker">Detalhes do expediente</p>
@@ -377,10 +334,8 @@
       </button>
     </div>
 
-    <!-- BODY -->
     <div class="checklist-modal-body">
 
-      <!-- HORÁRIOS -->
       <div class="checklist-resumo-grid">
         <div class="checklist-resumo-card">
           <span>Hora de entrada</span>
@@ -393,20 +348,14 @@
         </div>
       </div>
 
-      <!-- COLUNAS -->
       <div class="checklist-colunas">
 
-        <!-- ========================= -->
-        <!-- ENTRADA -->
-        <!-- ========================= -->
         <section class="checklist-coluna">
-
           <div class="checklist-coluna-topo">
             <h4>Checklist de entrada</h4>
             <span class="checklist-badge">Início</span>
           </div>
 
-          <!-- ESTADO -->
           <div class="checklist-estado-box">
             <span>Estado do veículo</span>
             <strong id="checklistEstadoEntrada" class="estado-badge neutro">
@@ -414,40 +363,31 @@
             </strong>
           </div>
 
-          <!-- LISTA -->
           <div class="checklist-lista-wrap">
             <ul id="listaChecklistEntrada" class="checklist-lista"></ul>
           </div>
 
-          <!-- 🔥 NOVO (DADOS COMPLETOS MOBILE) -->
           <div class="checklist-info-extra">
-  <span>Informações adicionais</span>
+            <span>Informações adicionais</span>
 
-  <p><strong>Cones:</strong> <span id="checklistConesEntrada">-</span></p>
-  <p><strong>Dupla:</strong> <span id="checklistDuplaEntrada">-</span></p>
-  <p><strong>Nomes:</strong> <span id="checklistNomesEntrada">-</span></p>
-  <p><strong>Veracidade:</strong> <span id="checklistVeracidadeEntrada">-</span></p>
-</div>
+            <p><strong>Cones:</strong> <span id="checklistConesEntrada">-</span></p>
+            <p><strong>Dupla:</strong> <span id="checklistDuplaEntrada">-</span></p>
+            <p><strong>Nomes:</strong> <span id="checklistNomesEntrada">-</span></p>
+            <p><strong>Veracidade:</strong> <span id="checklistVeracidadeEntrada">-</span></p>
+          </div>
 
-          <!-- OBS -->
           <div class="checklist-observacao">
             <span>Observação</span>
             <p id="checklistObservacaoEntrada">Sem observação.</p>
           </div>
-
         </section>
 
-        <!-- ========================= -->
-        <!-- SAÍDA -->
-        <!-- ========================= -->
         <section class="checklist-coluna">
-
           <div class="checklist-coluna-topo">
             <h4>Checklist de saída</h4>
             <span class="checklist-badge saida">Encerramento</span>
           </div>
 
-          <!-- ESTADO -->
           <div class="checklist-estado-box">
             <span>Estado do veículo</span>
             <strong id="checklistEstadoSaida" class="estado-badge neutro">
@@ -455,27 +395,23 @@
             </strong>
           </div>
 
-          <!-- LISTA -->
           <div class="checklist-lista-wrap">
             <ul id="listaChecklistSaida" class="checklist-lista"></ul>
           </div>
 
-          <!-- 🔥 NOVO (DADOS COMPLETOS MOBILE) -->
-         <div class="checklist-info-extra">
-  <span>Informações adicionais</span>
+          <div class="checklist-info-extra">
+            <span>Informações adicionais</span>
 
-  <p><strong>Cones:</strong> <span id="checklistConesSaida">-</span></p>
-  <p><strong>Dupla:</strong> <span id="checklistDuplaSaida">-</span></p>
-  <p><strong>Nomes:</strong> <span id="checklistNomesSaida">-</span></p>
-  <p><strong>Veracidade:</strong> <span id="checklistVeracidadeSaida">-</span></p>
-</div>
+            <p><strong>Cones:</strong> <span id="checklistConesSaida">-</span></p>
+            <p><strong>Dupla:</strong> <span id="checklistDuplaSaida">-</span></p>
+            <p><strong>Nomes:</strong> <span id="checklistNomesSaida">-</span></p>
+            <p><strong>Veracidade:</strong> <span id="checklistVeracidadeSaida">-</span></p>
+          </div>
 
-          <!-- OBS -->
           <div class="checklist-observacao">
             <span>Observação</span>
             <p id="checklistObservacaoSaida">Sem observação.</p>
           </div>
-
         </section>
 
       </div>
@@ -483,7 +419,7 @@
   </div>
 </div>
 
-
+<!-- MODAL IMAGEM -->
 <div id="modalImagem" class="checklist-modal hidden">
   <div class="checklist-modal-card">
     <div class="checklist-modal-header">
@@ -502,6 +438,7 @@
   </div>
 </div>
 
+<!-- MODAL AJUSTE NOVO -->
 <div id="modalAjuste" class="checklist-modal hidden">
   <div class="checklist-modal-card modal-ajuste-card">
     <div class="checklist-modal-header">
@@ -509,51 +446,172 @@
         <p class="checklist-modal-kicker">Ajuste operacional</p>
         <h3>Ajustar ponto e checklist</h3>
       </div>
+
       <button type="button" class="checklist-modal-close" onclick="fecharAjuste()">
         <i class="fa-solid fa-xmark"></i>
       </button>
     </div>
 
-    <div class="modal-ajuste-topo">
-      <div class="campo-ajuste">
-        <label for="ajusteHoraEntrada">Hora entrada</label>
-        <input type="time" id="ajusteHoraEntrada">
+    <div class="checklist-modal-body">
+      <div class="checklist-resumo-grid">
+        <div class="checklist-resumo-card">
+          <span>Hora de entrada</span>
+          <input type="time" id="ajusteHoraEntrada" class="input-ajuste-topo">
+        </div>
+
+        <div class="checklist-resumo-card">
+          <span>Hora de saída</span>
+          <input type="time" id="ajusteHoraSaida" class="input-ajuste-topo">
+        </div>
       </div>
 
-      <div class="campo-ajuste">
-        <label for="ajusteHoraSaida">Hora saída</label>
-        <input type="time" id="ajusteHoraSaida">
+      <div class="checklist-colunas">
+        <section class="checklist-coluna">
+          <div class="checklist-coluna-topo">
+            <h4>Checklist de entrada</h4>
+            <span class="checklist-badge">Início</span>
+          </div>
+
+          <div class="checklist-estado-box">
+            <span>Estado do veículo</span>
+            <strong id="ajusteEstadoEntradaTexto" class="estado-badge neutro">Não informado</strong>
+          </div>
+
+          <div class="checklist-lista-wrap">
+            <div id="ajusteChecklistEntrada"></div>
+          </div>
+
+          <div class="checklist-info-extra">
+            <span>Informações adicionais</span>
+
+            <div class="campo-ajuste">
+              <label for="ajusteConesEntrada">Cones</label>
+              <input type="text" id="ajusteConesEntrada" placeholder="Quantidade de cones">
+            </div>
+
+            <div class="campo-ajuste">
+              <label for="ajusteDuplaEntrada">Trabalhando em dupla</label>
+              <select id="ajusteDuplaEntrada">
+                <option value="">Não informado</option>
+                <option value="true">Sim</option>
+                <option value="false">Não</option>
+              </select>
+            </div>
+
+            <div class="campo-ajuste">
+              <label for="ajusteNomesEntrada">Nomes</label>
+              <input type="text" id="ajusteNomesEntrada" placeholder="Nome(s) da dupla">
+            </div>
+
+            <div class="campo-ajuste">
+              <label for="ajusteVeracidadeEntrada">Veracidade</label>
+              <select id="ajusteVeracidadeEntrada">
+                <option value="false">Não confirmado</option>
+                <option value="true">Confirmado</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="checklist-observacao">
+            <span>Observação</span>
+            <textarea id="ajusteObservacaoEntrada" rows="4" class="textarea-ajuste" placeholder="Observação da entrada"></textarea>
+          </div>
+        </section>
+
+        <section class="checklist-coluna">
+          <div class="checklist-coluna-topo">
+            <h4>Checklist de saída</h4>
+            <span class="checklist-badge saida">Encerramento</span>
+          </div>
+
+          <div class="checklist-estado-box">
+            <span>Estado do veículo</span>
+            <strong id="ajusteEstadoSaidaTexto" class="estado-badge neutro">Não informado</strong>
+          </div>
+
+          <div class="checklist-lista-wrap">
+            <div id="ajusteChecklistSaida"></div>
+          </div>
+
+          <div class="checklist-info-extra">
+            <span>Informações adicionais</span>
+
+            <div class="campo-ajuste">
+              <label for="ajusteConesSaida">Cones</label>
+              <input type="text" id="ajusteConesSaida" placeholder="Quantidade de cones">
+            </div>
+
+            <div class="campo-ajuste">
+              <label for="ajusteDuplaSaida">Trabalhando em dupla</label>
+              <select id="ajusteDuplaSaida">
+                <option value="">Não informado</option>
+                <option value="true">Sim</option>
+                <option value="false">Não</option>
+              </select>
+            </div>
+
+            <div class="campo-ajuste">
+              <label for="ajusteNomesSaida">Nomes</label>
+              <input type="text" id="ajusteNomesSaida" placeholder="Nome(s) da dupla">
+            </div>
+
+            <div class="campo-ajuste">
+              <label for="ajusteVeracidadeSaida">Veracidade</label>
+              <select id="ajusteVeracidadeSaida">
+                <option value="false">Não confirmado</option>
+                <option value="true">Confirmado</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="checklist-observacao">
+            <span>Observação</span>
+            <textarea id="ajusteObservacaoSaida" rows="4" class="textarea-ajuste" placeholder="Observação da saída"></textarea>
+          </div>
+        </section>
       </div>
-    </div>
 
-    <div class="modal-ajuste-grid">
-      <section class="ajuste-coluna">
-        <h4>Checklist de entrada</h4>
-        <div id="ajusteChecklistEntrada"></div>
-      </section>
+      <div class="modal-ajuste-fotos">
+        <div class="ajuste-campo-preview">
+          <label>Foto de entrada</label>
+          <div id="fotoEntradaPreview"></div>
+        </div>
 
-      <section class="ajuste-coluna">
-        <h4>Checklist de saída</h4>
-        <div id="ajusteChecklistSaida"></div>
-      </section>
-    </div>
+        <div class="ajuste-campo-preview">
+          <label>Foto de saída</label>
+          <div id="fotoSaidaPreview"></div>
+        </div>
 
-    <div class="modal-ajuste-fotos">
-      <div id="fotoEntradaPreview"></div>
-      <div id="fotoSaidaPreview"></div>
-      <div id="fotoOdometroPreview"></div>
-    </div>
+        <div class="ajuste-campo-preview">
+          <label>Foto do odômetro</label>
+          <div id="fotoOdometroPreview"></div>
+        </div>
+      </div>
 
-    <div class="campo-ajuste campo-ajuste-motivo">
-      <label for="ajusteMotivo">Motivo do ajuste</label>
-      <textarea id="ajusteMotivo" rows="4" placeholder="Explique o motivo do ajuste realizado."></textarea>
-    </div>
+      <div class="campo-ajuste campo-ajuste-motivo">
+        <label for="ajusteMotivo">Motivo do ajuste</label>
+        <textarea
+          id="ajusteMotivo"
+          rows="4"
+          class="textarea-ajuste"
+          placeholder="Explique o motivo do ajuste realizado."
+        ></textarea>
+      </div>
 
-    <div class="modal-ajuste-acoes">
-      <button type="button" class="btn-secundario" onclick="fecharAjuste()">Cancelar</button>
-      <button type="button" class="btn-primario" onclick="salvarAjuste()">Salvar ajuste</button>
+      <div class="modal-ajuste-acoes">
+        <button type="button" class="btn-secundario" onclick="fecharAjuste()">Cancelar</button>
+        <button type="button" class="btn-primario" onclick="salvarAjuste()">Salvar ajuste</button>
+      </div>
     </div>
   </div>
 </div>
+<script src="{{ url_for('static', filename='js/colaboradores.js') }}"></script>
+
+<script>
+  window.addEventListener("pageshow", function (event) {
+    if (event.persisted) window.location.reload();
+  });
+</script>
+
 </body>
 </html>
