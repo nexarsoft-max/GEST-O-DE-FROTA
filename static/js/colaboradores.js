@@ -51,12 +51,7 @@ const checklistPadrao = [
   "kit FTTH",
   "KIT EPI COMPLETO"
 ];
-// =========================
-// ajustes alguns codes para garantir que registros sem data não quebrem a aplicação
-// =========================
-const classeAjuste = r.ajustado ? "ajuste-feito" : "";
 
-if (!r.data) return false;
 // =========================
 // CRIANDO A FUNÇÃO DE VER SE É DO DIA ATUAL
 // =========================
@@ -76,6 +71,16 @@ function ehDoDiaAtual(dataStr) {
 // =========================
 // HELPERS
 // =========================
+
+function obterRegistrosHoje() {
+  return registrosColaboradores.filter((r) => ehDoDiaAtual(r.data));
+}
+
+function obterRegistrosHistorico() {
+  return registrosColaboradores.filter((r) => !ehDoDiaAtual(r.data));
+}
+
+
 function normalizarTexto(valor) {
   return (valor || "")
     .toString()
@@ -402,11 +407,11 @@ async function carregarRegistros() {
       registrosColaboradores.push(...data);
     }
 
-    const registrosHoje = registrosColaboradores.filter(r => ehDoDiaAtual(r.data));
-const registrosAntigos = registrosColaboradores.filter(r => !ehDoDiaAtual(r.data));
+    const registrosHoje = obterRegistrosHoje();
+    const registrosAntigos = obterRegistrosHistorico();
 
-renderizarTabelaPrincipal(registrosHoje);
-renderizarHistorico(registrosAntigos);
+    renderizarTabelaPrincipal(registrosHoje);
+    renderizarHistorico(registrosAntigos);
     calcularResumoCards(registrosColaboradores);
     resetarCardsHistorico();
   } catch (e) {
@@ -532,7 +537,9 @@ function aplicarFiltrosTabelaPrincipal() {
   const termo = normalizarTexto(mainSearchInput ? mainSearchInput.value : "");
   const status = mainStatusFilter ? mainStatusFilter.value : "";
 
-  const listaFiltrada = registrosColaboradores.filter((r) => {
+  const baseDiaria = obterRegistrosHoje();
+
+  const listaFiltrada = baseDiaria.filter((r) => {
     const nome = normalizarTexto(r.colaborador);
     const veiculo = normalizarTexto(r.veiculo);
     const placa = normalizarTexto(r.placa);
@@ -628,7 +635,9 @@ function aplicarFiltrosHistorico() {
     status: historyStatus ? historyStatus.value : ""
   };
 
-  const resultados = registrosColaboradores.filter((r) => {
+  const baseHistorico = obterRegistrosHistorico();
+
+  const resultados = baseHistorico.filter((r) => {
     const nome = normalizarTexto(r.colaborador);
     const veiculo = normalizarTexto(r.veiculo);
     const placa = normalizarTexto(r.placa);
@@ -844,47 +853,6 @@ function fecharAjuste() {
 
 async function salvarAjuste() {
   try {
-    const payload = {
-      id: ajusteExpedienteId,
-      entrada: document.getElementById("ajusteHoraEntrada")?.value || null,
-      saida: document.getElementById("ajusteHoraSaida")?.value || null,
-      motivo: document.getElementById("ajusteMotivo")?.value?.trim() || "",
-      checklistEntrada: coletarChecklistEditavel(
-        "ajusteChecklistEntrada",
-        ajusteChecklistEntradaDetalhe,
-        "Entrada"
-      ),
-      checklistSaida: coletarChecklistEditavel(
-        "ajusteChecklistSaida",
-        ajusteChecklistSaidaDetalhe,
-        "Saida"
-      )
-    };
-
-    const res = await fetch("/api/colaboradores/ajuste", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json();
-
-    if (!res.ok || data.sucesso === false) {
-      throw new Error(data.erro || "Erro ao salvar ajuste");
-    }
-
-    fecharAjuste();
-    await carregarRegistros();
-    aplicarFiltrosTabelaPrincipal();
-    aplicarFiltrosHistorico();
-  } catch (e) {
-    console.error("Erro ao salvar ajuste:", e);
-    alert(e.message || "Erro ao salvar ajuste");
-  }
-}async function salvarAjuste() {
-  try {
     if (!ajusteExpedienteId) {
       throw new Error("ID do expediente não encontrado");
     }
@@ -895,12 +863,14 @@ async function salvarAjuste() {
 
     const checklistEntrada = coletarChecklistEditavel(
       "ajusteChecklistEntrada",
-      ajusteChecklistEntradaDetalhe
+      ajusteChecklistEntradaDetalhe,
+      "Entrada"
     );
 
     const checklistSaida = coletarChecklistEditavel(
       "ajusteChecklistSaida",
-      ajusteChecklistSaidaDetalhe
+      ajusteChecklistSaidaDetalhe,
+      "Saida"
     );
 
     const payload = {
@@ -930,17 +900,13 @@ async function salvarAjuste() {
       throw new Error(data.erro || "Erro ao salvar ajuste");
     }
 
-    // 🔥 feedback visual
     alert("Ajuste salvo com sucesso");
 
     fecharAjuste();
-
-    // 🔥 recarrega tudo
     await carregarRegistros();
 
     aplicarFiltrosTabelaPrincipal();
     aplicarFiltrosHistorico();
-
   } catch (e) {
     console.error("❌ Erro ao salvar ajuste:", e);
     alert(e.message || "Erro ao salvar ajuste");
@@ -968,7 +934,7 @@ if (clearHistoryButton) {
     if (historyVehicle) historyVehicle.value = "";
     if (historyStatus) historyStatus.value = "";
 
-    renderizarHistorico([]);
+    renderizarHistorico(obterRegistrosHistorico());
     resetarCardsHistorico();
   });
 }
@@ -997,7 +963,7 @@ document.addEventListener("click", (event) => {
 
 // =========================
 // WINDOW
-// =========================cd  
+// =========================
 window.abrirModalImagem = abrirModalImagem;
 window.fecharModalImagem = fecharModalImagem;
 window.abrirAjuste = abrirAjuste;

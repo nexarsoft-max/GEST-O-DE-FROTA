@@ -1704,6 +1704,25 @@ def _ip_request():
 # =========================
 from datetime import timedelta
 
+from datetime import timezone
+
+def ajustar_fuso(dt):
+    if not dt:
+        return None
+
+    # força UTC → Brasil (UTC-3)
+    return dt - timedelta(hours=3)
+
+
+def formatar_hora(dt):
+    dt = ajustar_fuso(dt)
+    return dt.strftime("%H:%M") if dt else ""
+
+
+def formatar_data(inicio, fim):
+    dt = ajustar_fuso(inicio) or ajustar_fuso(fim)
+    return dt.date().isoformat() if dt else ""
+
 @app.get("/api/colaboradores/registros")
 def api_colaboradores_registros():
     r = proteger_api()
