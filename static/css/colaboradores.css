@@ -2110,3 +2110,13 @@ textarea{
     width: 100%;
   }
 }
+
+.ajuste-feito {
+  background: #22c55e;
+  color: #fff;
+  border: none;
+}
+
+.ajuste-feito i {
+  color: #fff;
+}

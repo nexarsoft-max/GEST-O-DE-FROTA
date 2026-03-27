@@ -1507,7 +1507,6 @@ def api_detalhe_expediente(expediente_id):
         conn = get_db()
         cur = conn.cursor()
 
-        # protege caso a coluna ainda não exista em algum banco
         cur.execute("""
             SELECT 1
             FROM information_schema.columns
@@ -1531,7 +1530,9 @@ def api_detalhe_expediente(expediente_id):
                 COALESCE(foto_saida_url, ''),
                 {campo_foto_odometro} AS foto_odometro,
                 horario_inicio,
-                horario_fim
+                horario_fim,
+                COALESCE(ajustado, FALSE),
+                COALESCE(motivo_ajuste, '')
             FROM expedientes
             WHERE id = %s
               AND usuario_id = %s
@@ -1559,7 +1560,9 @@ def api_detalhe_expediente(expediente_id):
             "fotoSaida": row[3] or "",
             "fotoOdometro": row[4] or "",
             "horaEntrada": row[5].strftime("%H:%M") if row[5] else "",
-            "horaSaida": row[6].strftime("%H:%M") if row[6] else ""
+            "horaSaida": row[6].strftime("%H:%M") if row[6] else "",
+            "ajustado": bool(row[7]),
+            "motivoAjuste": row[8] or ""
         }), 200
 
     except Exception as e:
@@ -1575,6 +1578,7 @@ def api_detalhe_expediente(expediente_id):
         if conn:
             conn.close()
             
+
 @app.get("/api/mobile/terms/status")
 def api_mobile_terms_status():
     r = proteger_api_mobile()
@@ -1698,6 +1702,8 @@ def _ip_request():
 # =========================
 # API COLABORADORES (AGORA COM FOTOS)
 # =========================
+from datetime import timedelta
+
 @app.get("/api/colaboradores/registros")
 def api_colaboradores_registros():
     r = proteger_api()
@@ -1721,16 +1727,32 @@ def api_colaboradores_registros():
             if isinstance(valor, list):
                 return valor
 
-        except:
+        except Exception:
             pass
 
         return []
+
+    # 🔥 NOVO: corrigir timezone Brasil
+    def ajustar_timezone(dt):
+        if not dt:
+            return None
+        try:
+            return dt - timedelta(hours=3)
+        except:
+            return dt
+
+    def formatar_hora(dt):
+        dt = ajustar_timezone(dt)
+        return dt.strftime("%H:%M") if dt else ""
+
+    def formatar_data(dt_inicio, dt_fim):
+        dt = ajustar_timezone(dt_inicio or dt_fim)
+        return dt.strftime("%Y-%m-%d") if dt else ""
 
     try:
         conn = get_db()
         cur = conn.cursor()
 
-        # ✅ verifica se a coluna existe no banco antes de usar
         cur.execute("""
             SELECT 1
             FROM information_schema.columns
@@ -1760,7 +1782,8 @@ def api_colaboradores_registros():
                 e.foto_entrada_url,
                 e.foto_saida_url,
                 {campo_foto_odometro} AS foto_odometro,
-                e.ajustado
+                e.ajustado,
+                COALESCE(e.motivo_ajuste, '')
             FROM expedientes e
             LEFT JOIN motoristas m ON m.id = e.colaborador_id
             LEFT JOIN veiculos v ON v.id = e.veiculo_id
@@ -1782,10 +1805,12 @@ def api_colaboradores_registros():
                 "veiculo": r[2],
                 "placa": r[3],
 
-                "data": r[4].date().isoformat() if r[4] else "",
+                # ✅ DATA CORRETA
+                "data": formatar_data(r[4], r[5]),
 
-                "horaEntrada": r[4].strftime("%H:%M") if r[4] else "",
-                "horaSaida": r[5].strftime("%H:%M") if r[5] else "",
+                # ✅ HORÁRIOS CORRETOS
+                "horaEntrada": formatar_hora(r[4]),
+                "horaSaida": formatar_hora(r[5]),
 
                 "status": r[6],
 
@@ -1796,7 +1821,8 @@ def api_colaboradores_registros():
                 "fotoSaida": r[10] or "",
                 "fotoOdometro": r[11] or "",
 
-                "ajustado": bool(r[12])
+                "ajustado": bool(r[12]),
+                "motivoAjuste": r[13] or ""
             })
 
         return jsonify(data), 200
@@ -1883,16 +1909,40 @@ def api_ajustar_ponto():
         conn = get_db()
         cur = conn.cursor()
 
+        cur.execute("""
+            SELECT
+                horario_inicio,
+                horario_fim,
+                status
+            FROM expedientes
+            WHERE id = %s
+            LIMIT 1
+        """, (expediente_id,))
+
+        row = cur.fetchone()
+
+        if not row:
+            return jsonify({
+                "sucesso": False,
+                "erro": "Expediente não encontrado"
+            }), 404
+
+        horario_inicio_atual, horario_fim_atual, status_atual = row
+
         campos = []
         valores = []
 
         if entrada:
+            base_inicio = horario_inicio_atual or horario_fim_atual or datetime.utcnow()
+            novo_horario_inicio = _combinar_data_com_hora(base_inicio, entrada)
             campos.append("horario_inicio = %s")
-            valores.append(entrada)
+            valores.append(novo_horario_inicio)
 
         if saida:
+            base_fim = horario_fim_atual or horario_inicio_atual or datetime.utcnow()
+            novo_horario_fim = _combinar_data_com_hora(base_fim, saida)
             campos.append("horario_fim = %s")
-            valores.append(saida)
+            valores.append(novo_horario_fim)
 
         if checklist_entrada is not None:
             checklist_entrada_json = _parse_checklist_json(checklist_entrada)
@@ -1904,16 +1954,24 @@ def api_ajustar_ponto():
             campos.append("checklist_saida = %s")
             valores.append(json.dumps(checklist_saida_json))
 
-        if motivo:
+        if motivo is not None:
             campos.append("motivo_ajuste = %s")
-            valores.append(motivo)
+            valores.append((motivo or "").strip())
 
         campos.append("ajustado = TRUE")
 
         if saida:
             campos.append("status = 'finalizado'")
+        elif horario_fim_atual:
+            campos.append("status = 'finalizado'")
         else:
             campos.append("status = 'em_andamento'")
+
+        if not campos:
+            return jsonify({
+                "sucesso": False,
+                "erro": "Nenhum dado enviado para ajuste"
+            }), 400
 
         query = f"""
             UPDATE expedientes
@@ -3737,6 +3795,28 @@ def api_historico():
         if conn:
             conn.close()
 
+            # =========================
+# AJUSTE HELPERS
+# =========================
+def _combinar_data_com_hora(base_dt, hora_str):
+    """
+    Recebe uma base datetime e uma hora no formato HH:MM
+    e devolve um datetime combinando a data da base com a nova hora.
+    """
+    if hora_str is None:
+        return None
+
+    texto = str(hora_str).strip()
+    if not texto:
+        return None
+
+    try:
+        hora_obj = datetime.strptime(texto, "%H:%M").time()
+    except ValueError:
+        raise ValueError("Horário inválido. Use o formato HH:MM.")
+
+    base = base_dt if isinstance(base_dt, datetime) else datetime.utcnow()
+    return datetime.combine(base.date(), hora_obj)
 # =========================
 # DASHBOARD HELPERS
 # =========================

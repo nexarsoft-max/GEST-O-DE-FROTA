@@ -51,7 +51,28 @@ const checklistPadrao = [
   "kit FTTH",
   "KIT EPI COMPLETO"
 ];
+// =========================
+// ajustes alguns codes para garantir que registros sem data não quebrem a aplicação
+// =========================
+const classeAjuste = r.ajustado ? "ajuste-feito" : "";
 
+if (!r.data) return false;
+// =========================
+// CRIANDO A FUNÇÃO DE VER SE É DO DIA ATUAL
+// =========================
+function ehDoDiaAtual(dataStr) {
+  if (!dataStr) return false;
+
+  const hoje = new Date();
+
+  const [ano, mes, dia] = dataStr.split("T")[0].split("-");
+
+  return (
+    Number(ano) === hoje.getFullYear() &&
+    Number(mes) === (hoje.getMonth() + 1) &&
+    Number(dia) === hoje.getDate()
+  );
+}
 // =========================
 // HELPERS
 // =========================
@@ -381,8 +402,11 @@ async function carregarRegistros() {
       registrosColaboradores.push(...data);
     }
 
-    renderizarTabelaPrincipal(registrosColaboradores);
-    renderizarHistorico([]);
+    const registrosHoje = registrosColaboradores.filter(r => ehDoDiaAtual(r.data));
+const registrosAntigos = registrosColaboradores.filter(r => !ehDoDiaAtual(r.data));
+
+renderizarTabelaPrincipal(registrosHoje);
+renderizarHistorico(registrosAntigos);
     calcularResumoCards(registrosColaboradores);
     resetarCardsHistorico();
   } catch (e) {
@@ -452,12 +476,14 @@ function renderizarTabelaPrincipal(lista) {
       </button>
     `;
 
-    const ajusteBotao = `
-      <button type="button" class="action-btn action-btn-adjust" onclick="abrirAjuste(${r.id})">
-        <i class="fa-solid fa-pen-to-square"></i>
-        <span>${r.ajustado ? "Ajustado" : "Ajustar"}</span>
-      </button>
-    `;
+   const classeAjuste = r.ajustado ? "ajuste-feito" : "";
+
+const ajusteBotao = `
+  <button type="button" class="action-btn action-btn-adjust ${classeAjuste}" onclick="abrirAjuste(${r.id})">
+    <i class="fa-solid fa-pen-to-square"></i>
+    <span>${r.ajustado ? "Ajustado" : "Ajustar"}</span>
+  </button>
+`;
 
     tr.innerHTML = `
       <td>${escaparHtml(r.colaborador || "-")}</td>
@@ -855,6 +881,68 @@ async function salvarAjuste() {
     aplicarFiltrosHistorico();
   } catch (e) {
     console.error("Erro ao salvar ajuste:", e);
+    alert(e.message || "Erro ao salvar ajuste");
+  }
+}async function salvarAjuste() {
+  try {
+    if (!ajusteExpedienteId) {
+      throw new Error("ID do expediente não encontrado");
+    }
+
+    const entrada = document.getElementById("ajusteHoraEntrada")?.value || null;
+    const saida = document.getElementById("ajusteHoraSaida")?.value || null;
+    const motivo = document.getElementById("ajusteMotivo")?.value?.trim() || "";
+
+    const checklistEntrada = coletarChecklistEditavel(
+      "ajusteChecklistEntrada",
+      ajusteChecklistEntradaDetalhe
+    );
+
+    const checklistSaida = coletarChecklistEditavel(
+      "ajusteChecklistSaida",
+      ajusteChecklistSaidaDetalhe
+    );
+
+    const payload = {
+      id: ajusteExpedienteId,
+      entrada,
+      saida,
+      motivo,
+      checklistEntrada,
+      checklistSaida
+    };
+
+    console.log("📦 Payload enviado:", payload);
+
+    const res = await fetch("/api/colaboradores/ajuste", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    console.log("📥 Resposta backend:", data);
+
+    if (!res.ok || data.sucesso === false) {
+      throw new Error(data.erro || "Erro ao salvar ajuste");
+    }
+
+    // 🔥 feedback visual
+    alert("Ajuste salvo com sucesso");
+
+    fecharAjuste();
+
+    // 🔥 recarrega tudo
+    await carregarRegistros();
+
+    aplicarFiltrosTabelaPrincipal();
+    aplicarFiltrosHistorico();
+
+  } catch (e) {
+    console.error("❌ Erro ao salvar ajuste:", e);
     alert(e.message || "Erro ao salvar ajuste");
   }
 }
