@@ -714,6 +714,23 @@ function coletarChecklistEditavel(containerId, detalheOriginal = {}, prefixo = "
   };
 }
 
+function obterElemento(id) {
+  const el = document.getElementById(id);
+
+  if (!el) {
+    console.error(`Elemento não encontrado no DOM: ${id}`);
+  }
+
+  return el;
+}
+
+function definirValor(id, valor = "") {
+  const el = obterElemento(id);
+  if (el) {
+    el.value = valor;
+  }
+}
+
 async function abrirAjuste(id) {
   try {
     const res = await fetch(`/api/colaboradores/${id}/detalhe`);
@@ -728,32 +745,44 @@ async function abrirAjuste(id) {
     ajusteChecklistEntradaDetalhe = normalizarChecklistDetalhe(data.checklist_entrada_detalhe || {});
     ajusteChecklistSaidaDetalhe = normalizarChecklistDetalhe(data.checklist_saida_detalhe || {});
 
-    document.getElementById("ajusteHoraEntrada").value = data.horaEntrada || "";
-    document.getElementById("ajusteHoraSaida").value = data.horaSaida || "";
-    document.getElementById("ajusteMotivo").value = "";
+    definirValor("ajusteHoraEntrada", data.horaEntrada || "");
+    definirValor("ajusteHoraSaida", data.horaSaida || "");
+    definirValor("ajusteMotivo", "");
 
     renderizarChecklistEditavel("ajusteChecklistEntrada", ajusteChecklistEntradaDetalhe);
     renderizarChecklistEditavel("ajusteChecklistSaida", ajusteChecklistSaidaDetalhe);
 
-    document.getElementById("ajusteObservacaoEntrada").value = ajusteChecklistEntradaDetalhe.observacao || "";
-    document.getElementById("ajusteConesEntrada").value = ajusteChecklistEntradaDetalhe.quantidade_cones || "";
-    document.getElementById("ajusteDuplaEntrada").value = valorBooleanSelect(ajusteChecklistEntradaDetalhe.trabalhando_em_dupla_ou_mais);
-    document.getElementById("ajusteNomesEntrada").value = ajusteChecklistEntradaDetalhe.nomes_dupla_ou_mais || "";
-    document.getElementById("ajusteVeracidadeEntrada").value = ajusteChecklistEntradaDetalhe.confirmacao_veracidade ? "true" : "false";
+    definirValor("ajusteObservacaoEntrada", ajusteChecklistEntradaDetalhe.observacao || "");
+    definirValor("ajusteConesEntrada", ajusteChecklistEntradaDetalhe.quantidade_cones || "");
+    definirValor(
+      "ajusteDuplaEntrada",
+      valorBooleanSelect(ajusteChecklistEntradaDetalhe.trabalhando_em_dupla_ou_mais)
+    );
+    definirValor("ajusteNomesEntrada", ajusteChecklistEntradaDetalhe.nomes_dupla_ou_mais || "");
+    definirValor(
+      "ajusteVeracidadeEntrada",
+      ajusteChecklistEntradaDetalhe.confirmacao_veracidade ? "true" : "false"
+    );
 
-    document.getElementById("ajusteObservacaoSaida").value = ajusteChecklistSaidaDetalhe.observacao || "";
-    document.getElementById("ajusteConesSaida").value = ajusteChecklistSaidaDetalhe.quantidade_cones || "";
-    document.getElementById("ajusteDuplaSaida").value = valorBooleanSelect(ajusteChecklistSaidaDetalhe.trabalhando_em_dupla_ou_mais);
-    document.getElementById("ajusteNomesSaida").value = ajusteChecklistSaidaDetalhe.nomes_dupla_ou_mais || "";
-    document.getElementById("ajusteVeracidadeSaida").value = ajusteChecklistSaidaDetalhe.confirmacao_veracidade ? "true" : "false";
+    definirValor("ajusteObservacaoSaida", ajusteChecklistSaidaDetalhe.observacao || "");
+    definirValor("ajusteConesSaida", ajusteChecklistSaidaDetalhe.quantidade_cones || "");
+    definirValor(
+      "ajusteDuplaSaida",
+      valorBooleanSelect(ajusteChecklistSaidaDetalhe.trabalhando_em_dupla_ou_mais)
+    );
+    definirValor("ajusteNomesSaida", ajusteChecklistSaidaDetalhe.nomes_dupla_ou_mais || "");
+    definirValor(
+      "ajusteVeracidadeSaida",
+      ajusteChecklistSaidaDetalhe.confirmacao_veracidade ? "true" : "false"
+    );
 
     aplicarEstadoAjuste(
-      document.getElementById("ajusteEstadoEntradaTexto"),
+      obterElemento("ajusteEstadoEntradaTexto"),
       ajusteChecklistEntradaDetalhe.veiculo_perfeito
     );
 
     aplicarEstadoAjuste(
-      document.getElementById("ajusteEstadoSaidaTexto"),
+      obterElemento("ajusteEstadoSaidaTexto"),
       ajusteChecklistSaidaDetalhe.veiculo_perfeito
     );
 
@@ -761,7 +790,7 @@ async function abrirAjuste(id) {
     renderizarPreviewFoto("fotoSaidaPreview", data.fotoSaida, "Foto de saída");
     renderizarPreviewFoto("fotoOdometroPreview", data.fotoOdometro, "Foto do odômetro");
 
-    const modal = document.getElementById("modalAjuste");
+    const modal = obterElemento("modalAjuste");
     if (modal) {
       modal.classList.remove("hidden");
       modal.style.display = "flex";
@@ -791,9 +820,9 @@ async function salvarAjuste() {
   try {
     const payload = {
       id: ajusteExpedienteId,
-      entrada: document.getElementById("ajusteHoraEntrada").value || null,
-      saida: document.getElementById("ajusteHoraSaida").value || null,
-      motivo: document.getElementById("ajusteMotivo").value.trim(),
+      entrada: document.getElementById("ajusteHoraEntrada")?.value || null,
+      saida: document.getElementById("ajusteHoraSaida")?.value || null,
+      motivo: document.getElementById("ajusteMotivo")?.value?.trim() || "",
       checklistEntrada: coletarChecklistEditavel(
         "ajusteChecklistEntrada",
         ajusteChecklistEntradaDetalhe,
@@ -829,7 +858,6 @@ async function salvarAjuste() {
     alert(e.message || "Erro ao salvar ajuste");
   }
 }
-
 // =========================
 // EVENTOS
 // =========================
@@ -881,7 +909,7 @@ document.addEventListener("click", (event) => {
 
 // =========================
 // WINDOW
-// =========================
+// =========================cd  
 window.abrirModalImagem = abrirModalImagem;
 window.fecharModalImagem = fecharModalImagem;
 window.abrirAjuste = abrirAjuste;
