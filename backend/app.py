@@ -1368,6 +1368,18 @@ def api_detalhe_expediente(expediente_id):
     uid = usuario_id_atual()
     conn = cur = None
 
+    def ajustar_fuso(dt):
+        if not dt:
+            return None
+        try:
+            return dt - timedelta(hours=3)
+        except Exception:
+            return dt
+
+    def formatar_hora(dt):
+        dt = ajustar_fuso(dt)
+        return dt.strftime("%H:%M") if dt else ""
+
     def _checklist_vazio():
         return {
             "itens": [],
@@ -1559,8 +1571,8 @@ def api_detalhe_expediente(expediente_id):
             "fotoEntrada": row[2] or "",
             "fotoSaida": row[3] or "",
             "fotoOdometro": row[4] or "",
-            "horaEntrada": row[5].strftime("%H:%M") if row[5] else "",
-            "horaSaida": row[6].strftime("%H:%M") if row[6] else "",
+            "horaEntrada": formatar_hora(row[5]),
+            "horaSaida": formatar_hora(row[6]),
             "ajustado": bool(row[7]),
             "motivoAjuste": row[8] or ""
         }), 200
@@ -1577,7 +1589,6 @@ def api_detalhe_expediente(expediente_id):
             cur.close()
         if conn:
             conn.close()
-            
 
 @app.get("/api/mobile/terms/status")
 def api_mobile_terms_status():
@@ -1703,6 +1714,25 @@ def _ip_request():
 # API COLABORADORES (AGORA COM FOTOS)
 # =========================
 from datetime import timedelta
+
+from datetime import timezone
+
+def ajustar_fuso(dt):
+    if not dt:
+        return None
+
+    # força UTC → Brasil (UTC-3)
+    return dt - timedelta(hours=3)
+
+
+def formatar_hora(dt):
+    dt = ajustar_fuso(dt)
+    return dt.strftime("%H:%M") if dt else ""
+
+
+def formatar_data(inicio, fim):
+    dt = ajustar_fuso(inicio) or ajustar_fuso(fim)
+    return dt.date().isoformat() if dt else ""
 
 @app.get("/api/colaboradores/registros")
 def api_colaboradores_registros():

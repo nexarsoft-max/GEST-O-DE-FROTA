@@ -2120,3 +2120,21 @@ textarea{
 .ajuste-feito i {
   color: #fff;
 }
+
+/* Corrigir empilhamento dos modais */
+#modalAjuste {
+  z-index: 10000;
+}
+
+#modalImagem {
+  z-index: 10050;
+}
+
+#modalChecklist {
+  z-index: 10020;
+}
+
+#modalImagem .checklist-modal-card {
+  position: relative;
+  z-index: 10051;
+}
