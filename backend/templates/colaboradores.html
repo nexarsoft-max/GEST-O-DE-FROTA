@@ -384,33 +384,27 @@
 
         <section class="checklist-coluna">
           <div class="checklist-coluna-topo">
-            <h4>Checklist de saída</h4>
+            <h4>Condição na saída</h4>
             <span class="checklist-badge saida">Encerramento</span>
           </div>
 
           <div class="checklist-estado-box">
-            <span>Estado do veículo</span>
-            <strong id="checklistEstadoSaida" class="estado-badge neutro">
+            <span>Veículo danificado</span>
+            <strong id="checklistVeiculoDanificadoSaida" class="estado-badge neutro">
               Não informado
             </strong>
           </div>
 
-          <div class="checklist-lista-wrap">
-            <ul id="listaChecklistSaida" class="checklist-lista"></ul>
-          </div>
-
           <div class="checklist-info-extra">
-            <span>Informações adicionais</span>
-
-            <p><strong>Cones:</strong> <span id="checklistConesSaida">-</span></p>
-            <p><strong>Dupla:</strong> <span id="checklistDuplaSaida">-</span></p>
-            <p><strong>Nomes:</strong> <span id="checklistNomesSaida">-</span></p>
-            <p><strong>Veracidade:</strong> <span id="checklistVeracidadeSaida">-</span></p>
+            <span>Observação do dano</span>
+            <p id="checklistObservacaoDanoSaida">Sem observação.</p>
           </div>
 
           <div class="checklist-observacao">
-            <span>Observação</span>
-            <p id="checklistObservacaoSaida">Sem observação.</p>
+            <span>Fotos do dano</span>
+            <div id="checklistFotosDanoSaida" class="galeria-fotos-dano">
+              <p class="texto-sem-foto">Nenhuma foto enviada.</p>
+            </div>
           </div>
         </section>
 
@@ -520,53 +514,44 @@
 
         <section class="checklist-coluna">
           <div class="checklist-coluna-topo">
-            <h4>Checklist de saída</h4>
-            <span class="checklist-badge saida">Encerramento</span>
-          </div>
-
-          <div class="checklist-estado-box">
-            <span>Estado do veículo</span>
-            <strong id="ajusteEstadoSaidaTexto" class="estado-badge neutro">Não informado</strong>
-          </div>
-
-          <div class="checklist-lista-wrap">
-            <div id="ajusteChecklistSaida"></div>
+            <h4>Encerramento do expediente</h4>
+            <span class="checklist-badge saida">Saída</span>
           </div>
 
           <div class="checklist-info-extra">
-            <span>Informações adicionais</span>
+            <span>Condição do veículo</span>
 
             <div class="campo-ajuste">
-              <label for="ajusteConesSaida">Cones</label>
-              <input type="text" id="ajusteConesSaida" placeholder="Quantidade de cones">
-            </div>
-
-            <div class="campo-ajuste">
-              <label for="ajusteDuplaSaida">Trabalhando em dupla</label>
-              <select id="ajusteDuplaSaida">
-                <option value="">Não informado</option>
-                <option value="true">Sim</option>
+              <label for="ajusteVeiculoDanificado">Veículo danificado?</label>
+              <select id="ajusteVeiculoDanificado">
                 <option value="false">Não</option>
+                <option value="true">Sim</option>
               </select>
             </div>
 
             <div class="campo-ajuste">
-              <label for="ajusteNomesSaida">Nomes</label>
-              <input type="text" id="ajusteNomesSaida" placeholder="Nome(s) da dupla">
+              <label for="ajusteObservacaoDano">Observação (obrigatório se sim)</label>
+              <textarea
+                id="ajusteObservacaoDano"
+                rows="4"
+                class="textarea-ajuste"
+                placeholder="Descreva o dano encontrado no veículo"
+              ></textarea>
             </div>
 
             <div class="campo-ajuste">
-              <label for="ajusteVeracidadeSaida">Veracidade</label>
-              <select id="ajusteVeracidadeSaida">
-                <option value="false">Não confirmado</option>
-                <option value="true">Confirmado</option>
-              </select>
+              <label>Fotos do dano (máx 3)</label>
+              <input type="file" id="ajusteFotoDano1" accept="image/*">
+              <input type="file" id="ajusteFotoDano2" accept="image/*">
+              <input type="file" id="ajusteFotoDano3" accept="image/*">
             </div>
-          </div>
 
-          <div class="checklist-observacao">
-            <span>Observação</span>
-            <textarea id="ajusteObservacaoSaida" rows="4" class="textarea-ajuste" placeholder="Observação da saída"></textarea>
+            <div class="campo-ajuste">
+              <label>Fotos atuais do dano</label>
+              <div id="previewFotosDano" class="preview-fotos-dano">
+                <span class="preview-foto-vazio">Nenhuma imagem disponível.</span>
+              </div>
+            </div>
           </div>
         </section>
       </div>
@@ -605,6 +590,7 @@
     </div>
   </div>
 </div>
+
 <script src="{{ url_for('static', filename='js/colaboradores.js') }}"></script>
 
 <script>

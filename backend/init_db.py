@@ -558,48 +558,162 @@ def criar_tabelas():
     END$$;
     """)
 
-        # =========================
-    # 11) EXPEDIENTES / COLABORADORES
+          # =========================
+    # 11) EXPEDIENTES
     # =========================
     cur.execute("""
     CREATE TABLE IF NOT EXISTS expedientes (
         id BIGSERIAL PRIMARY KEY,
         usuario_id BIGINT NOT NULL,
-        colaborador_id BIGINT NOT NULL,
-        veiculo_id BIGINT NOT NULL,
-        placa VARCHAR(20),
+        colaborador_id BIGINT,
+        motorista_id BIGINT,
+        veiculo_id BIGINT,
+
+        data DATE DEFAULT CURRENT_DATE,
+
+        horario_inicio TIMESTAMP,
+        horario_fim TIMESTAMP,
+
+        checklist_entrada JSONB,
+        checklist_saida JSONB,
+
         foto_entrada_url TEXT,
         foto_saida_url TEXT,
         foto_odometro_entrada_url TEXT,
-        checklist_entrada JSONB,
-        checklist_saida JSONB,
-        horario_inicio TIMESTAMP,
-        horario_fim TIMESTAMP,
+
+        veiculo_danificado_saida BOOLEAN DEFAULT FALSE,
+        observacao_dano_saida TEXT,
+        foto_dano_saida_url_1 TEXT,
+        foto_dano_saida_url_2 TEXT,
+        foto_dano_saida_url_3 TEXT,
+
         status VARCHAR(30) DEFAULT 'em_andamento',
         ajustado BOOLEAN DEFAULT FALSE,
         motivo_ajuste TEXT,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-        FOREIGN KEY (colaborador_id) REFERENCES motoristas(id) ON DELETE CASCADE,
-        FOREIGN KEY (veiculo_id) REFERENCES veiculos(id) ON DELETE CASCADE
+
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
     );
     """)
 
+    # garante colunas caso já exista tabela antiga
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS colaborador_id BIGINT;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS motorista_id BIGINT;""")
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS veiculo_id BIGINT;""")
-    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS placa VARCHAR(20);""")
+
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS data DATE DEFAULT CURRENT_DATE;""")
+
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS horario_inicio TIMESTAMP;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS horario_fim TIMESTAMP;""")
+
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS checklist_entrada JSONB;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS checklist_saida JSONB;""")
+
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS foto_entrada_url TEXT;""")
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS foto_saida_url TEXT;""")
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS foto_odometro_entrada_url TEXT;""")
-    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS checklist_entrada JSONB;""")
-    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS checklist_saida JSONB;""")
-    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS horario_inicio TIMESTAMP;""")
-    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS horario_fim TIMESTAMP;""")
+
+    # novos campos de dano na saída
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS veiculo_danificado_saida BOOLEAN DEFAULT FALSE;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS observacao_dano_saida TEXT;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS foto_dano_saida_url_1 TEXT;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS foto_dano_saida_url_2 TEXT;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS foto_dano_saida_url_3 TEXT;""")
+
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'em_andamento';""")
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS ajustado BOOLEAN DEFAULT FALSE;""")
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS motivo_ajuste TEXT;""")
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM information_schema.table_constraints
+            WHERE constraint_name = 'fk_expedientes_usuario'
+        ) THEN
+            ALTER TABLE expedientes
+            ADD CONSTRAINT fk_expedientes_usuario
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE;
+        END IF;
+    EXCEPTION WHEN duplicate_object THEN
+        NULL;
+    END$$;
+    """)
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'expedientes'
+              AND column_name = 'colaborador_id'
+        ) AND EXISTS (
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_name = 'motoristas'
+        ) THEN
+            BEGIN
+                ALTER TABLE expedientes
+                ADD CONSTRAINT fk_expedientes_colaborador
+                FOREIGN KEY (colaborador_id) REFERENCES motoristas(id) ON DELETE SET NULL;
+            EXCEPTION WHEN duplicate_object THEN
+                NULL;
+            END;
+        END IF;
+    END$$;
+    """)
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'expedientes'
+              AND column_name = 'motorista_id'
+        ) AND EXISTS (
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_name = 'motoristas'
+        ) THEN
+            BEGIN
+                ALTER TABLE expedientes
+                ADD CONSTRAINT fk_expedientes_motorista
+                FOREIGN KEY (motorista_id) REFERENCES motoristas(id) ON DELETE SET NULL;
+            EXCEPTION WHEN duplicate_object THEN
+                NULL;
+            END;
+        END IF;
+    END$$;
+    """)
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'expedientes'
+              AND column_name = 'veiculo_id'
+        ) AND EXISTS (
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_name = 'veiculos'
+        ) THEN
+            BEGIN
+                ALTER TABLE expedientes
+                ADD CONSTRAINT fk_expedientes_veiculo
+                FOREIGN KEY (veiculo_id) REFERENCES veiculos(id) ON DELETE SET NULL;
+            EXCEPTION WHEN duplicate_object THEN
+                NULL;
+            END;
+        END IF;
+    END$$;
+    """)
 
     cur.execute("""
     DO $$
@@ -638,6 +752,21 @@ def criar_tabelas():
             SELECT 1
             FROM pg_indexes
             WHERE schemaname = 'public'
+              AND indexname = 'ix_expedientes_motorista'
+        ) THEN
+            CREATE INDEX ix_expedientes_motorista
+            ON expedientes (motorista_id);
+        END IF;
+    END$$;
+    """)
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname = 'public'
               AND indexname = 'ix_expedientes_veiculo'
         ) THEN
             CREATE INDEX ix_expedientes_veiculo
@@ -661,6 +790,20 @@ def criar_tabelas():
     END$$;
     """)
 
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname = 'public'
+              AND indexname = 'ix_expedientes_data'
+        ) THEN
+            CREATE INDEX ix_expedientes_data
+            ON expedientes (data);
+        END IF;
+    END$$;
+    """)
     conn.commit()
     cur.close()
     conn.close()

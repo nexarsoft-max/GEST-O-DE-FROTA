@@ -5,7 +5,7 @@ const registrosColaboradores = [];
 
 let ajusteExpedienteId = null;
 let ajusteChecklistEntradaDetalhe = {};
-let ajusteChecklistSaidaDetalhe = {};
+let ajusteFotosDanoSaidaAtuais = [];
 
 // =========================
 // ELEMENTOS DOM
@@ -53,13 +53,12 @@ const checklistPadrao = [
 ];
 
 // =========================
-// CRIANDO A FUNÇÃO DE VER SE É DO DIA ATUAL
+// DATA DO DIA
 // =========================
 function ehDoDiaAtual(dataStr) {
   if (!dataStr) return false;
 
   const hoje = new Date();
-
   const [ano, mes, dia] = dataStr.split("T")[0].split("-");
 
   return (
@@ -68,10 +67,10 @@ function ehDoDiaAtual(dataStr) {
     Number(dia) === hoje.getDate()
   );
 }
+
 // =========================
 // HELPERS
 // =========================
-
 function obterRegistrosHoje() {
   return registrosColaboradores.filter((r) => ehDoDiaAtual(r.data));
 }
@@ -79,7 +78,6 @@ function obterRegistrosHoje() {
 function obterRegistrosHistorico() {
   return registrosColaboradores.filter((r) => !ehDoDiaAtual(r.data));
 }
-
 
 function normalizarTexto(valor) {
   return (valor || "")
@@ -230,8 +228,39 @@ function aplicarEstado(elemento, valor) {
   }
 }
 
-function aplicarEstadoAjuste(elemento, valor) {
-  aplicarEstado(elemento, valor);
+function aplicarEstadoDanoSaida(elemento, valor) {
+  if (!elemento) return;
+
+  elemento.classList.remove("bom", "ruim", "neutro");
+
+  if (valor === true) {
+    elemento.textContent = "Sim";
+    elemento.classList.add("estado-badge", "ruim");
+  } else if (valor === false) {
+    elemento.textContent = "Não";
+    elemento.classList.add("estado-badge", "bom");
+  } else {
+    elemento.textContent = "Não informado";
+    elemento.classList.add("estado-badge", "neutro");
+  }
+}
+
+function obterElemento(id) {
+  const el = document.getElementById(id);
+  if (!el) {
+    console.error(`Elemento não encontrado no DOM: ${id}`);
+  }
+  return el;
+}
+
+function definirValor(id, valor = "") {
+  const el = obterElemento(id);
+  if (el) el.value = valor;
+}
+
+function normalizarListaFotos(lista) {
+  if (!Array.isArray(lista)) return [];
+  return lista.filter((url) => url && String(url).trim()).map((url) => String(url).trim());
 }
 
 // =========================
@@ -271,6 +300,63 @@ function fecharModalImagem() {
 }
 
 // =========================
+// RENDER DE FOTOS DE DANO
+// =========================
+function renderizarFotosDanoVisualizacao(containerId, fotos = []) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const lista = normalizarListaFotos(fotos);
+
+  if (!lista.length) {
+    container.innerHTML = `<p class="texto-sem-foto">Nenhuma foto enviada.</p>`;
+    return;
+  }
+
+  container.innerHTML = lista
+    .map(
+      (url, index) => `
+        <button
+          type="button"
+          class="btn-link-action"
+          onclick="abrirModalImagem('${escaparAspas(url)}', 'Foto do dano ${index + 1}')"
+        >
+          Ver foto ${index + 1}
+        </button>
+      `
+    )
+    .join("");
+}
+
+function renderizarPreviewFotosDanoAjuste(containerId, fotos = []) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const lista = normalizarListaFotos(fotos);
+
+  if (!lista.length) {
+    container.innerHTML = `<span class="preview-foto-vazio">Nenhuma imagem disponível.</span>`;
+    return;
+  }
+
+  container.innerHTML = lista
+    .map(
+      (url, index) => `
+        <div class="preview-foto-card">
+          <button
+            type="button"
+            class="btn-link-action"
+            onclick="abrirModalImagem('${escaparAspas(url)}', 'Foto do dano ${index + 1}')"
+          >
+            Ver foto ${index + 1}
+          </button>
+        </div>
+      `
+    )
+    .join("");
+}
+
+// =========================
 // MODAL CHECKLIST
 // =========================
 function fecharModalChecklist() {
@@ -293,37 +379,21 @@ async function verChecklist(id) {
     }
 
     const entrada = normalizarChecklistDetalhe(data.checklist_entrada_detalhe);
-    const saida = normalizarChecklistDetalhe(data.checklist_saida_detalhe);
 
     const listaEntrada = document.getElementById("listaChecklistEntrada");
-    const listaSaida = document.getElementById("listaChecklistSaida");
-
     const estadoEntrada = document.getElementById("checklistEstadoEntrada");
-    const estadoSaida = document.getElementById("checklistEstadoSaida");
-
     const observacaoEntrada = document.getElementById("checklistObservacaoEntrada");
-    const observacaoSaida = document.getElementById("checklistObservacaoSaida");
-
     const horaEntrada = document.getElementById("checklistHoraEntrada");
     const horaSaida = document.getElementById("checklistHoraSaida");
-
     const modal = document.getElementById("modalChecklist");
 
     const itensEntrada = entrada.itens_marcados || entrada.itens || [];
-    const itensSaida = saida.itens_marcados || saida.itens || [];
 
     if (listaEntrada) listaEntrada.innerHTML = montarItensChecklistHtml(itensEntrada);
-    if (listaSaida) listaSaida.innerHTML = montarItensChecklistHtml(itensSaida);
-
     aplicarEstado(estadoEntrada, entrada.veiculo_perfeito);
-    aplicarEstado(estadoSaida, saida.veiculo_perfeito);
 
     if (observacaoEntrada) {
       observacaoEntrada.textContent = entrada.observacao || "Sem observação.";
-    }
-
-    if (observacaoSaida) {
-      observacaoSaida.textContent = saida.observacao || "Sem observação.";
     }
 
     if (horaEntrada) horaEntrada.textContent = data.horaEntrada || "-";
@@ -353,29 +423,16 @@ async function verChecklist(id) {
         entrada.confirmacao_veracidade ? "Confirmado" : "Não confirmado";
     }
 
-    const conesSaida = document.getElementById("checklistConesSaida");
-    const duplaSaida = document.getElementById("checklistDuplaSaida");
-    const nomesSaida = document.getElementById("checklistNomesSaida");
-    const veracidadeSaida = document.getElementById("checklistVeracidadeSaida");
+    const danoSaidaEl = document.getElementById("checklistVeiculoDanificadoSaida");
+    const observacaoDanoSaidaEl = document.getElementById("checklistObservacaoDanoSaida");
 
-    if (conesSaida) {
-      conesSaida.textContent = saida.quantidade_cones || "-";
+    aplicarEstadoDanoSaida(danoSaidaEl, data.veiculoDanificadoSaida);
+
+    if (observacaoDanoSaidaEl) {
+      observacaoDanoSaidaEl.textContent = data.observacaoDanoSaida || "Sem observação.";
     }
 
-    if (duplaSaida) {
-      duplaSaida.textContent =
-        saida.trabalhando_em_dupla_ou_mais === true ? "Sim" :
-        saida.trabalhando_em_dupla_ou_mais === false ? "Não" : "-";
-    }
-
-    if (nomesSaida) {
-      nomesSaida.textContent = saida.nomes_dupla_ou_mais || "-";
-    }
-
-    if (veracidadeSaida) {
-      veracidadeSaida.textContent =
-        saida.confirmacao_veracidade ? "Confirmado" : "Não confirmado";
-    }
+    renderizarFotosDanoVisualizacao("checklistFotosDanoSaida", data.fotosDanoSaida || []);
 
     if (modal) {
       modal.classList.remove("hidden");
@@ -433,8 +490,7 @@ function calcularResumoCards(lista) {
   ).size;
 
   const checklistsRealizados = lista.filter((item) => {
-    return (Array.isArray(item.checklistEntrada) && item.checklistEntrada.length > 0)
-      || (Array.isArray(item.checklistSaida) && item.checklistSaida.length > 0);
+    return Array.isArray(item.checklistEntrada) && item.checklistEntrada.length > 0;
   }).length;
 
   const entradas = lista.filter((item) => item.horaEntrada).length;
@@ -481,14 +537,14 @@ function renderizarTabelaPrincipal(lista) {
       </button>
     `;
 
-   const classeAjuste = r.ajustado ? "ajuste-feito" : "";
+    const classeAjuste = r.ajustado ? "ajuste-feito" : "";
 
-const ajusteBotao = `
-  <button type="button" class="action-btn action-btn-adjust ${classeAjuste}" onclick="abrirAjuste(${r.id})">
-    <i class="fa-solid fa-pen-to-square"></i>
-    <span>${r.ajustado ? "Ajustado" : "Ajustar"}</span>
-  </button>
-`;
+    const ajusteBotao = `
+      <button type="button" class="action-btn action-btn-adjust ${classeAjuste}" onclick="abrirAjuste(${r.id})">
+        <i class="fa-solid fa-pen-to-square"></i>
+        <span>${r.ajustado ? "Ajustado" : "Ajustar"}</span>
+      </button>
+    `;
 
     tr.innerHTML = `
       <td>${escaparHtml(r.colaborador || "-")}</td>
@@ -749,21 +805,41 @@ function coletarChecklistEditavel(containerId, detalheOriginal = {}, prefixo = "
   };
 }
 
-function obterElemento(id) {
-  const el = document.getElementById(id);
-
-  if (!el) {
-    console.error(`Elemento não encontrado no DOM: ${id}`);
-  }
-
-  return el;
+function limparInputsFotosDano() {
+  const ids = ["ajusteFotoDano1", "ajusteFotoDano2", "ajusteFotoDano3"];
+  ids.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
 }
 
-function definirValor(id, valor = "") {
-  const el = obterElemento(id);
-  if (el) {
-    el.value = valor;
+function validarDanoSaida() {
+  const veiculoDanificado = document.getElementById("ajusteVeiculoDanificado")?.value === "true";
+  const observacaoDano = document.getElementById("ajusteObservacaoDano")?.value?.trim() || "";
+
+  const foto1 = document.getElementById("ajusteFotoDano1")?.files?.[0] || null;
+  const foto2 = document.getElementById("ajusteFotoDano2")?.files?.[0] || null;
+  const foto3 = document.getElementById("ajusteFotoDano3")?.files?.[0] || null;
+
+  const novasFotos = [foto1, foto2, foto3].filter(Boolean);
+
+  if (veiculoDanificado && !observacaoDano) {
+    throw new Error("A observação do dano é obrigatória quando o veículo estiver danificado");
   }
+
+  if (veiculoDanificado && !novasFotos.length && !ajusteFotosDanoSaidaAtuais.length) {
+    throw new Error("Envie ao menos uma foto do dano quando o veículo estiver danificado");
+  }
+
+  if (!veiculoDanificado && novasFotos.length) {
+    throw new Error("Marque 'Sim' em veículo danificado para enviar fotos de dano");
+  }
+
+  return {
+    veiculoDanificadoSaida: veiculoDanificado,
+    observacaoDanoSaida: observacaoDano,
+    novasFotos
+  };
 }
 
 async function abrirAjuste(id) {
@@ -776,16 +852,14 @@ async function abrirAjuste(id) {
     }
 
     ajusteExpedienteId = id;
-
     ajusteChecklistEntradaDetalhe = normalizarChecklistDetalhe(data.checklist_entrada_detalhe || {});
-    ajusteChecklistSaidaDetalhe = normalizarChecklistDetalhe(data.checklist_saida_detalhe || {});
+    ajusteFotosDanoSaidaAtuais = normalizarListaFotos(data.fotosDanoSaida || []);
 
     definirValor("ajusteHoraEntrada", data.horaEntrada || "");
     definirValor("ajusteHoraSaida", data.horaSaida || "");
     definirValor("ajusteMotivo", "");
 
     renderizarChecklistEditavel("ajusteChecklistEntrada", ajusteChecklistEntradaDetalhe);
-    renderizarChecklistEditavel("ajusteChecklistSaida", ajusteChecklistSaidaDetalhe);
 
     definirValor("ajusteObservacaoEntrada", ajusteChecklistEntradaDetalhe.observacao || "");
     definirValor("ajusteConesEntrada", ajusteChecklistEntradaDetalhe.quantidade_cones || "");
@@ -799,27 +873,18 @@ async function abrirAjuste(id) {
       ajusteChecklistEntradaDetalhe.confirmacao_veracidade ? "true" : "false"
     );
 
-    definirValor("ajusteObservacaoSaida", ajusteChecklistSaidaDetalhe.observacao || "");
-    definirValor("ajusteConesSaida", ajusteChecklistSaidaDetalhe.quantidade_cones || "");
-    definirValor(
-      "ajusteDuplaSaida",
-      valorBooleanSelect(ajusteChecklistSaidaDetalhe.trabalhando_em_dupla_ou_mais)
-    );
-    definirValor("ajusteNomesSaida", ajusteChecklistSaidaDetalhe.nomes_dupla_ou_mais || "");
-    definirValor(
-      "ajusteVeracidadeSaida",
-      ajusteChecklistSaidaDetalhe.confirmacao_veracidade ? "true" : "false"
-    );
-
-    aplicarEstadoAjuste(
+    aplicarEstado(
       obterElemento("ajusteEstadoEntradaTexto"),
       ajusteChecklistEntradaDetalhe.veiculo_perfeito
     );
 
-    aplicarEstadoAjuste(
-      obterElemento("ajusteEstadoSaidaTexto"),
-      ajusteChecklistSaidaDetalhe.veiculo_perfeito
+    definirValor(
+      "ajusteVeiculoDanificado",
+      data.veiculoDanificadoSaida === true ? "true" : "false"
     );
+    definirValor("ajusteObservacaoDano", data.observacaoDanoSaida || "");
+    limparInputsFotosDano();
+    renderizarPreviewFotosDanoAjuste("previewFotosDano", ajusteFotosDanoSaidaAtuais);
 
     renderizarPreviewFoto("fotoEntradaPreview", data.fotoEntrada, "Foto de entrada");
     renderizarPreviewFoto("fotoSaidaPreview", data.fotoSaida, "Foto de saída");
@@ -847,7 +912,8 @@ function fecharAjuste() {
 
   ajusteExpedienteId = null;
   ajusteChecklistEntradaDetalhe = {};
-  ajusteChecklistSaidaDetalhe = {};
+  ajusteFotosDanoSaidaAtuais = [];
+  limparInputsFotosDano();
   document.body.style.overflow = "";
 }
 
@@ -867,11 +933,11 @@ async function salvarAjuste() {
       "Entrada"
     );
 
-    const checklistSaida = coletarChecklistEditavel(
-      "ajusteChecklistSaida",
-      ajusteChecklistSaidaDetalhe,
-      "Saida"
-    );
+    const {
+      veiculoDanificadoSaida,
+      observacaoDanoSaida,
+      novasFotos
+    } = validarDanoSaida();
 
     const payload = {
       id: ajusteExpedienteId,
@@ -879,22 +945,36 @@ async function salvarAjuste() {
       saida,
       motivo,
       checklistEntrada,
-      checklistSaida
+      veiculoDanificadoSaida,
+      observacaoDanoSaida
     };
 
-    console.log("📦 Payload enviado:", payload);
+    let res;
+    let data;
 
-    const res = await fetch("/api/colaboradores/ajuste", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
+    if (novasFotos.length) {
+      const formData = new FormData();
+      formData.append("payload", JSON.stringify(payload));
 
-    const data = await res.json();
+      if (novasFotos[0]) formData.append("foto_dano_1", novasFotos[0]);
+      if (novasFotos[1]) formData.append("foto_dano_2", novasFotos[1]);
+      if (novasFotos[2]) formData.append("foto_dano_3", novasFotos[2]);
 
-    console.log("📥 Resposta backend:", data);
+      res = await fetch("/api/colaboradores/ajuste", {
+        method: "POST",
+        body: formData
+      });
+    } else {
+      res = await fetch("/api/colaboradores/ajuste", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+    }
+
+    data = await res.json();
 
     if (!res.ok || data.sucesso === false) {
       throw new Error(data.erro || "Erro ao salvar ajuste");
@@ -912,6 +992,7 @@ async function salvarAjuste() {
     alert(e.message || "Erro ao salvar ajuste");
   }
 }
+
 // =========================
 // EVENTOS
 // =========================

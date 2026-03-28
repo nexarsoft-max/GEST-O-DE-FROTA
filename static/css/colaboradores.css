@@ -2138,3 +2138,86 @@ textarea{
   position: relative;
   z-index: 10051;
 }
+
+/* =========================
+   DANO NA SAÍDA
+========================= */
+
+.galeria-fotos-dano,
+.preview-fotos-dano,
+#checklistFotosDanoSaida,
+#previewFotosDano {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.texto-sem-foto {
+  font-size: 14px;
+  color: #75718a;
+  font-weight: 600;
+  margin: 0;
+}
+
+.preview-fotos-dano .preview-foto-card,
+#previewFotosDano .preview-foto-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#checklistFotosDanoSaida .btn-link-action,
+#previewFotosDano .btn-link-action {
+  min-width: 110px;
+}
+
+#checklistObservacaoDanoSaida {
+  font-size: 14px;
+  color: #3c3651;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+#ajusteVeiculoDanificado,
+#ajusteObservacaoDano,
+#ajusteFotoDano1,
+#ajusteFotoDano2,
+#ajusteFotoDano3 {
+  width: 100%;
+}
+
+#ajusteFotoDano1,
+#ajusteFotoDano2,
+#ajusteFotoDano3 {
+  border: 1px solid #d9c8ff;
+  border-radius: 14px;
+  background: #faf7ff;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: #111827;
+  outline: none;
+}
+
+#ajusteFotoDano1:focus,
+#ajusteFotoDano2:focus,
+#ajusteFotoDano3:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.12);
+  background: #ffffff;
+}
+
+@media (max-width: 768px) {
+  .galeria-fotos-dano,
+  .preview-fotos-dano,
+  #checklistFotosDanoSaida,
+  #previewFotosDano {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #checklistFotosDanoSaida .btn-link-action,
+  #previewFotosDano .btn-link-action {
+    width: 100%;
+  }
+}

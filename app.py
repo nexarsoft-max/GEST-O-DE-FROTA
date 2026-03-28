@@ -276,6 +276,152 @@ PERGUNTA DO USUÁRIO:
 def log_requests():
     print(f"[REQ] {request.method} {request.path}", flush=True)
 
+# =========================
+# HELPERS
+# =========================
+
+def _safe_json_loads(valor, default=None):
+    if default is None:
+        default = {}
+    if valor is None:
+        return default
+    if isinstance(valor, (dict, list)):
+        return valor
+    texto = str(valor).strip()
+    if not texto:
+        return default
+    try:
+        return json.loads(texto)
+    except Exception:
+        return default
+
+
+def _lista_fotos_dano_saida(row_or_dict):
+    """
+    Normaliza as 3 colunas novas de foto do dano em uma lista.
+    Aceita tuple/list (row do banco) ou dict.
+    """
+    if isinstance(row_or_dict, dict):
+        candidatos = [
+            row_or_dict.get("foto_dano_saida_url_1"),
+            row_or_dict.get("foto_dano_saida_url_2"),
+            row_or_dict.get("foto_dano_saida_url_3"),
+        ]
+    else:
+        candidatos = list(row_or_dict)
+
+    return [str(url).strip() for url in candidatos if url and str(url).strip()]
+
+
+def _normalizar_checklist_colaboradores(valor):
+    """
+    Mantém compatibilidade com checklist antigo.
+    """
+    if not valor:
+        return []
+
+    try:
+        if isinstance(valor, str):
+            valor = json.loads(valor)
+
+        if isinstance(valor, dict):
+            return valor.get("itens_marcados", []) or valor.get("itens", []) or []
+
+        if isinstance(valor, list):
+            return valor
+    except Exception:
+        pass
+
+    return []
+
+
+def _normalizar_checklist_detalhe_colaboradores(valor):
+    """
+    Mantém o formato que o seu front já espera no modal.
+    """
+    if not valor:
+        return {
+            "itens": [],
+            "itens_marcados": [],
+            "veiculo_perfeito": None,
+            "observacao": "",
+            "quantidade_cones": "",
+            "trabalhando_em_dupla_ou_mais": None,
+            "nomes_dupla_ou_mais": "",
+            "confirmacao_veracidade": False
+        }
+
+    if isinstance(valor, str):
+        try:
+            valor = json.loads(valor)
+        except Exception:
+            valor = [valor]
+
+    if isinstance(valor, list):
+        itens = [str(item) for item in valor]
+        return {
+            "itens": itens,
+            "itens_marcados": itens,
+            "veiculo_perfeito": None,
+            "observacao": "",
+            "quantidade_cones": "",
+            "trabalhando_em_dupla_ou_mais": None,
+            "nomes_dupla_ou_mais": "",
+            "confirmacao_veracidade": False
+        }
+
+    if isinstance(valor, dict):
+        itens = valor.get("itens", []) if isinstance(valor.get("itens"), list) else []
+        itens_marcados = valor.get("itens_marcados", []) if isinstance(valor.get("itens_marcados"), list) else itens
+
+        return {
+            "itens": [str(item) for item in itens],
+            "itens_marcados": [str(item) for item in itens_marcados],
+            "veiculo_perfeito": valor.get("veiculo_perfeito"),
+            "observacao": str(valor.get("observacao") or "").strip(),
+            "quantidade_cones": str(valor.get("quantidade_cones") or "").strip(),
+            "trabalhando_em_dupla_ou_mais": valor.get("trabalhando_em_dupla_ou_mais"),
+            "nomes_dupla_ou_mais": str(valor.get("nomes_dupla_ou_mais") or "").strip(),
+            "confirmacao_veracidade": bool(valor.get("confirmacao_veracidade"))
+        }
+
+    return {
+        "itens": [],
+        "itens_marcados": [],
+        "veiculo_perfeito": None,
+        "observacao": "",
+        "quantidade_cones": "",
+        "trabalhando_em_dupla_ou_mais": None,
+        "nomes_dupla_ou_mais": "",
+        "confirmacao_veracidade": False
+    }
+
+
+def _upload_foto_dano_saida(expediente_id: int, indice: int, arquivo_storage) -> str:
+    """
+    Sobe foto de dano da saída para o storage externo e devolve URL pública.
+    indice: 1, 2 ou 3
+    """
+    if not arquivo_storage:
+        return ""
+
+    nome_original = (arquivo_storage.filename or "").strip()
+    extensao = os.path.splitext(nome_original)[1].lower() or ".jpg"
+    if extensao not in [".jpg", ".jpeg", ".png", ".webp"]:
+        extensao = ".jpg"
+
+    chave = f"expedientes/{expediente_id}/dano_saida_{indice}_{secrets.token_hex(8)}{extensao}"
+
+    content_type = arquivo_storage.mimetype or "image/jpeg"
+
+    s3.upload_fileobj(
+        arquivo_storage,
+        R2_BUCKET_NAME,
+        chave,
+        ExtraArgs={"ContentType": content_type}
+    )
+
+    return montar_url_publica_r2(chave)
 
 # =========================
 # HELPERS
@@ -1510,6 +1656,13 @@ def api_detalhe_expediente(expediente_id):
             print("ERRO _normalizar_checklist:", erro_normalizacao, flush=True)
             return _checklist_vazio()
 
+    def _lista_fotos_dano_saida(f1, f2, f3):
+        return [
+            str(url).strip()
+            for url in [f1, f2, f3]
+            if url and str(url).strip()
+        ]
+
     try:
         conn = get_db()
         cur = conn.cursor()
@@ -1529,6 +1682,32 @@ def api_detalhe_expediente(expediente_id):
             else "''"
         )
 
+        cur.execute("""
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'expedientes'
+              AND column_name = 'veiculo_danificado_saida'
+            LIMIT 1
+        """)
+        tem_dano_saida = cur.fetchone() is not None
+
+        if tem_dano_saida:
+            campos_dano_saida = """
+                COALESCE(veiculo_danificado_saida, FALSE),
+                COALESCE(observacao_dano_saida, ''),
+                COALESCE(foto_dano_saida_url_1, ''),
+                COALESCE(foto_dano_saida_url_2, ''),
+                COALESCE(foto_dano_saida_url_3, '')
+            """
+        else:
+            campos_dano_saida = """
+                FALSE,
+                '',
+                '',
+                '',
+                ''
+            """
+
         cur.execute(f"""
             SELECT
                 checklist_entrada,
@@ -1539,7 +1718,8 @@ def api_detalhe_expediente(expediente_id):
                 horario_inicio,
                 horario_fim,
                 COALESCE(ajustado, FALSE),
-                COALESCE(motivo_ajuste, '')
+                COALESCE(motivo_ajuste, ''),
+                {campos_dano_saida}
             FROM expedientes
             WHERE id = %s
               AND usuario_id = %s
@@ -1557,6 +1737,8 @@ def api_detalhe_expediente(expediente_id):
         checklist_entrada = _normalizar_checklist(row[0])
         checklist_saida = _normalizar_checklist(row[1])
 
+        fotos_dano_saida = _lista_fotos_dano_saida(row[11], row[12], row[13])
+
         return jsonify({
             "sucesso": True,
             "checklist_entrada": checklist_entrada["itens"],
@@ -1569,7 +1751,11 @@ def api_detalhe_expediente(expediente_id):
             "horaEntrada": formatar_hora(row[5]),
             "horaSaida": formatar_hora(row[6]),
             "ajustado": bool(row[7]),
-            "motivoAjuste": row[8] or ""
+            "motivoAjuste": row[8] or "",
+            "veiculoDanificadoSaida": bool(row[9]),
+            "observacaoDanoSaida": row[10] or "",
+            "fotosDanoSaida": fotos_dano_saida,
+            "fotoDanoSaida": fotos_dano_saida[0] if fotos_dano_saida else ""
         }), 200
 
     except Exception as e:
@@ -1584,7 +1770,9 @@ def api_detalhe_expediente(expediente_id):
             cur.close()
         if conn:
             conn.close()
-
+            
+            
+            
 @app.get("/api/mobile/terms/status")
 def api_mobile_terms_status():
     r = proteger_api_mobile()
@@ -1735,30 +1923,21 @@ def api_colaboradores_registros():
     uid = usuario_id_atual()
     conn = cur = None
 
-    def normalizar_checklist(valor):
-        if not valor:
-            return []
+    def ajustar_fuso(dt):
+        return dt if dt else None
 
-        try:
-            if isinstance(valor, str):
-                valor = json.loads(valor)
+    def formatar_hora(dt):
+        dt = ajustar_fuso(dt)
+        return dt.strftime("%H:%M") if dt else ""
 
-            if isinstance(valor, dict):
-                return valor.get("itens_marcados", [])
-
-            if isinstance(valor, list):
-                return valor
-
-        except Exception:
-            pass
-
-        return []
+    def formatar_data(inicio, fim):
+        dt = ajustar_fuso(inicio) or ajustar_fuso(fim)
+        return dt.date().isoformat() if dt else ""
 
     try:
         conn = get_db()
         cur = conn.cursor()
 
-        # verifica se existe coluna do odômetro
         cur.execute("""
             SELECT 1
             FROM information_schema.columns
@@ -1773,6 +1952,32 @@ def api_colaboradores_registros():
             if tem_foto_odometro
             else "''"
         )
+
+        cur.execute("""
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'expedientes'
+              AND column_name = 'veiculo_danificado_saida'
+            LIMIT 1
+        """)
+        tem_dano_saida = cur.fetchone() is not None
+
+        if tem_dano_saida:
+            campos_dano_saida = """
+                COALESCE(e.veiculo_danificado_saida, FALSE),
+                COALESCE(e.observacao_dano_saida, ''),
+                COALESCE(e.foto_dano_saida_url_1, ''),
+                COALESCE(e.foto_dano_saida_url_2, ''),
+                COALESCE(e.foto_dano_saida_url_3, '')
+            """
+        else:
+            campos_dano_saida = """
+                FALSE,
+                '',
+                '',
+                '',
+                ''
+            """
 
         cur.execute(f"""
             SELECT
@@ -1789,9 +1994,10 @@ def api_colaboradores_registros():
                 e.foto_saida_url,
                 {campo_foto_odometro} AS foto_odometro,
                 e.ajustado,
-                COALESCE(e.motivo_ajuste, '')
+                COALESCE(e.motivo_ajuste, ''),
+                {campos_dano_saida}
             FROM expedientes e
-            LEFT JOIN motoristas m ON m.id = e.colaborador_id
+            LEFT JOIN motoristas m ON m.id = COALESCE(e.colaborador_id, e.motorista_id)
             LEFT JOIN veiculos v ON v.id = e.veiculo_id
             WHERE e.usuario_id = %s
             ORDER BY e.id DESC
@@ -1801,33 +2007,31 @@ def api_colaboradores_registros():
         data = []
 
         for r in rows:
-            checklist_inicio = normalizar_checklist(r[7])
-            checklist_fim = normalizar_checklist(r[8])
+            checklist_inicio = _normalizar_checklist_colaboradores(r[7])
+            checklist_fim = _normalizar_checklist_colaboradores(r[8])
+
+            fotos_dano_saida = _lista_fotos_dano_saida([r[16], r[17], r[18]])
 
             data.append({
                 "id": r[0],
                 "colaborador": r[1],
                 "veiculo": r[2],
                 "placa": r[3],
-
-                # ✅ DATA CORRETA (SEM BUG DE FUSO)
                 "data": formatar_data(r[4], r[5]),
-
-                # ✅ HORÁRIO CORRETO (SEM -3h BUGADO)
                 "horaEntrada": formatar_hora(r[4]),
                 "horaSaida": formatar_hora(r[5]),
-
                 "status": r[6],
-
                 "checklistEntrada": checklist_inicio,
-                "checklistSaida": checklist_fim,
-
+                "checklistSaida": checklist_fim,  # mantido por compatibilidade temporária
                 "fotoEntrada": r[9] or "",
                 "fotoSaida": r[10] or "",
                 "fotoOdometro": r[11] or "",
-
                 "ajustado": bool(r[12]),
-                "motivoAjuste": r[13] or ""
+                "motivoAjuste": r[13] or "",
+                "veiculoDanificadoSaida": bool(r[14]),
+                "observacaoDanoSaida": r[15] or "",
+                "fotosDanoSaida": fotos_dano_saida,
+                "fotoDanoSaida": fotos_dano_saida[0] if fotos_dano_saida else ""
             })
 
         return jsonify(data), 200
@@ -1893,24 +2097,54 @@ def api_ajustar_ponto():
     if r:
         return r
 
-    dados = request.get_json(silent=True) or {}
-
-    expediente_id = dados.get("id")
-    entrada = dados.get("entrada")
-    saida = dados.get("saida")
-    checklist_entrada = dados.get("checklistEntrada")
-    checklist_saida = dados.get("checklistSaida")
-    motivo = dados.get("motivo")
-
-    if not expediente_id:
-        return jsonify({
-            "sucesso": False,
-            "erro": "id é obrigatório"
-        }), 400
-
     conn = cur = None
 
     try:
+        content_type = (request.content_type or "").lower()
+
+        payload = {}
+        arquivos_dano = []
+
+        if "multipart/form-data" in content_type:
+            payload_raw = request.form.get("payload") or "{}"
+            try:
+                payload = json.loads(payload_raw)
+            except Exception:
+                return jsonify({
+                    "sucesso": False,
+                    "erro": "Payload inválido no multipart"
+                }), 400
+
+            for chave in ["foto_dano_1", "foto_dano_2", "foto_dano_3"]:
+                arquivo = request.files.get(chave)
+                if arquivo and (arquivo.filename or "").strip():
+                    arquivos_dano.append(arquivo)
+        else:
+            payload = request.get_json(silent=True) or {}
+
+        expediente_id = payload.get("id")
+        entrada = payload.get("entrada")
+        saida = payload.get("saida")
+        checklist_entrada = payload.get("checklistEntrada")
+        checklist_saida = payload.get("checklistSaida")  # mantido por compatibilidade temporária
+        motivo = payload.get("motivo")
+
+        veiculo_danificado_saida = payload.get("veiculoDanificadoSaida")
+        observacao_dano_saida = (payload.get("observacaoDanoSaida") or "").strip()
+
+        if not expediente_id:
+            return jsonify({
+                "sucesso": False,
+                "erro": "id é obrigatório"
+            }), 400
+
+        if veiculo_danificado_saida is True:
+            if not observacao_dano_saida:
+                return jsonify({
+                    "sucesso": False,
+                    "erro": "Observação do dano é obrigatória quando o veículo estiver danificado"
+                }), 400
+
         conn = get_db()
         cur = conn.cursor()
 
@@ -1918,7 +2152,10 @@ def api_ajustar_ponto():
             SELECT
                 horario_inicio,
                 horario_fim,
-                status
+                status,
+                COALESCE(foto_dano_saida_url_1, ''),
+                COALESCE(foto_dano_saida_url_2, ''),
+                COALESCE(foto_dano_saida_url_3, '')
             FROM expedientes
             WHERE id = %s
             LIMIT 1
@@ -1932,7 +2169,23 @@ def api_ajustar_ponto():
                 "erro": "Expediente não encontrado"
             }), 404
 
-        horario_inicio_atual, horario_fim_atual, status_atual = row
+        horario_inicio_atual, horario_fim_atual, status_atual, foto1_atual, foto2_atual, foto3_atual = row
+
+        def _combinar_data_com_hora(base_dt, hora_str):
+            if hora_str is None:
+                return None
+
+            texto = str(hora_str).strip()
+            if not texto:
+                return None
+
+            try:
+                hora_obj = datetime.strptime(texto, "%H:%M").time()
+            except ValueError:
+                raise ValueError("Horário inválido. Use o formato HH:MM.")
+
+            base = base_dt if isinstance(base_dt, datetime) else datetime.utcnow()
+            return datetime.combine(base.date(), hora_obj)
 
         campos = []
         valores = []
@@ -1963,6 +2216,48 @@ def api_ajustar_ponto():
             campos.append("motivo_ajuste = %s")
             valores.append((motivo or "").strip())
 
+        if veiculo_danificado_saida is not None:
+            campos.append("veiculo_danificado_saida = %s")
+            valores.append(bool(veiculo_danificado_saida))
+
+            if bool(veiculo_danificado_saida):
+                campos.append("observacao_dano_saida = %s")
+                valores.append(observacao_dano_saida)
+            else:
+                campos.append("observacao_dano_saida = %s")
+                valores.append("")
+                campos.append("foto_dano_saida_url_1 = %s")
+                valores.append("")
+                campos.append("foto_dano_saida_url_2 = %s")
+                valores.append("")
+                campos.append("foto_dano_saida_url_3 = %s")
+                valores.append("")
+
+        # sobe novas fotos do dano, se vierem
+        urls_finais = [foto1_atual or "", foto2_atual or "", foto3_atual or ""]
+
+        if arquivos_dano:
+            limite = 3
+            novas_urls = []
+            for indice, arquivo in enumerate(arquivos_dano[:limite], start=1):
+                nova_url = _upload_foto_dano_saida(expediente_id, indice, arquivo)
+                if nova_url:
+                    novas_urls.append(nova_url)
+
+            while len(novas_urls) < 3:
+                novas_urls.append("")
+
+            urls_finais = novas_urls[:3]
+
+            campos.append("foto_dano_saida_url_1 = %s")
+            valores.append(urls_finais[0])
+
+            campos.append("foto_dano_saida_url_2 = %s")
+            valores.append(urls_finais[1])
+
+            campos.append("foto_dano_saida_url_3 = %s")
+            valores.append(urls_finais[2])
+
         campos.append("ajustado = TRUE")
 
         if saida:
@@ -1985,21 +2280,13 @@ def api_ajustar_ponto():
         """
 
         valores.append(expediente_id)
-
         cur.execute(query, valores)
-
-        if cur.rowcount == 0:
-            conn.rollback()
-            return jsonify({
-                "sucesso": False,
-                "erro": "Expediente não encontrado"
-            }), 404
-
         conn.commit()
 
         return jsonify({
             "sucesso": True,
-            "mensagem": "Ajuste salvo com sucesso"
+            "mensagem": "Ajuste salvo com sucesso",
+            "fotosDanoSaida": urls_finais
         }), 200
 
     except ValueError as e:
@@ -2061,6 +2348,8 @@ def api_upload_foto():
             "sucesso": False,
             "erro": str(e)
         }), 500
+    
+
     
 @app.post("/api/mobile/terms/accept")
 def api_mobile_terms_accept():
@@ -2158,7 +2447,83 @@ def api_mobile_terms_accept():
         if conn:
             conn.close()
 
+@app.post("/api/colaboradores/<int:expediente_id>/upload-fotos-dano")
+def api_upload_fotos_dano_saida(expediente_id):
+    r = proteger_api()
+    if r:
+        return r
 
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT id
+            FROM expedientes
+            WHERE id = %s
+              AND usuario_id = %s
+            LIMIT 1
+        """, (expediente_id, usuario_id_atual()))
+
+        row = cur.fetchone()
+        if not row:
+            return jsonify({
+                "sucesso": False,
+                "erro": "Expediente não encontrado"
+            }), 404
+
+        arquivos = []
+        for chave in ["foto_dano_1", "foto_dano_2", "foto_dano_3"]:
+            arquivo = request.files.get(chave)
+            if arquivo and (arquivo.filename or "").strip():
+                arquivos.append(arquivo)
+
+        if not arquivos:
+            return jsonify({
+                "sucesso": False,
+                "erro": "Envie ao menos uma foto"
+            }), 400
+
+        urls = []
+        for indice, arquivo in enumerate(arquivos[:3], start=1):
+            url = _upload_foto_dano_saida(expediente_id, indice, arquivo)
+            if url:
+                urls.append(url)
+
+        while len(urls) < 3:
+            urls.append("")
+
+        cur.execute("""
+            UPDATE expedientes
+            SET
+                foto_dano_saida_url_1 = %s,
+                foto_dano_saida_url_2 = %s,
+                foto_dano_saida_url_3 = %s
+            WHERE id = %s
+        """, (urls[0], urls[1], urls[2], expediente_id))
+
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True,
+            "fotosDanoSaida": urls
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("ERRO api_upload_fotos_dano_saida:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": str(e)
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 # =========================
 # API WEB - TERMOS DOS COLABORADORES
 # =========================
