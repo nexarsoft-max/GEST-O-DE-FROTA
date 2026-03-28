@@ -1369,12 +1369,7 @@ def api_detalhe_expediente(expediente_id):
     conn = cur = None
 
     def ajustar_fuso(dt):
-        if not dt:
-            return None
-        try:
-            return dt - timedelta(hours=3)
-        except Exception:
-            return dt
+        return dt if dt else None
 
     def formatar_hora(dt):
         dt = ajustar_fuso(dt)
@@ -1713,16 +1708,12 @@ def _ip_request():
 # =========================
 # API COLABORADORES (AGORA COM FOTOS)
 # =========================
-from datetime import timedelta
-
-from datetime import timezone
+# =========================
+# API COLABORADORES (AGORA COM FOTOS)
+# =========================
 
 def ajustar_fuso(dt):
-    if not dt:
-        return None
-
-    # força UTC → Brasil (UTC-3)
-    return dt - timedelta(hours=3)
+    return dt if dt else None
 
 
 def formatar_hora(dt):
@@ -1733,6 +1724,7 @@ def formatar_hora(dt):
 def formatar_data(inicio, fim):
     dt = ajustar_fuso(inicio) or ajustar_fuso(fim)
     return dt.date().isoformat() if dt else ""
+
 
 @app.get("/api/colaboradores/registros")
 def api_colaboradores_registros():
@@ -1762,27 +1754,11 @@ def api_colaboradores_registros():
 
         return []
 
-    # 🔥 NOVO: corrigir timezone Brasil
-    def ajustar_timezone(dt):
-        if not dt:
-            return None
-        try:
-            return dt - timedelta(hours=3)
-        except:
-            return dt
-
-    def formatar_hora(dt):
-        dt = ajustar_timezone(dt)
-        return dt.strftime("%H:%M") if dt else ""
-
-    def formatar_data(dt_inicio, dt_fim):
-        dt = ajustar_timezone(dt_inicio or dt_fim)
-        return dt.strftime("%Y-%m-%d") if dt else ""
-
     try:
         conn = get_db()
         cur = conn.cursor()
 
+        # verifica se existe coluna do odômetro
         cur.execute("""
             SELECT 1
             FROM information_schema.columns
@@ -1822,7 +1798,6 @@ def api_colaboradores_registros():
         """, (uid,))
 
         rows = cur.fetchall()
-
         data = []
 
         for r in rows:
@@ -1835,10 +1810,10 @@ def api_colaboradores_registros():
                 "veiculo": r[2],
                 "placa": r[3],
 
-                # ✅ DATA CORRETA
+                # ✅ DATA CORRETA (SEM BUG DE FUSO)
                 "data": formatar_data(r[4], r[5]),
 
-                # ✅ HORÁRIOS CORRETOS
+                # ✅ HORÁRIO CORRETO (SEM -3h BUGADO)
                 "horaEntrada": formatar_hora(r[4]),
                 "horaSaida": formatar_hora(r[5]),
 
