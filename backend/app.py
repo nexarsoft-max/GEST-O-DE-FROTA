@@ -3033,10 +3033,36 @@ def api_mobile_finalizar_expediente():
     expediente_id = request.form.get("expediente_id")
     foto = request.files.get("foto")
 
+    veiculo_danificado_raw = (request.form.get("veiculo_danificado") or "false").strip().lower()
+    observacao_dano = (request.form.get("observacao_dano") or "").strip()
+
+    foto_dano_1 = request.files.get("foto_dano_1")
+    foto_dano_2 = request.files.get("foto_dano_2")
+    foto_dano_3 = request.files.get("foto_dano_3")
+
+    veiculo_danificado = veiculo_danificado_raw in ("true", "1", "sim", "yes")
+
     if not foto:
         return jsonify({
             "sucesso": False,
             "erro": "foto é obrigatória"
+        }), 400
+
+    if veiculo_danificado and not observacao_dano:
+        return jsonify({
+            "sucesso": False,
+            "erro": "observacao_dano é obrigatória quando houver dano"
+        }), 400
+
+    fotos_dano_recebidas = [
+        arq for arq in [foto_dano_1, foto_dano_2, foto_dano_3]
+        if arq and (arq.filename or "").strip()
+    ]
+
+    if veiculo_danificado and not fotos_dano_recebidas:
+        return jsonify({
+            "sucesso": False,
+            "erro": "Ao menos uma foto do dano é obrigatória quando houver dano"
         }), 400
 
     conn = cur = None
@@ -3105,16 +3131,46 @@ def api_mobile_finalizar_expediente():
 
         url_foto = montar_url_publica_r2(filename)
 
+        urls_dano = ["", "", ""]
+
+        if veiculo_danificado:
+            for idx, arquivo in enumerate(fotos_dano_recebidas[:3], start=1):
+                nome_original = (arquivo.filename or "").strip()
+                extensao = os.path.splitext(nome_original)[1].lower() or ".jpg"
+                if extensao not in [".jpg", ".jpeg", ".png", ".webp"]:
+                    extensao = ".jpg"
+
+                chave = f"expedientes/{expediente_id_int}/dano_saida_mobile_{idx}_{secrets.token_hex(8)}{extensao}"
+
+                s3.upload_fileobj(
+                    arquivo,
+                    R2_BUCKET_NAME,
+                    chave,
+                    ExtraArgs={"ContentType": arquivo.content_type or "image/jpeg"}
+                )
+
+                urls_dano[idx - 1] = montar_url_publica_r2(chave)
+
         cur.execute("""
             UPDATE expedientes
             SET
                 foto_saida_url = %s,
+                veiculo_danificado_saida = %s,
+                observacao_dano_saida = %s,
+                foto_dano_saida_url_1 = %s,
+                foto_dano_saida_url_2 = %s,
+                foto_dano_saida_url_3 = %s,
                 horario_fim = CURRENT_TIMESTAMP,
                 status = 'finalizado'
             WHERE id = %s
               AND colaborador_id = %s
         """, (
             url_foto,
+            veiculo_danificado,
+            observacao_dano if veiculo_danificado else "",
+            urls_dano[0] if veiculo_danificado else "",
+            urls_dano[1] if veiculo_danificado else "",
+            urls_dano[2] if veiculo_danificado else "",
             expediente_id_int,
             motorista_id
         ))
@@ -3140,7 +3196,10 @@ def api_mobile_finalizar_expediente():
         return jsonify({
             "sucesso": True,
             "expediente_id": expediente_id_int,
-            "foto_url": url_foto
+            "foto_url": url_foto,
+            "veiculo_danificado": veiculo_danificado,
+            "observacao_dano": observacao_dano if veiculo_danificado else "",
+            "fotos_dano": [url for url in urls_dano if url]
         }), 200
 
     except Exception as e:
@@ -3156,8 +3215,7 @@ def api_mobile_finalizar_expediente():
         if cur:
             cur.close()
         if conn:
-            conn.close()            
-
+            conn.close()
             
             # =========================
 # API MOBILE - EXPEDIENTE ATUAL
