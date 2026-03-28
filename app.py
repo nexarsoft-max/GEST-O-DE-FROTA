@@ -3031,21 +3031,12 @@ def api_mobile_finalizar_expediente():
     motorista_id = int(g.mobile_auth["motorista_id"])
 
     expediente_id = request.form.get("expediente_id")
-    raw_checklist = request.form.get("checklist")
     foto = request.files.get("foto")
 
     if not foto:
         return jsonify({
             "sucesso": False,
             "erro": "foto é obrigatória"
-        }), 400
-
-    try:
-        checklist = _parse_checklist_json(raw_checklist)
-    except ValueError as e:
-        return jsonify({
-            "sucesso": False,
-            "erro": str(e)
         }), 400
 
     conn = cur = None
@@ -3118,14 +3109,12 @@ def api_mobile_finalizar_expediente():
             UPDATE expedientes
             SET
                 foto_saida_url = %s,
-                checklist_saida = %s,
                 horario_fim = CURRENT_TIMESTAMP,
                 status = 'finalizado'
             WHERE id = %s
               AND colaborador_id = %s
         """, (
             url_foto,
-            json.dumps(checklist),
             expediente_id_int,
             motorista_id
         ))
@@ -3167,7 +3156,8 @@ def api_mobile_finalizar_expediente():
         if cur:
             cur.close()
         if conn:
-            conn.close()   
+            conn.close()            
+
             
             # =========================
 # API MOBILE - EXPEDIENTE ATUAL
