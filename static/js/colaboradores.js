@@ -724,6 +724,7 @@ function renderizarTabelaPrincipal(lista) {
 
   lista.forEach((r) => {
     const tr = document.createElement("tr");
+tr.dataset.expedienteId = String(r.id || "");
 
     const checklistBotao = `
       <button type="button" class="action-btn action-btn-view" onclick="verChecklist(${r.id})">
@@ -826,6 +827,7 @@ function renderizarHistorico(lista) {
 
   lista.forEach((r) => {
     const tr = document.createElement("tr");
+tr.dataset.expedienteId = String(r.id || "");
 
     tr.innerHTML = `
       <td>${escaparHtml(r.colaborador || "-")}</td>
@@ -1188,6 +1190,38 @@ async function salvarAjuste() {
   }
 }
 
+
+
+function destacarLinhaExpediente(expedienteId) {
+  if (!expedienteId) return;
+
+  const linha = document.querySelector(`[data-expediente-id="${String(expedienteId)}"]`);
+  if (!linha) return;
+
+  linha.classList.add("row-alert-focus");
+  linha.scrollIntoView({
+    behavior: "smooth",
+    block: "center"
+  });
+
+  setTimeout(() => {
+    linha.classList.remove("row-alert-focus");
+  }, 5000);
+}
+
+function aplicarRedirecionamentoDoAlerta() {
+  const params = new URLSearchParams(window.location.search);
+  const expedienteId = params.get("expediente_id");
+
+  if (!expedienteId) return;
+
+  setTimeout(() => {
+    destacarLinhaExpediente(expedienteId);
+  }, 250);
+}
+
+
+
 // =========================
 // EVENTOS
 // =========================
@@ -1215,8 +1249,9 @@ if (clearHistoryButton) {
   });
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  carregarRegistros();
+document.addEventListener("DOMContentLoaded", async () => {
+  await carregarRegistros();
+  aplicarRedirecionamentoDoAlerta();
 });
 
 document.addEventListener("click", (event) => {

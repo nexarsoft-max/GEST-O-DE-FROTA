@@ -1,4 +1,4 @@
-const STORAGE_KEY = "gorota_alertas_resolvidos";
+const STORAGE_KEY = "gorota_alertas_resolvidos_v2";
 
 const iconesPorTipo = {
   colaboradores_ativos: "fa-users",
@@ -12,7 +12,7 @@ const iconesPorTipo = {
 const nomeTipo = {
   colaboradores_ativos: "Colaboradores ativos",
   veiculos_em_uso: "Veículos em uso",
-  checklist_faltando: "Checklist faltando equipamento",
+  checklist_faltando: "Check list faltando equipamento",
   veiculo_danificado: "Veículo danificado",
   observacoes: "Observações",
   pendentes: "Pendentes"
@@ -127,15 +127,6 @@ function montarMetaHtml(meta = {}) {
     `);
   }
 
-  if (meta.extra) {
-    itens.push(`
-      <span class="alert-meta-item">
-        <i class="fa-solid fa-circle-info"></i>
-        ${escapeHtml(meta.extra)}
-      </span>
-    `);
-  }
-
   return itens.join("");
 }
 
@@ -148,158 +139,36 @@ function aplicarEstadoResolvido(alertas) {
   }));
 }
 
-function gerarAlertasMock() {
-  const agora = new Date();
-  const menosMinutos = (min) => new Date(agora.getTime() - min * 60000).toISOString();
-
-  return [
-    {
-      id: 1,
-      tipo: "colaboradores_ativos",
-      titulo: "Gabriel iniciou o expediente",
-      texto: "Gabriel iniciou o expediente em 28/03 às 15:30 e segue com operação em andamento.",
-      dataHora: menosMinutos(25),
-      meta: {
-        colaborador: "Gabriel",
-        veiculo: "Fiat SGH-2E65",
-        placa: "SGH-2E65"
-      }
-    },
-    {
-      id: 2,
-      tipo: "colaboradores_ativos",
-      titulo: "Expediente em dupla registrado",
-      texto: "Gabriel iniciou o expediente e está de dupla com Carlos. Ambos devem entrar na leitura de colaboradores ativos.",
-      dataHora: menosMinutos(22),
-      meta: {
-        colaborador: "Gabriel",
-        extra: "Dupla com Carlos"
-      }
-    },
-    {
-      id: 3,
-      tipo: "veiculos_em_uso",
-      titulo: "Veículo em uso no momento",
-      texto: "O veículo Fiat SGH-2E65 está em uso em um expediente ainda não finalizado.",
-      dataHora: menosMinutos(20),
-      meta: {
-        veiculo: "Fiat SGH-2E65",
-        placa: "SGH-2E65",
-        colaborador: "Gabriel"
-      }
-    },
-    {
-      id: 4,
-      tipo: "checklist_faltando",
-      titulo: "Checklist de entrada com equipamento faltando",
-      texto: "Gabriel informou no checklist de entrada que há equipamento faltando no veículo utilizado.",
-      dataHora: menosMinutos(18),
-      meta: {
-        colaborador: "Gabriel",
-        veiculo: "Fiat SGH-2E65",
-        extra: "Falta de equipamento"
-      }
-    },
-    {
-      id: 5,
-      tipo: "veiculo_danificado",
-      titulo: "Veículo reportado como danificado",
-      texto: "Gabriel informou na entrada que o veículo está danificado e requer atenção da gestão.",
-      dataHora: menosMinutos(16),
-      meta: {
-        colaborador: "Gabriel",
-        veiculo: "Fiat SGH-2E65",
-        placa: "SGH-2E65"
-      }
-    },
-    {
-      id: 6,
-      tipo: "veiculo_danificado",
-      titulo: "Dano reiterado no encerramento",
-      texto: "Gabriel informou novamente no fim do expediente que o veículo permanece danificado. O alerta continua narrativo, sem duplicar a contagem principal.",
-      dataHora: menosMinutos(11),
-      meta: {
-        colaborador: "Gabriel",
-        veiculo: "Fiat SGH-2E65",
-        extra: "Relatado novamente na saída"
-      }
-    },
-    {
-      id: 7,
-      tipo: "observacoes",
-      titulo: "Nova observação registrada",
-      texto: 'Gabriel digitou na observação: "Pneu dianteiro com pressão baixa e material incompleto."',
-      dataHora: menosMinutos(9),
-      meta: {
-        colaborador: "Gabriel",
-        veiculo: "Fiat SGH-2E65"
-      }
-    },
-    {
-      id: 8,
-      tipo: "pendentes",
-      titulo: "Expediente acima do limite sem fechamento",
-      texto: "Gabriel iniciou o expediente há mais de 11 horas e ainda não registrou saída, gerando pendência operacional crítica.",
-      dataHora: menosMinutos(5),
-      meta: {
-        colaborador: "Gabriel",
-        veiculo: "Fiat SGH-2E65",
-        placa: "SGH-2E65",
-        extra: "Acima de 11 horas"
-      }
-    }
-  ];
-}
-
 async function carregarAlertas() {
-  try {
-    const response = await fetch("/api/alertas", {
-      headers: { "Accept": "application/json" }
-    });
+  const response = await fetch("/api/alertas", {
+    headers: { "Accept": "application/json" }
+  });
 
-    if (!response.ok) {
-      throw new Error("API ainda não disponível");
-    }
+  const data = await response.json();
 
-    const data = await response.json();
-
-    if (Array.isArray(data)) {
-      return aplicarEstadoResolvido(data);
-    }
-
-    if (Array.isArray(data.alertas)) {
-      return aplicarEstadoResolvido(data.alertas);
-    }
-
-    throw new Error("Formato inválido");
-  } catch {
-    return aplicarEstadoResolvido(gerarAlertasMock());
+  if (!response.ok || data.sucesso === false) {
+    throw new Error(data.erro || "Erro ao carregar alertas");
   }
+
+  const lista = Array.isArray(data.alertas) ? data.alertas : [];
+  return aplicarEstadoResolvido(lista);
 }
 
 function atualizarResumo(alertas) {
   const ativos = alertas.filter((a) => !a.resolvido);
 
-  const countByType = (tipo, semDuplicarReiteracao = false) => {
-    let lista = ativos.filter((a) => a.tipo === tipo);
+  const countByType = (tipo) => ativos.filter((a) => a.tipo === tipo).length;
 
-    if (tipo === "veiculo_danificado" && semDuplicarReiteracao) {
-      lista = lista.filter((a) => !normalizarTexto(a.titulo).includes("reiterado"));
-    }
-
-    return lista.length;
-  };
-
-  countColaboradoresAtivos.textContent = countByType("colaboradores_ativos");
-  countVeiculosEmUso.textContent = countByType("veiculos_em_uso");
-  countChecklistFaltando.textContent = countByType("checklist_faltando");
-  countVeiculoDanificado.textContent = countByType("veiculo_danificado", true);
-  countObservacoes.textContent = countByType("observacoes");
-  countPendentes.textContent = countByType("pendentes");
+  countColaboradoresAtivos.textContent = countByType("colaboradores_ativos") || "--";
+  countVeiculosEmUso.textContent = countByType("veiculos_em_uso") || "--";
+  countChecklistFaltando.textContent = countByType("checklist_faltando") || "--";
+  countVeiculoDanificado.textContent = countByType("veiculo_danificado") || "--";
+  countObservacoes.textContent = countByType("observacoes") || "--";
+  countPendentes.textContent = countByType("pendentes") || "--";
 
   heroCriticosQtd.textContent =
     countByType("checklist_faltando") +
-    countByType("veiculo_danificado", true) +
+    countByType("veiculo_danificado") +
     countByType("pendentes");
 }
 
@@ -315,8 +184,7 @@ function obterAlertasFiltrados() {
       alerta.tipo,
       alerta.meta?.colaborador,
       alerta.meta?.veiculo,
-      alerta.meta?.placa,
-      alerta.meta?.extra
+      alerta.meta?.placa
     ].join(" "));
 
     const matchTexto = !termo || textoPesquisa.includes(termo);
@@ -333,12 +201,12 @@ function obterAlertasFiltrados() {
 function atualizarTextoTopo() {
   if (!typeFilter.value) {
     heroFiltroAtual.textContent = "Todos os alertas";
-    heroFiltroDescricao.textContent = "Nenhum card foi selecionado.";
+    heroFiltroDescricao.textContent = "Nenhum filtro aplicado no momento.";
     return;
   }
 
   heroFiltroAtual.textContent = nomeTipo[typeFilter.value] || "Filtro aplicado";
-  heroFiltroDescricao.textContent = "Exibindo alertas relacionados ao card selecionado.";
+  heroFiltroDescricao.textContent = "Lista exibida conforme o tipo de alerta selecionado.";
 }
 
 function atualizarResumoHighlight() {
@@ -348,6 +216,12 @@ function atualizarResumoHighlight() {
       card.classList.add("ativo", "piscando");
     }
   });
+}
+
+function irParaColaboradores(alerta) {
+  if (!alerta?.expediente_id) return;
+  const url = `/colaboradores?expediente_id=${encodeURIComponent(alerta.expediente_id)}&tipo=${encodeURIComponent(alerta.tipo || "")}`;
+  window.location.href = url;
 }
 
 function criarCard(alerta) {
@@ -361,8 +235,11 @@ function criarCard(alerta) {
     typeFilter.value && alerta.tipo === typeFilter.value ? "destacado piscando" : ""
   ].join(" ").trim();
 
+  card.dataset.alertId = String(alerta.id);
+  card.dataset.action = "go";
+
   const botaoOkClasse = alerta.resolvido ? "btn-ok resolvido" : "btn-ok";
-  const botaoOkTexto = alerta.resolvido ? "Reativar alerta" : "OK";
+  const botaoOkTexto = alerta.resolvido ? "Reabrir" : "OK";
 
   card.innerHTML = `
     <div class="alert-icon">
@@ -389,11 +266,15 @@ function criarCard(alerta) {
     </div>
 
     <div class="alert-actions">
-      <button class="${botaoOkClasse}" data-action="toggle-ok" data-id="${alerta.id}">
-        ${botaoOkTexto}
-      </button>
-      <button class="btn-ver" data-action="foco" data-id="${alerta.id}">
-        Destacar
+      ${alerta.resolvivel ? `
+        <button class="${botaoOkClasse}" data-action="toggle-ok" data-id="${alerta.id}">
+          ${botaoOkTexto}
+        </button>
+      ` : `
+        <div></div>
+      `}
+      <button class="btn-ver" data-action="go" data-id="${alerta.id}">
+        Abrir registro
       </button>
     </div>
   `;
@@ -421,7 +302,7 @@ function renderizarAlertas() {
   const resolvidos = filtrados.filter((a) => a.resolvido).length;
 
   resultadoTexto.textContent =
-    `${filtrados.length} alerta(s) encontrados · ${ativos} ativo(s) · ${resolvidos} resolvido(s)`;
+    `${filtrados.length} alerta(s) encontrados · ${ativos} ativo(s) · ${resolvidos} concluído(s)`;
 
   filtrados.forEach((alerta) => {
     alertList.appendChild(criarCard(alerta));
@@ -449,27 +330,13 @@ function alternarResolvido(id) {
   renderizarAlertas();
 }
 
-function destacarCardPorId(id) {
-  const card = [...document.querySelectorAll(".alert-card")]
-    .find((el) => el.querySelector(`[data-id="${id}"]`));
-
-  if (!card) return;
-
-  card.classList.add("destacado", "piscando");
-  card.scrollIntoView({ behavior: "smooth", block: "center" });
-
-  setTimeout(() => {
-    card.classList.remove("piscando");
-  }, 4000);
+function obterAlertaPorId(id) {
+  return alertasBase.find((item) => String(item.id) === String(id)) || null;
 }
 
 function configurarEventos() {
   searchInput.addEventListener("input", renderizarAlertas);
-
-  typeFilter.addEventListener("change", () => {
-    renderizarAlertas();
-  });
-
+  typeFilter.addEventListener("change", renderizarAlertas);
   statusFilter.addEventListener("change", renderizarAlertas);
 
   clearFiltersBtn.addEventListener("click", () => {
@@ -477,6 +344,7 @@ function configurarEventos() {
     typeFilter.value = "";
     statusFilter.value = "ativos";
     renderizarAlertas();
+    window.history.replaceState({}, "", window.location.pathname);
   });
 
   resumoCards.forEach((card) => {
@@ -489,32 +357,53 @@ function configurarEventos() {
 
   alertList.addEventListener("click", (event) => {
     const botao = event.target.closest("button");
-    if (!botao) return;
+    const card = event.target.closest(".alert-card");
 
-    const action = botao.dataset.action;
-    const id = Number(botao.dataset.id);
+    if (botao) {
+      const action = botao.dataset.action;
+      const id = botao.dataset.id;
+      const alerta = obterAlertaPorId(id);
 
-    if (action === "toggle-ok") {
-      alternarResolvido(id);
-      return;
+      if (action === "toggle-ok") {
+        event.stopPropagation();
+        alternarResolvido(id);
+        return;
+      }
+
+      if (action === "go") {
+        event.stopPropagation();
+        irParaColaboradores(alerta);
+        return;
+      }
     }
 
-    if (action === "foco") {
-      destacarCardPorId(id);
+    if (card && card.dataset.alertId) {
+      const alerta = obterAlertaPorId(card.dataset.alertId);
+      irParaColaboradores(alerta);
     }
   });
 }
 
 async function iniciar() {
-  alertasBase = await carregarAlertas();
+  try {
+    alertasBase = await carregarAlertas();
 
-  if (tipoDestacado) {
-    typeFilter.value = tipoDestacado;
+    if (tipoDestacado) {
+      typeFilter.value = tipoDestacado;
+    }
+
+    atualizarResumo(alertasBase);
+    configurarEventos();
+    renderizarAlertas();
+  } catch (e) {
+    console.error("Erro ao iniciar alertas:", e);
+    alertList.innerHTML = "";
+    emptyState.classList.remove("hidden");
+    resultadoTexto.textContent = "Não foi possível carregar os alertas.";
+    heroFiltroAtual.textContent = "Falha no carregamento";
+    heroFiltroDescricao.textContent = "A API de alertas não respondeu corretamente.";
+    heroCriticosQtd.textContent = "--";
   }
-
-  atualizarResumo(alertasBase);
-  configurarEventos();
-  renderizarAlertas();
 }
 
 iniciar();

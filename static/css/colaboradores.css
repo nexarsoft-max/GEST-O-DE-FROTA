@@ -2278,3 +2278,21 @@ textarea{
 .metric-card-danger span{
   color:#8a6d6d;
 }
+
+.row-alert-focus td{
+  background: #fff7f7 !important;
+  box-shadow: inset 0 0 0 1px rgba(214, 63, 63, 0.18);
+}
+
+.row-alert-focus{
+  animation: pulseRowAlert 1.2s ease-in-out 4;
+}
+
+@keyframes pulseRowAlert{
+  0%,100%{
+    transform: scale(1);
+  }
+  50%{
+    transform: scale(1.004);
+  }
+}
