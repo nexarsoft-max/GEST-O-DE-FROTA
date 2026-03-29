@@ -2470,9 +2470,61 @@ def api_alertas():
 
     try:
         registros = _buscar_registros_colaboradores(uid)
-
-        hoje = date.today()
         alertas = []
+
+        def _parse_datahora_registro(data_str, hora_str):
+            if not data_str or not hora_str:
+                return None
+
+            try:
+                data_base = str(data_str).split("T")[0]
+                hora_base = str(hora_str)[:5]
+                return datetime.strptime(f"{data_base} {hora_base}", "%Y-%m-%d %H:%M")
+            except Exception:
+                return None
+
+        def _registro_aberto_alerta(registro):
+            if registro.get("horaSaida"):
+                return False
+            if str(registro.get("status") or "").strip().lower() == "finalizado":
+                return False
+            return bool(registro.get("horaEntrada"))
+
+        def _horas_aberto_alerta(registro):
+            inicio = _parse_datahora_registro(registro.get("data"), registro.get("horaEntrada"))
+            if not inicio:
+                return 0.0
+            return (datetime.now() - inicio).total_seconds() / 3600.0
+
+        def _obter_nomes_dupla_alerta(registro):
+            detalhe = registro.get("checklistEntradaDetalhe") or {}
+
+            dupla_ativa = (
+                detalhe.get("trabalhando_em_dupla_ou_mais") is True
+                or registro.get("trabalhandoEmDuplaOuMais") is True
+            )
+
+            nomes_brutos = (
+                registro.get("nomesDuplaOuMais")
+                or detalhe.get("nomes_dupla_ou_mais")
+                or ""
+            )
+
+            if not dupla_ativa or not nomes_brutos:
+                return []
+
+            return [
+                nome.strip()
+                for nome in re.split(r"[,;/|]+", str(nomes_brutos))
+                if nome and str(nome).strip()
+            ]
+
+        def _titulo_data_hora_br(registro, usar_saida=False):
+            hora_ref = registro.get("horaSaida") if usar_saida and registro.get("horaSaida") else registro.get("horaEntrada")
+            dt = _parse_datahora_registro(registro.get("data"), hora_ref)
+            if not dt:
+                return registro.get("data") or "-"
+            return dt.strftime("%d/%m/%Y às %H:%M")
 
         def add_alerta(
             alerta_id,
@@ -2509,9 +2561,9 @@ def api_alertas():
             placa = reg.get("placa") or ""
             expediente_id = reg.get("id")
             data_hora_inicio = _parse_datahora_registro(reg.get("data"), reg.get("horaEntrada"))
-            data_registro = data_hora_inicio.date() if data_hora_inicio else None
+            data_hora_saida = _parse_datahora_registro(reg.get("data"), reg.get("horaSaida")) or data_hora_inicio
 
-            # Colaboradores ativos
+            # COLABORADORES ATIVOS
             if _registro_aberto_alerta(reg):
                 nomes_dupla = _obter_nomes_dupla_alerta(reg)
 
@@ -2537,7 +2589,7 @@ def api_alertas():
                     resolvivel=False
                 )
 
-            # Veículos em uso
+            # VEÍCULOS EM USO
             if _registro_aberto_alerta(reg):
                 texto = f"O veículo {veiculo} {placa and f'({placa})' or ''} está vinculado a expediente em aberto."
                 add_alerta(
@@ -2554,30 +2606,29 @@ def api_alertas():
                     resolvivel=False
                 )
 
-            # Checklist faltando equipamento - somente registros do dia
-            if data_registro == hoje:
-                faltando = _itens_faltando_alerta(reg)
-                if faltando:
-                    texto = (
-                        f"No checklist de entrada de {colaborador}, faltaram os itens: "
-                        f"{', '.join(faltando)}."
-                    )
-                    add_alerta(
-                        alerta_id=f"checklist-faltando-{expediente_id}",
-                        tipo="checklist_faltando",
-                        expediente_id=expediente_id,
-                        titulo="Checklist com equipamento faltando",
-                        texto=texto,
-                        data_hora=data_hora_inicio,
-                        colaborador=colaborador,
-                        veiculo=veiculo,
-                        placa=placa,
-                        critico=True,
-                        resolvivel=True
-                    )
+            # CHECKLIST FALTANDO
+            itens_faltando = reg.get("itensFaltandoChecklist") or []
+            if itens_faltando:
+                texto = (
+                    f"No checklist de entrada de {colaborador}, faltaram os itens: "
+                    f"{', '.join(itens_faltando)}."
+                )
+                add_alerta(
+                    alerta_id=f"checklist-faltando-{expediente_id}",
+                    tipo="checklist_faltando",
+                    expediente_id=expediente_id,
+                    titulo="Checklist com equipamento faltando",
+                    texto=texto,
+                    data_hora=data_hora_inicio,
+                    colaborador=colaborador,
+                    veiculo=veiculo,
+                    placa=placa,
+                    critico=True,
+                    resolvivel=True
+                )
 
-            # Veículo danificado na entrada - somente registros do dia
-            if data_registro == hoje and reg.get("veiculoDanificadoEntrada") is True:
+            # VEÍCULO DANIFICADO NA ENTRADA
+            if reg.get("veiculoDanificadoEntrada") is True:
                 texto = f"No início do expediente de {colaborador}, o veículo foi informado como danificado."
                 add_alerta(
                     alerta_id=f"dano-entrada-{expediente_id}",
@@ -2593,10 +2644,8 @@ def api_alertas():
                     resolvivel=True
                 )
 
-            # Veículo danificado na saída - somente registros do dia
-            if data_registro == hoje and reg.get("veiculoDanificadoSaida") is True:
-                data_hora_saida = _parse_datahora_registro(reg.get("data"), reg.get("horaSaida")) or data_hora_inicio
-
+            # VEÍCULO DANIFICADO NA SAÍDA
+            if reg.get("veiculoDanificadoSaida") is True:
                 if reg.get("veiculoDanificadoEntrada") is True:
                     texto = (
                         f"No encerramento do expediente de {colaborador}, o veículo foi informado novamente como danificado."
@@ -2620,42 +2669,41 @@ def api_alertas():
                     resolvivel=True
                 )
 
-            # Observações - somente registros do dia
-            if data_registro == hoje:
-                observacao_entrada, observacao_saida = _tem_observacao_alerta(reg)
+            # OBSERVAÇÕES
+            observacao_entrada = str(reg.get("observacaoEntrada") or "").strip()
+            observacao_saida = str(reg.get("observacaoDanoSaida") or "").strip()
 
-                if observacao_entrada:
-                    add_alerta(
-                        alerta_id=f"obs-entrada-{expediente_id}",
-                        tipo="observacoes",
-                        expediente_id=expediente_id,
-                        titulo="Observação registrada",
-                        texto=f'{colaborador} registrou a observação: "{observacao_entrada}".',
-                        data_hora=data_hora_inicio,
-                        colaborador=colaborador,
-                        veiculo=veiculo,
-                        placa=placa,
-                        critico=False,
-                        resolvivel=False
-                    )
+            if observacao_entrada:
+                add_alerta(
+                    alerta_id=f"obs-entrada-{expediente_id}",
+                    tipo="observacoes",
+                    expediente_id=expediente_id,
+                    titulo="Observação registrada",
+                    texto=f'{colaborador} registrou a observação: "{observacao_entrada}".',
+                    data_hora=data_hora_inicio,
+                    colaborador=colaborador,
+                    veiculo=veiculo,
+                    placa=placa,
+                    critico=False,
+                    resolvivel=False
+                )
 
-                if observacao_saida:
-                    data_hora_saida = _parse_datahora_registro(reg.get("data"), reg.get("horaSaida")) or data_hora_inicio
-                    add_alerta(
-                        alerta_id=f"obs-saida-{expediente_id}",
-                        tipo="observacoes",
-                        expediente_id=expediente_id,
-                        titulo="Observação registrada",
-                        texto=f'{colaborador} registrou a observação: "{observacao_saida}".',
-                        data_hora=data_hora_saida,
-                        colaborador=colaborador,
-                        veiculo=veiculo,
-                        placa=placa,
-                        critico=False,
-                        resolvivel=False
-                    )
+            if observacao_saida:
+                add_alerta(
+                    alerta_id=f"obs-saida-{expediente_id}",
+                    tipo="observacoes",
+                    expediente_id=expediente_id,
+                    titulo="Observação registrada",
+                    texto=f'{colaborador} registrou a observação: "{observacao_saida}".',
+                    data_hora=data_hora_saida,
+                    colaborador=colaborador,
+                    veiculo=veiculo,
+                    placa=placa,
+                    critico=False,
+                    resolvivel=False
+                )
 
-            # Pendentes
+            # PENDENTES
             if _registro_aberto_alerta(reg) and _horas_aberto_alerta(reg) >= 11:
                 texto = (
                     f"O expediente de {colaborador} permanece aberto há mais de 11 horas sem encerramento."
@@ -2674,7 +2722,10 @@ def api_alertas():
                     resolvivel=True
                 )
 
-        alertas.sort(key=lambda a: a.get("dataHora") or "", reverse=True)
+        alertas.sort(
+            key=lambda a: a.get("dataHora") or "",
+            reverse=True
+        )
 
         return jsonify({
             "sucesso": True,
