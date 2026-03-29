@@ -718,6 +718,12 @@ def mapa_geral():
         return r
     return render_template("mapa_geral.html")
 
+@app.get("/alertas")
+def alertas():
+    r = proteger_pagina()
+    if r:
+        return r
+    return render_template("alertas.html")
 
 @app.get("/localizacao/<int:veiculo_id>")
 def localizacao_veiculo(veiculo_id):
@@ -1934,6 +1940,52 @@ def api_colaboradores_registros():
         dt = ajustar_fuso(inicio) or ajustar_fuso(fim)
         return dt.date().isoformat() if dt else ""
 
+    def _status_calculado(status_db, horario_inicio, horario_fim):
+        status_db = (status_db or "").strip().lower()
+
+        if horario_inicio and horario_fim:
+            return "finalizado"
+
+        if horario_inicio and not horario_fim:
+            return "em_andamento"
+
+        if status_db in ("finalizado", "em_andamento", "pendente"):
+            return status_db
+
+        return "pendente"
+
+    def _extrair_observacao_entrada(checklist_detalhe):
+        if not isinstance(checklist_detalhe, dict):
+            return ""
+        return str(checklist_detalhe.get("observacao") or "").strip()
+
+    def _extrair_dupla(checklist_detalhe):
+        if not isinstance(checklist_detalhe, dict):
+            return {
+                "trabalhando_em_dupla_ou_mais": None,
+                "nomes_dupla_ou_mais": ""
+            }
+
+        return {
+            "trabalhando_em_dupla_ou_mais": checklist_detalhe.get("trabalhando_em_dupla_ou_mais"),
+            "nomes_dupla_ou_mais": str(checklist_detalhe.get("nomes_dupla_ou_mais") or "").strip()
+        }
+
+    def _veiculo_danificado_entrada(checklist_detalhe):
+        if not isinstance(checklist_detalhe, dict):
+            return False
+
+        veiculo_perfeito = checklist_detalhe.get("veiculo_perfeito")
+        estado_veiculo = str(checklist_detalhe.get("estado_veiculo") or "").strip().lower()
+
+        if veiculo_perfeito is False:
+            return True
+
+        if estado_veiculo == "danificado":
+            return True
+
+        return False
+
     try:
         conn = get_db()
         cur = conn.cursor()
@@ -1982,23 +2034,25 @@ def api_colaboradores_registros():
         cur.execute(f"""
             SELECT
                 e.id,
-                m.nome,
-                v.modelo,
-                v.placa,
+                COALESCE(m.nome, '') AS colaborador_nome,
+                COALESCE(v.modelo, '') AS veiculo_modelo,
+                COALESCE(v.placa, '') AS veiculo_placa,
                 e.horario_inicio,
                 e.horario_fim,
-                e.status,
+                COALESCE(e.status, '') AS status_db,
                 e.checklist_entrada,
                 e.checklist_saida,
-                e.foto_entrada_url,
-                e.foto_saida_url,
+                COALESCE(e.foto_entrada_url, '') AS foto_entrada_url,
+                COALESCE(e.foto_saida_url, '') AS foto_saida_url,
                 {campo_foto_odometro} AS foto_odometro,
-                e.ajustado,
-                COALESCE(e.motivo_ajuste, ''),
+                COALESCE(e.ajustado, FALSE) AS ajustado,
+                COALESCE(e.motivo_ajuste, '') AS motivo_ajuste,
                 {campos_dano_saida}
             FROM expedientes e
-            LEFT JOIN motoristas m ON m.id = COALESCE(e.colaborador_id, e.motorista_id)
-            LEFT JOIN veiculos v ON v.id = e.veiculo_id
+            LEFT JOIN motoristas m
+                ON m.id = COALESCE(e.colaborador_id, e.motorista_id)
+            LEFT JOIN veiculos v
+                ON v.id = e.veiculo_id
             WHERE e.usuario_id = %s
             ORDER BY e.id DESC
         """, (uid,))
@@ -2006,30 +2060,58 @@ def api_colaboradores_registros():
         rows = cur.fetchall()
         data = []
 
-        for r in rows:
-            checklist_inicio = _normalizar_checklist_colaboradores(r[7])
-            checklist_fim = _normalizar_checklist_colaboradores(r[8])
+        for row in rows:
+            checklist_entrada_raw = row[7]
+            checklist_saida_raw = row[8]
 
-            fotos_dano_saida = _lista_fotos_dano_saida([r[16], r[17], r[18]])
+            checklist_entrada_lista = _normalizar_checklist_colaboradores(checklist_entrada_raw)
+            checklist_saida_lista = _normalizar_checklist_colaboradores(checklist_saida_raw)
+
+            checklist_entrada_detalhe = _normalizar_checklist_detalhe_colaboradores(checklist_entrada_raw)
+            checklist_saida_detalhe = _normalizar_checklist_detalhe_colaboradores(checklist_saida_raw)
+
+            fotos_dano_saida = _lista_fotos_dano_saida([row[16], row[17], row[18]])
+
+            dupla_info = _extrair_dupla(checklist_entrada_detalhe)
+            observacao_entrada = _extrair_observacao_entrada(checklist_entrada_detalhe)
+            veiculo_danificado_entrada = _veiculo_danificado_entrada(checklist_entrada_detalhe)
+
+            horario_inicio = row[4]
+            horario_fim = row[5]
+            status_final = _status_calculado(row[6], horario_inicio, horario_fim)
 
             data.append({
-                "id": r[0],
-                "colaborador": r[1],
-                "veiculo": r[2],
-                "placa": r[3],
-                "data": formatar_data(r[4], r[5]),
-                "horaEntrada": formatar_hora(r[4]),
-                "horaSaida": formatar_hora(r[5]),
-                "status": r[6],
-                "checklistEntrada": checklist_inicio,
-                "checklistSaida": checklist_fim,  # mantido por compatibilidade temporária
-                "fotoEntrada": r[9] or "",
-                "fotoSaida": r[10] or "",
-                "fotoOdometro": r[11] or "",
-                "ajustado": bool(r[12]),
-                "motivoAjuste": r[13] or "",
-                "veiculoDanificadoSaida": bool(r[14]),
-                "observacaoDanoSaida": r[15] or "",
+                "id": row[0],
+                "colaborador": row[1] or "",
+                "veiculo": row[2] or "",
+                "placa": row[3] or "",
+
+                "data": formatar_data(horario_inicio, horario_fim),
+                "horaEntrada": formatar_hora(horario_inicio),
+                "horaSaida": formatar_hora(horario_fim),
+                "status": status_final,
+
+                "checklistEntrada": checklist_entrada_lista,
+                "checklistSaida": checklist_saida_lista,
+
+                "checklistEntradaDetalhe": checklist_entrada_detalhe,
+                "checklistSaidaDetalhe": checklist_saida_detalhe,
+
+                "fotoEntrada": row[9] or "",
+                "fotoSaida": row[10] or "",
+                "fotoOdometro": row[11] or "",
+
+                "ajustado": bool(row[12]),
+                "motivoAjuste": row[13] or "",
+
+                "veiculoDanificadoEntrada": bool(veiculo_danificado_entrada),
+                "veiculoDanificadoSaida": bool(row[14]),
+                "observacaoEntrada": observacao_entrada,
+                "observacaoDanoSaida": row[15] or "",
+
+                "trabalhandoEmDuplaOuMais": dupla_info["trabalhando_em_dupla_ou_mais"],
+                "nomesDuplaOuMais": dupla_info["nomes_dupla_ou_mais"],
+
                 "fotosDanoSaida": fotos_dano_saida,
                 "fotoDanoSaida": fotos_dano_saida[0] if fotos_dano_saida else ""
             })

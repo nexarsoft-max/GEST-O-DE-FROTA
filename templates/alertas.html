@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alertas - Gestão de Frota</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+    rel="stylesheet"
+  >
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+  >
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/alertas.css') }}">
+</head>
+<body>
+  <div class="container-principal">
+    <aside class="barra-lateral">
+      <div class="logo">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo">
+      </div>
+
+      <nav class="menu-novo">
+        <a href="{{ url_for('dashboard') }}" class="item-menu ativo">Executivo</a>
+        <a href="{{ url_for('geral_informacao') }}" class="item-menu">Registros</a>
+        <a href="{{ url_for('abastecimento') }}" class="item-menu">Registrar abastecimento</a>
+        <a href="{{ url_for('cadastro') }}" class="item-menu">Cadastrar</a>
+        <a href="{{ url_for('termos') }}" class="item-menu">Termos</a>
+        <a href="{{ url_for('logout') }}" class="item-menu sair">Sair</a>
+      </nav>
+    </aside>
+
+    <main class="conteudo">
+      <header class="topo">
+        <div class="topo-texto">
+          <span class="eyebrow">Visão Executiva</span>
+          <h1>Central de Alertas</h1>
+          <p>
+            Acompanhe ocorrências narrativas dos colaboradores, veículos e checklists
+            em um fluxo executivo mais claro e acionável.
+          </p>
+        </div>
+
+        <div class="topo-botoes">
+          <a class="item-menu-topo" href="{{ url_for('dashboard') }}">Consumo</a>
+          <a class="item-menu-topo" href="{{ url_for('monitoramento') }}">Monitoramento</a>
+          <a class="item-menu-topo" href="{{ url_for('colaboradores') }}">Colaboradores</a>
+          <a class="item-menu-topo ativo" href="{{ url_for('alertas') }}">Alertas</a>
+        </div>
+      </header>
+
+      <section class="hero-alertas">
+        <div class="hero-left">
+          <div class="hero-badge">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Fluxo narrativo inteligente</span>
+          </div>
+
+          <h2>
+            Alertas desenhados para o gestor entender <span>o que aconteceu</span>,
+            <span>quando aconteceu</span> e <span>o que precisa de ação</span>.
+          </h2>
+
+          <p>
+            Os cards abaixo já estão preparados para refletir o clique vindo da tela
+            de colaboradores e destacar o tipo de alerta correspondente.
+          </p>
+        </div>
+
+        <div class="hero-right">
+          <div class="hero-mini-card">
+            <span class="mini-label">Filtro atual</span>
+            <strong id="heroFiltroAtual">Todos os alertas</strong>
+            <small id="heroFiltroDescricao">Nenhum card foi selecionado.</small>
+          </div>
+
+          <div class="hero-mini-card danger">
+            <span class="mini-label">Itens críticos</span>
+            <strong id="heroCriticosQtd">--</strong>
+            <small>Danificados, pendentes e checklist com falta</small>
+          </div>
+        </div>
+      </section>
+
+      <section class="resumo-grid">
+        <article class="resumo-card" data-filter="colaboradores_ativos">
+          <div class="resumo-icone"><i class="fa-solid fa-users"></i></div>
+          <div class="resumo-conteudo">
+            <span>Colaboradores ativos</span>
+            <strong id="countColaboradoresAtivos">--</strong>
+            <p>Expedientes em aberto no momento</p>
+          </div>
+        </article>
+
+        <article class="resumo-card" data-filter="veiculos_em_uso">
+          <div class="resumo-icone"><i class="fa-solid fa-car-side"></i></div>
+          <div class="resumo-conteudo">
+            <span>Veículos em uso</span>
+            <strong id="countVeiculosEmUso">--</strong>
+            <p>Veículos atualmente vinculados a expedientes abertos</p>
+          </div>
+        </article>
+
+        <article class="resumo-card danger" data-filter="checklist_faltando">
+          <div class="resumo-icone"><i class="fa-solid fa-toolbox"></i></div>
+          <div class="resumo-conteudo">
+            <span>Checklist faltando equipamento</span>
+            <strong id="countChecklistFaltando">--</strong>
+            <p>Alertas críticos de equipamento ausente</p>
+          </div>
+        </article>
+
+        <article class="resumo-card danger" data-filter="veiculo_danificado">
+          <div class="resumo-icone"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <div class="resumo-conteudo">
+            <span>Veículo danificado</span>
+            <strong id="countVeiculoDanificado">--</strong>
+            <p>Ocorrências abertas relacionadas ao estado do veículo</p>
+          </div>
+        </article>
+
+        <article class="resumo-card" data-filter="observacoes">
+          <div class="resumo-icone"><i class="fa-solid fa-comment-dots"></i></div>
+          <div class="resumo-conteudo">
+            <span>Observações</span>
+            <strong id="countObservacoes">--</strong>
+            <p>Observações narrativas registradas pelos colaboradores</p>
+          </div>
+        </article>
+
+        <article class="resumo-card danger" data-filter="pendentes">
+          <div class="resumo-icone"><i class="fa-solid fa-clock"></i></div>
+          <div class="resumo-conteudo">
+            <span>Pendentes</span>
+            <strong id="countPendentes">--</strong>
+            <p>Expedientes acima do limite sem finalização</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="toolbar-alertas">
+        <div class="toolbar-left">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="Buscar por colaborador, veículo, placa ou texto do alerta..."
+            >
+          </div>
+
+          <select id="typeFilter">
+            <option value="">Todos os tipos</option>
+            <option value="colaboradores_ativos">Colaboradores ativos</option>
+            <option value="veiculos_em_uso">Veículos em uso</option>
+            <option value="checklist_faltando">Checklist faltando equipamento</option>
+            <option value="veiculo_danificado">Veículo danificado</option>
+            <option value="observacoes">Observações</option>
+            <option value="pendentes">Pendentes</option>
+          </select>
+
+          <select id="statusFilter">
+            <option value="ativos">Somente ativos</option>
+            <option value="todos">Ativos + resolvidos</option>
+            <option value="resolvidos">Somente resolvidos</option>
+          </select>
+        </div>
+
+        <div class="toolbar-right">
+          <button class="btn btn-light" id="clearFiltersBtn" type="button">
+            <i class="fa-solid fa-rotate-left"></i>
+            Limpar filtros
+          </button>
+        </div>
+      </section>
+
+      <section class="painel-alertas">
+        <div class="painel-header">
+          <div>
+            <h3>Ocorrências narrativas</h3>
+            <p id="resultadoTexto">
+              Os alertas aparecerão organizados abaixo.
+            </p>
+          </div>
+        </div>
+
+        <div class="lista-alertas" id="alertList"></div>
+
+        <div class="empty-state hidden" id="emptyState">
+          <div class="empty-icon">
+            <i class="fa-solid fa-bell-slash"></i>
+          </div>
+          <h3>Nenhum alerta encontrado</h3>
+          <p>Não existem alertas para os filtros aplicados neste momento.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/alertas.js') }}"></script>
+</body>
+</html>

@@ -31,10 +31,10 @@ const historyInProgressCount = document.getElementById("historyInProgressCount")
 const historyPendingCount = document.getElementById("historyPendingCount");
 
 const cardColaboradoresAtivos = document.getElementById("cardColaboradoresAtivos");
-const cardChecklistsRealizados = document.getElementById("cardChecklistsRealizados");
-const cardEntradasRegistradas = document.getElementById("cardEntradasRegistradas");
-const cardSaidasRegistradas = document.getElementById("cardSaidasRegistradas");
 const cardVeiculosEmUso = document.getElementById("cardVeiculosEmUso");
+const cardChecklistFaltando = document.getElementById("cardChecklistFaltando");
+const cardVeiculoDanificado = document.getElementById("cardVeiculoDanificado");
+const cardObservacoes = document.getElementById("cardObservacoes");
 const cardPendencias = document.getElementById("cardPendencias");
 
 // =========================
@@ -482,36 +482,231 @@ async function carregarRegistros() {
 }
 
 // =========================
+// FILTROS, CHECKLIST E AJUSTES
+// =========================
+
+function parseChecklistGenerico(valor) {
+  if (!valor) return {};
+
+  if (typeof valor === "object") return valor;
+
+  if (typeof valor === "string") {
+    try {
+      return JSON.parse(valor);
+    } catch (_) {
+      return {};
+    }
+  }
+
+  return {};
+}
+
+function obterChecklistEntradaDetalheRegistro(registro) {
+  return parseChecklistGenerico(
+    registro.checklistEntradaDetalhe ||
+    registro.checklist_entrada_detalhe ||
+    registro.checklistEntradaRaw ||
+    registro.checklist_entrada_raw ||
+    registro.checklistEntradaObjeto ||
+    registro.checklist_entrada_objeto ||
+    {}
+  );
+}
+
+function obterItensChecklistEntrada(registro) {
+  const detalhe = obterChecklistEntradaDetalheRegistro(registro);
+
+  if (Array.isArray(detalhe.itens_marcados)) return detalhe.itens_marcados.map(String);
+  if (Array.isArray(detalhe.itens)) return detalhe.itens.map(String);
+
+  if (Array.isArray(registro.checklistEntrada)) {
+    return registro.checklistEntrada.map(String);
+  }
+
+  return [];
+}
+
+function obterNomesDupla(registro) {
+  const detalhe = obterChecklistEntradaDetalheRegistro(registro);
+
+  const duplaAtiva =
+    detalhe.trabalhando_em_dupla_ou_mais === true ||
+    detalhe.trabalhandoEmDuplaOuMais === true;
+
+  const nomesBrutos =
+    detalhe.nomes_dupla_ou_mais ||
+    detalhe.nomesDuplaOuMais ||
+    "";
+
+  if (!duplaAtiva || !nomesBrutos) return [];
+
+  return String(nomesBrutos)
+    .split(/[,;\/|]/g)
+    .map((nome) => nome.trim())
+    .filter(Boolean);
+}
+
+function expedienteEstaAberto(registro) {
+  if (registro.horaSaida) return false;
+  if (registro.status === "finalizado") return false;
+  return !!registro.horaEntrada;
+}
+
+function obterDataHoraEntrada(registro) {
+  if (!registro.data || !registro.horaEntrada) return null;
+
+  const dataBase = String(registro.data).split("T")[0];
+  const horaBase = String(registro.horaEntrada).slice(0, 5);
+
+  const data = new Date(`${dataBase}T${horaBase}:00`);
+
+  return Number.isNaN(data.getTime()) ? null : data;
+}
+
+function horasEmAberto(registro) {
+  const inicio = obterDataHoraEntrada(registro);
+  if (!inicio) return 0;
+
+  return (Date.now() - inicio.getTime()) / (1000 * 60 * 60);
+}
+
+function temChecklistFaltandoEquipamento(registro) {
+  const itensMarcados = obterItensChecklistEntrada(registro).map(normalizarTexto);
+
+  if (!itensMarcados.length) return false;
+
+  const padrao = checklistPadrao.map(normalizarTexto);
+  return padrao.some((itemPadrao) => !itensMarcados.includes(itemPadrao));
+}
+
+function temVeiculoDanificadoEntrada(registro) {
+  const detalhe = obterChecklistEntradaDetalheRegistro(registro);
+
+  if (detalhe.veiculo_perfeito === false) return true;
+  if (detalhe.veiculoPerfeito === false) return true;
+  if (detalhe.estado_veiculo && normalizarTexto(detalhe.estado_veiculo) === "danificado") return true;
+  if (detalhe.estadoVeiculo && normalizarTexto(detalhe.estadoVeiculo) === "danificado") return true;
+
+  return false;
+}
+
+function temVeiculoDanificadoSaida(registro) {
+  return (
+    registro.veiculoDanificadoSaida === true ||
+    registro.veiculo_danificado_saida === true
+  );
+}
+
+function temObservacaoNoRegistro(registro) {
+  const detalhe = obterChecklistEntradaDetalheRegistro(registro);
+
+  const obsEntrada =
+    detalhe.observacao ||
+    detalhe.observacao_entrada ||
+    registro.observacao ||
+    registro.observacaoEntrada ||
+    "";
+
+  const obsSaida =
+    registro.observacaoDanoSaida ||
+    registro.observacao_dano_saida ||
+    registro.observacaoSaida ||
+    "";
+
+  return Boolean(String(obsEntrada).trim() || String(obsSaida).trim());
+}
+
+function configurarCardsResumoAlertas() {
+  document.querySelectorAll(".metric-card[data-alert-key]").forEach((card) => {
+    if (card.dataset.alertBound === "true") return;
+
+    card.dataset.alertBound = "true";
+    card.addEventListener("click", () => {
+      const tipo = card.dataset.alertKey;
+      if (!tipo) return;
+      window.location.href = `/alertas?tipo=${encodeURIComponent(tipo)}`;
+    });
+  });
+}
+// =========================
 // CARDS SUPERIORES
 // =========================
 function calcularResumoCards(lista) {
-  const colaboradoresUnicos = new Set(
-    lista.map((item) => normalizarTexto(item.colaborador)).filter(Boolean)
-  ).size;
+  const registrosHoje = lista.filter((item) => ehDoDiaAtual(item.data));
 
-  const checklistsRealizados = lista.filter((item) => {
-    return Array.isArray(item.checklistEntrada) && item.checklistEntrada.length > 0;
+  const registrosAbertos = registrosHoje.filter((item) => expedienteEstaAberto(item));
+
+  const colaboradoresAtivosSet = new Set();
+
+  registrosAbertos.forEach((item) => {
+    if (item.colaborador && normalizarTexto(item.colaborador)) {
+      colaboradoresAtivosSet.add(normalizarTexto(item.colaborador));
+    }
+
+    obterNomesDupla(item).forEach((nome) => {
+      if (normalizarTexto(nome)) {
+        colaboradoresAtivosSet.add(normalizarTexto(nome));
+      }
+    });
+  });
+
+  const veiculosEmUsoSet = new Set();
+
+  registrosAbertos.forEach((item) => {
+    const chave = `${normalizarTexto(item.veiculo)}|${normalizarTexto(item.placa)}`;
+    if (chave !== "|" && chave !== "") {
+      veiculosEmUsoSet.add(chave);
+    }
+  });
+
+  const checklistFaltando = registrosHoje.filter((item) => {
+    return temChecklistFaltandoEquipamento(item);
   }).length;
 
-  const entradas = lista.filter((item) => item.horaEntrada).length;
-  const saidas = lista.filter((item) => item.horaSaida).length;
+  const veiculoDanificadoSet = new Set();
 
-  const veiculos = new Set(
-    lista
-      .filter((item) => item.veiculo || item.placa)
-      .map((item) => `${normalizarTexto(item.veiculo)}|${normalizarTexto(item.placa)}`)
-  ).size;
+  registrosHoje.forEach((item) => {
+    const temDano = temVeiculoDanificadoEntrada(item) || temVeiculoDanificadoSaida(item);
+    if (!temDano) return;
 
-  const pendencias = lista.filter((item) => item.status === "pendente").length;
+    const chave = String(item.id || `${item.colaborador}-${item.data}-${item.horaEntrada}`);
+    veiculoDanificadoSet.add(chave);
+  });
 
-  if (cardColaboradoresAtivos) cardColaboradoresAtivos.textContent = colaboradoresUnicos || "--";
-  if (cardChecklistsRealizados) cardChecklistsRealizados.textContent = checklistsRealizados || "--";
-  if (cardEntradasRegistradas) cardEntradasRegistradas.textContent = entradas || "--";
-  if (cardSaidasRegistradas) cardSaidasRegistradas.textContent = saidas || "--";
-  if (cardVeiculosEmUso) cardVeiculosEmUso.textContent = veiculos || "--";
-  if (cardPendencias) cardPendencias.textContent = pendencias || "--";
+  const observacoes = registrosHoje.filter((item) => {
+    return temObservacaoNoRegistro(item);
+  }).length;
+
+  const pendencias = registrosHoje.filter((item) => {
+    return expedienteEstaAberto(item) && horasEmAberto(item) >= 11;
+  }).length;
+
+  if (cardColaboradoresAtivos) {
+    cardColaboradoresAtivos.textContent = colaboradoresAtivosSet.size > 0 ? colaboradoresAtivosSet.size : "--";
+  }
+
+  if (cardVeiculosEmUso) {
+    cardVeiculosEmUso.textContent = veiculosEmUsoSet.size > 0 ? veiculosEmUsoSet.size : "--";
+  }
+
+  if (cardChecklistFaltando) {
+    cardChecklistFaltando.textContent = checklistFaltando > 0 ? checklistFaltando : "--";
+  }
+
+  if (cardVeiculoDanificado) {
+    cardVeiculoDanificado.textContent = veiculoDanificadoSet.size > 0 ? veiculoDanificadoSet.size : "--";
+  }
+
+  if (cardObservacoes) {
+    cardObservacoes.textContent = observacoes > 0 ? observacoes : "--";
+  }
+
+  if (cardPendencias) {
+    cardPendencias.textContent = pendencias > 0 ? pendencias : "--";
+  }
+
+  configurarCardsResumoAlertas();
 }
-
 // =========================
 // TABELA PRINCIPAL
 // =========================

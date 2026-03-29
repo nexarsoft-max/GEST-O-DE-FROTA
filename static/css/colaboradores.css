@@ -2221,3 +2221,60 @@ textarea{
     width: 100%;
   }
 }
+
+.metric-card-clickable{
+  cursor:pointer;
+  position:relative;
+  overflow:hidden;
+}
+
+.metric-card-clickable::after{
+  content:"Abrir alertas";
+  position:absolute;
+  top:16px;
+  right:16px;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  color:rgba(111,44,255,0.78);
+  background:#f4eeff;
+  border:1px solid rgba(111,44,255,0.12);
+  border-radius:999px;
+  padding:7px 10px;
+}
+
+.metric-card-clickable:hover{
+  transform:translateY(-4px);
+  box-shadow:0 22px 40px rgba(17,17,26,0.12);
+}
+
+.metric-card-clickable:hover .metric-icon{
+  transform:scale(1.04);
+}
+
+.metric-card-danger{
+  background:linear-gradient(180deg, #fffdfd 0%, #fff5f5 100%);
+  border:1px solid rgba(214,63,63,0.16);
+}
+
+.metric-card-danger:hover{
+  border-color:rgba(214,63,63,0.26);
+}
+
+.bg-danger-soft{
+  background:#ffeaea;
+  color:#d63f3f !important;
+}
+
+.metric-card-danger h3{
+  color:#6a3434;
+}
+
+.metric-card-danger strong{
+  color:#8f1f1f;
+}
+
+.metric-card-danger span{
+  color:#8a6d6d;
+}

@@ -53,65 +53,68 @@
         <a class="item-menu ativo" href="{{ url_for('colaboradores') }}">
           Colaboradores
         </a>
+
+        <a class="item-menu ativo" href="{{ url_for('alertas') }}">
+          Alertas
+        </a>
       </div>
     </header>
 
-    <section class="cards-grid">
-      <article class="metric-card">
-        <div class="metric-icon bg-purple-soft">
-          <i class="fa-solid fa-users"></i>
-        </div>
-        <h3>Colaboradores ativos</h3>
-        <strong id="cardColaboradoresAtivos">--</strong>
-        <span>Quantidade total de colaboradores ativos no período consultado</span>
-      </article>
+<section class="cards-grid">
+  <article class="metric-card metric-card-clickable" data-alert-key="colaboradores_ativos">
+    <div class="metric-icon bg-purple-soft">
+      <i class="fa-solid fa-users"></i>
+    </div>
+    <h3>Colaboradores ativos</h3>
+    <strong id="cardColaboradoresAtivos">--</strong>
+    <span>Colaboradores com expediente iniciado e ainda não finalizado. Em dupla, soma também os nomes informados.</span>
+  </article>
 
-      <article class="metric-card">
-        <div class="metric-icon bg-purple-soft">
-          <i class="fa-solid fa-clipboard-check"></i>
-        </div>
-        <h3>Checklists realizados</h3>
-        <strong id="cardChecklistsRealizados">--</strong>
-        <span>Quantidade total de checklists concluídos no período consultado</span>
-      </article>
+  <article class="metric-card metric-card-clickable" data-alert-key="veiculos_em_uso">
+    <div class="metric-icon bg-purple-soft">
+      <i class="fa-solid fa-car-side"></i>
+    </div>
+    <h3>Veículos em uso</h3>
+    <strong id="cardVeiculosEmUso">--</strong>
+    <span>Veículos vinculados a expedientes em aberto no momento.</span>
+  </article>
 
-      <article class="metric-card">
-        <div class="metric-icon bg-purple-soft">
-          <i class="fa-solid fa-right-to-bracket"></i>
-        </div>
-        <h3>Entradas registradas</h3>
-        <strong id="cardEntradasRegistradas">--</strong>
-        <span>Total de registros de entrada encontrados</span>
-      </article>
+  <article class="metric-card metric-card-clickable metric-card-danger" data-alert-key="checklist_faltando">
+    <div class="metric-icon bg-danger-soft">
+      <i class="fa-solid fa-toolbox"></i>
+    </div>
+    <h3>Checklist faltando equipamento</h3>
+    <strong id="cardChecklistFaltando">--</strong>
+    <span>Quando o checklist de entrada indicar item faltando no veículo.</span>
+  </article>
 
-      <article class="metric-card">
-        <div class="metric-icon bg-purple-soft">
-          <i class="fa-solid fa-right-from-bracket"></i>
-        </div>
-        <h3>Saídas registradas</h3>
-        <strong id="cardSaidasRegistradas">--</strong>
-        <span>Total de registros de saída encontrados</span>
-      </article>
+  <article class="metric-card metric-card-clickable metric-card-danger" data-alert-key="veiculo_danificado">
+    <div class="metric-icon bg-danger-soft">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+    </div>
+    <h3>Veículo danificado</h3>
+    <strong id="cardVeiculoDanificado">--</strong>
+    <span>Conta uma vez por expediente, mesmo se o dano for relatado novamente na saída.</span>
+  </article>
 
-      <article class="metric-card">
-        <div class="metric-icon bg-purple-soft">
-          <i class="fa-solid fa-car-side"></i>
-        </div>
-        <h3>Veículos em uso</h3>
-        <strong id="cardVeiculosEmUso">--</strong>
-        <span>Quantidade de veículos vinculados aos registros consultados</span>
-      </article>
+  <article class="metric-card metric-card-clickable" data-alert-key="observacoes">
+    <div class="metric-icon bg-purple-soft">
+      <i class="fa-solid fa-comment-dots"></i>
+    </div>
+    <h3>Observações</h3>
+    <strong id="cardObservacoes">--</strong>
+    <span>Registros com observação digitada pelo colaborador no dia.</span>
+  </article>
 
-      <article class="metric-card">
-        <div class="metric-icon bg-purple-soft">
-          <i class="fa-solid fa-circle-exclamation"></i>
-        </div>
-        <h3>Pendências</h3>
-        <strong id="cardPendencias">--</strong>
-        <span>Total de registros com pendência operacional</span>
-      </article>
-    </section>
-
+  <article class="metric-card metric-card-clickable metric-card-danger" data-alert-key="pendentes">
+    <div class="metric-icon bg-danger-soft">
+      <i class="fa-solid fa-clock"></i>
+    </div>
+    <h3>Pendentes</h3>
+    <strong id="cardPendencias">--</strong>
+    <span>Expedientes com mais de 11 horas de abertura sem encerramento.</span>
+  </article>
+</section>
     <section class="panel">
       <div class="panel-header">
         <div>
