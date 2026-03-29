@@ -813,3 +813,23 @@ select{
     font-size:24px;
   }
 }
+
+.abas-alertas{
+  display:flex;
+  gap:10px;
+  margin-bottom:16px;
+}
+
+.aba{
+  padding:8px 16px;
+  border-radius:8px;
+  border:1px solid #ddd;
+  background:#fff;
+  cursor:pointer;
+  font-weight:600;
+}
+
+.aba.ativa{
+  background:#6C2BFF;
+  color:#fff;
+}

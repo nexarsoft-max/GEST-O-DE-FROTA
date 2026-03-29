@@ -43,6 +43,80 @@ const resumoCards = [...document.querySelectorAll(".resumo-card")];
 
 let alertasBase = [];
 let tipoDestacado = obterTipoDaUrl();
+let abaAtual = "ativos";
+
+function inserirAbasSeNaoExistirem() {
+  const painelHeader = document.querySelector(".painel-header");
+  if (!painelHeader) return;
+
+  const jaExiste = document.getElementById("abasAlertas");
+  if (jaExiste) return;
+
+  const abas = document.createElement("div");
+  abas.id = "abasAlertas";
+  abas.className = "abas-alertas";
+  abas.innerHTML = `
+    <button type="button" class="aba-alerta ativa" data-tab="ativos">Não resolvidos</button>
+    <button type="button" class="aba-alerta" data-tab="historico">Histórico</button>
+  `;
+
+  painelHeader.appendChild(abas);
+}
+
+function aplicarEstiloAbasSeNaoExistir() {
+  if (document.getElementById("estiloAbasAlertasJs")) return;
+
+  const style = document.createElement("style");
+  style.id = "estiloAbasAlertasJs";
+  style.textContent = `
+    .abas-alertas{
+      display:flex;
+      gap:10px;
+      margin-top:14px;
+      flex-wrap:wrap;
+    }
+    .aba-alerta{
+      min-height:42px;
+      padding:0 16px;
+      border-radius:12px;
+      border:1px solid #e7e2f4;
+      background:#fff;
+      color:#322d44;
+      font-size:13px;
+      font-weight:800;
+      cursor:pointer;
+      transition:.18s ease;
+    }
+    .aba-alerta:hover{
+      background:#f8f5ff;
+      border-color:#d8cbff;
+    }
+    .aba-alerta.ativa{
+      background:linear-gradient(135deg, #6f2cff, #9b5cff);
+      color:#fff;
+      border-color:transparent;
+      box-shadow:0 12px 22px rgba(111,44,255,0.18);
+    }
+    .btn-pdf{
+      min-width:132px;
+      min-height:44px;
+      border-radius:14px;
+      padding:0 16px;
+      border:1px solid #e2dff0;
+      background:#ffffff;
+      color:#27233a;
+      font-size:13px;
+      font-weight:800;
+      cursor:pointer;
+      transition:.18s ease;
+    }
+    .btn-pdf:hover{
+      background:#f7f4fd;
+      transform:translateY(-1px);
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 function obterTipoDaUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -159,23 +233,25 @@ function atualizarResumo(alertas) {
 
   const countByType = (tipo) => ativos.filter((a) => a.tipo === tipo).length;
 
-  countColaboradoresAtivos.textContent = countByType("colaboradores_ativos") || "--";
-  countVeiculosEmUso.textContent = countByType("veiculos_em_uso") || "--";
-  countChecklistFaltando.textContent = countByType("checklist_faltando") || "--";
-  countVeiculoDanificado.textContent = countByType("veiculo_danificado") || "--";
-  countObservacoes.textContent = countByType("observacoes") || "--";
-  countPendentes.textContent = countByType("pendentes") || "--";
+  if (countColaboradoresAtivos) countColaboradoresAtivos.textContent = countByType("colaboradores_ativos") || "--";
+  if (countVeiculosEmUso) countVeiculosEmUso.textContent = countByType("veiculos_em_uso") || "--";
+  if (countChecklistFaltando) countChecklistFaltando.textContent = countByType("checklist_faltando") || "--";
+  if (countVeiculoDanificado) countVeiculoDanificado.textContent = countByType("veiculo_danificado") || "--";
+  if (countObservacoes) countObservacoes.textContent = countByType("observacoes") || "--";
+  if (countPendentes) countPendentes.textContent = countByType("pendentes") || "--";
 
-  heroCriticosQtd.textContent =
-    countByType("checklist_faltando") +
-    countByType("veiculo_danificado") +
-    countByType("pendentes");
+  if (heroCriticosQtd) {
+    heroCriticosQtd.textContent =
+      countByType("checklist_faltando") +
+      countByType("veiculo_danificado") +
+      countByType("pendentes");
+  }
 }
 
 function obterAlertasFiltrados() {
-  const termo = normalizarTexto(searchInput.value);
-  const tipo = typeFilter.value;
-  const status = statusFilter.value;
+  const termo = normalizarTexto(searchInput ? searchInput.value : "");
+  const tipo = typeFilter ? typeFilter.value : "";
+  const status = statusFilter ? statusFilter.value : "ativos";
 
   return alertasBase.filter((alerta) => {
     const textoPesquisa = normalizarTexto([
@@ -193,26 +269,46 @@ function obterAlertasFiltrados() {
     let matchStatus = true;
     if (status === "ativos") matchStatus = !alerta.resolvido;
     if (status === "resolvidos") matchStatus = alerta.resolvido;
+    if (status === "todos") matchStatus = true;
 
-    return matchTexto && matchTipo && matchStatus;
+    const matchAba =
+      abaAtual === "ativos"
+        ? !alerta.resolvido
+        : alerta.resolvido;
+
+    return matchTexto && matchTipo && matchStatus && matchAba;
   });
 }
 
 function atualizarTextoTopo() {
-  if (!typeFilter.value) {
-    heroFiltroAtual.textContent = "Todos os alertas";
-    heroFiltroDescricao.textContent = "Nenhum filtro aplicado no momento.";
+  const tipoAtual = typeFilter ? typeFilter.value : "";
+
+  if (!tipoAtual) {
+    if (heroFiltroAtual) heroFiltroAtual.textContent = "Todos os alertas";
+    if (heroFiltroDescricao) {
+      heroFiltroDescricao.textContent =
+        abaAtual === "ativos"
+          ? "Exibição dos alertas não resolvidos."
+          : "Exibição do histórico de alertas resolvidos.";
+    }
     return;
   }
 
-  heroFiltroAtual.textContent = nomeTipo[typeFilter.value] || "Filtro aplicado";
-  heroFiltroDescricao.textContent = "Lista exibida conforme o tipo de alerta selecionado.";
+  if (heroFiltroAtual) heroFiltroAtual.textContent = nomeTipo[tipoAtual] || "Filtro aplicado";
+  if (heroFiltroDescricao) {
+    heroFiltroDescricao.textContent =
+      abaAtual === "ativos"
+        ? "Lista exibida conforme o tipo de alerta selecionado."
+        : "Histórico exibido conforme o tipo de alerta selecionado.";
+  }
 }
 
 function atualizarResumoHighlight() {
+  const tipoAtual = typeFilter ? typeFilter.value : "";
+
   resumoCards.forEach((card) => {
     card.classList.remove("ativo", "piscando");
-    if (card.dataset.filter === typeFilter.value) {
+    if (card.dataset.filter === tipoAtual) {
       card.classList.add("ativo", "piscando");
     }
   });
@@ -224,6 +320,36 @@ function irParaColaboradores(alerta) {
   window.location.href = url;
 }
 
+function gerarPdfAlerta(alerta) {
+  if (!alerta) return;
+
+  const conteudo = `
+ALERTA OPERACIONAL
+
+Tipo: ${nomeTipo[alerta.tipo] || alerta.tipo}
+Título: ${alerta.titulo || ""}
+Descrição: ${alerta.texto || ""}
+
+Colaborador: ${alerta.meta?.colaborador || ""}
+Veículo: ${alerta.meta?.veiculo || ""}
+Placa: ${alerta.meta?.placa || ""}
+Data/Hora: ${formatarDataHora(alerta.dataHora || "")}
+Expediente ID: ${alerta.expediente_id || ""}
+  `.trim();
+
+  const blob = new Blob([conteudo], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `alerta-${alerta.id || "registro"}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function criarCard(alerta) {
   const critico = classificaCritico(alerta.tipo);
   const card = document.createElement("article");
@@ -232,7 +358,7 @@ function criarCard(alerta) {
     "alert-card",
     critico ? "critico" : "",
     alerta.resolvido ? "resolvido" : "",
-    typeFilter.value && alerta.tipo === typeFilter.value ? "destacado piscando" : ""
+    typeFilter && typeFilter.value && alerta.tipo === typeFilter.value ? "destacado piscando" : ""
   ].join(" ").trim();
 
   card.dataset.alertId = String(alerta.id);
@@ -270,9 +396,14 @@ function criarCard(alerta) {
         <button class="${botaoOkClasse}" data-action="toggle-ok" data-id="${alerta.id}">
           ${botaoOkTexto}
         </button>
-      ` : `
-        <div></div>
-      `}
+      ` : `<div></div>`}
+
+      ${critico ? `
+        <button class="btn-pdf" data-action="pdf" data-id="${alerta.id}">
+          Gerar PDF
+        </button>
+      ` : `<div></div>`}
+
       <button class="btn-ver" data-action="go" data-id="${alerta.id}">
         Abrir registro
       </button>
@@ -285,27 +416,34 @@ function criarCard(alerta) {
 function renderizarAlertas() {
   const filtrados = obterAlertasFiltrados();
 
-  alertList.innerHTML = "";
+  if (alertList) alertList.innerHTML = "";
 
   atualizarTextoTopo();
   atualizarResumoHighlight();
 
   if (!filtrados.length) {
-    emptyState.classList.remove("hidden");
-    resultadoTexto.textContent = "Nenhum alerta encontrado com os filtros atuais.";
+    if (emptyState) emptyState.classList.remove("hidden");
+    if (resultadoTexto) {
+      resultadoTexto.textContent =
+        abaAtual === "ativos"
+          ? "Nenhum alerta não resolvido encontrado com os filtros atuais."
+          : "Nenhum alerta resolvido encontrado com os filtros atuais.";
+    }
     return;
   }
 
-  emptyState.classList.add("hidden");
+  if (emptyState) emptyState.classList.add("hidden");
 
   const ativos = filtrados.filter((a) => !a.resolvido).length;
   const resolvidos = filtrados.filter((a) => a.resolvido).length;
 
-  resultadoTexto.textContent =
-    `${filtrados.length} alerta(s) encontrados · ${ativos} ativo(s) · ${resolvidos} concluído(s)`;
+  if (resultadoTexto) {
+    resultadoTexto.textContent =
+      `${filtrados.length} alerta(s) encontrados · ${ativos} ativo(s) · ${resolvidos} concluído(s)`;
+  }
 
   filtrados.forEach((alerta) => {
-    alertList.appendChild(criarCard(alerta));
+    if (alertList) alertList.appendChild(criarCard(alerta));
   });
 }
 
@@ -335,60 +473,89 @@ function obterAlertaPorId(id) {
 }
 
 function configurarEventos() {
-  searchInput.addEventListener("input", renderizarAlertas);
-  typeFilter.addEventListener("change", renderizarAlertas);
-  statusFilter.addEventListener("change", renderizarAlertas);
+  if (searchInput) searchInput.addEventListener("input", renderizarAlertas);
+  if (typeFilter) typeFilter.addEventListener("change", renderizarAlertas);
+  if (statusFilter) statusFilter.addEventListener("change", renderizarAlertas);
 
-  clearFiltersBtn.addEventListener("click", () => {
-    searchInput.value = "";
-    typeFilter.value = "";
-    statusFilter.value = "ativos";
-    renderizarAlertas();
-    window.history.replaceState({}, "", window.location.pathname);
-  });
+  if (clearFiltersBtn) {
+    clearFiltersBtn.addEventListener("click", () => {
+      if (searchInput) searchInput.value = "";
+      if (typeFilter) typeFilter.value = "";
+      if (statusFilter) statusFilter.value = "ativos";
+      abaAtual = "ativos";
+
+      document.querySelectorAll(".aba-alerta").forEach((btn) => {
+        btn.classList.remove("ativa");
+        if (btn.dataset.tab === "ativos") btn.classList.add("ativa");
+      });
+
+      renderizarAlertas();
+      window.history.replaceState({}, "", window.location.pathname);
+    });
+  }
 
   resumoCards.forEach((card) => {
     card.addEventListener("click", () => {
-      typeFilter.value = card.dataset.filter || "";
+      if (typeFilter) typeFilter.value = card.dataset.filter || "";
       renderizarAlertas();
-      window.history.replaceState({}, "", `${window.location.pathname}?tipo=${typeFilter.value}`);
+      window.history.replaceState({}, "", `${window.location.pathname}?tipo=${typeFilter ? typeFilter.value : ""}`);
     });
   });
 
-  alertList.addEventListener("click", (event) => {
-    const botao = event.target.closest("button");
-    const card = event.target.closest(".alert-card");
-
-    if (botao) {
-      const action = botao.dataset.action;
-      const id = botao.dataset.id;
-      const alerta = obterAlertaPorId(id);
-
-      if (action === "toggle-ok") {
-        event.stopPropagation();
-        alternarResolvido(id);
-        return;
-      }
-
-      if (action === "go") {
-        event.stopPropagation();
-        irParaColaboradores(alerta);
-        return;
-      }
-    }
-
-    if (card && card.dataset.alertId) {
-      const alerta = obterAlertaPorId(card.dataset.alertId);
-      irParaColaboradores(alerta);
-    }
+  document.querySelectorAll(".aba-alerta").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".aba-alerta").forEach((b) => b.classList.remove("ativa"));
+      btn.classList.add("ativa");
+      abaAtual = btn.dataset.tab || "ativos";
+      renderizarAlertas();
+    });
   });
+
+  if (alertList) {
+    alertList.addEventListener("click", (event) => {
+      const botao = event.target.closest("button");
+      const card = event.target.closest(".alert-card");
+
+      if (botao) {
+        const action = botao.dataset.action;
+        const id = botao.dataset.id;
+        const alerta = obterAlertaPorId(id);
+
+        if (action === "toggle-ok") {
+          event.stopPropagation();
+          alternarResolvido(id);
+          return;
+        }
+
+        if (action === "go") {
+          event.stopPropagation();
+          irParaColaboradores(alerta);
+          return;
+        }
+
+        if (action === "pdf") {
+          event.stopPropagation();
+          gerarPdfAlerta(alerta);
+          return;
+        }
+      }
+
+      if (card && card.dataset.alertId) {
+        const alerta = obterAlertaPorId(card.dataset.alertId);
+        irParaColaboradores(alerta);
+      }
+    });
+  }
 }
 
 async function iniciar() {
   try {
+    inserirAbasSeNaoExistirem();
+    aplicarEstiloAbasSeNaoExistir();
+
     alertasBase = await carregarAlertas();
 
-    if (tipoDestacado) {
+    if (tipoDestacado && typeFilter) {
       typeFilter.value = tipoDestacado;
     }
 
@@ -397,12 +564,12 @@ async function iniciar() {
     renderizarAlertas();
   } catch (e) {
     console.error("Erro ao iniciar alertas:", e);
-    alertList.innerHTML = "";
-    emptyState.classList.remove("hidden");
-    resultadoTexto.textContent = "Não foi possível carregar os alertas.";
-    heroFiltroAtual.textContent = "Falha no carregamento";
-    heroFiltroDescricao.textContent = "A API de alertas não respondeu corretamente.";
-    heroCriticosQtd.textContent = "--";
+    if (alertList) alertList.innerHTML = "";
+    if (emptyState) emptyState.classList.remove("hidden");
+    if (resultadoTexto) resultadoTexto.textContent = "Não foi possível carregar os alertas.";
+    if (heroFiltroAtual) heroFiltroAtual.textContent = "Falha no carregamento";
+    if (heroFiltroDescricao) heroFiltroDescricao.textContent = "A API de alertas não respondeu corretamente.";
+    if (heroCriticosQtd) heroCriticosQtd.textContent = "--";
   }
 }
 

@@ -40,8 +40,8 @@
           <span class="eyebrow">Visão Executiva</span>
           <h1>Central de Alertas</h1>
           <p>
-            Acompanhe ocorrências narrativas dos colaboradores, veículos e checklists
-            em um fluxo executivo mais claro e acionável.
+            Consolidação de ocorrências operacionais, pendências e registros críticos
+            relacionados a expedientes, checklist e condição dos veículos.
           </p>
         </div>
 
@@ -57,17 +57,17 @@
         <div class="hero-left">
           <div class="hero-badge">
             <i class="fa-solid fa-bolt"></i>
-            <span>Fluxo narrativo inteligente</span>
+            <span>Painel executivo</span>
           </div>
 
           <h2>
-            Alertas desenhados para o gestor entender <span>o que aconteceu</span>,
-            <span>quando aconteceu</span> e <span>o que precisa de ação</span>.
+            Alertas organizados para facilitar a análise de <span>ocorrências</span>,
+            <span>pendências</span> e <span>ações necessárias</span>.
           </h2>
 
           <p>
-            Os cards abaixo já estão preparados para refletir o clique vindo da tela
-            de colaboradores e destacar o tipo de alerta correspondente.
+            Ao abrir um alerta, o sistema direciona para o registro correspondente
+            na tela de colaboradores.
           </p>
         </div>
 
@@ -75,7 +75,7 @@
           <div class="hero-mini-card">
             <span class="mini-label">Filtro atual</span>
             <strong id="heroFiltroAtual">Todos os alertas</strong>
-            <small id="heroFiltroDescricao">Nenhum card foi selecionado.</small>
+            <small id="heroFiltroDescricao">Nenhum filtro aplicado no momento.</small>
           </div>
 
           <div class="hero-mini-card danger">
@@ -119,7 +119,7 @@
           <div class="resumo-conteudo">
             <span>Veículo danificado</span>
             <strong id="countVeiculoDanificado">--</strong>
-            <p>Ocorrências abertas relacionadas ao estado do veículo</p>
+            <p>Ocorrências não resolvidas relacionadas ao estado do veículo</p>
           </div>
         </article>
 
@@ -128,7 +128,7 @@
           <div class="resumo-conteudo">
             <span>Observações</span>
             <strong id="countObservacoes">--</strong>
-            <p>Observações narrativas registradas pelos colaboradores</p>
+            <p>Observações registradas nos expedientes</p>
           </div>
         </article>
 
@@ -162,12 +162,6 @@
             <option value="observacoes">Observações</option>
             <option value="pendentes">Pendentes</option>
           </select>
-
-          <select id="statusFilter">
-            <option value="ativos">Somente ativos</option>
-            <option value="todos">Ativos + resolvidos</option>
-            <option value="resolvidos">Somente resolvidos</option>
-          </select>
         </div>
 
         <div class="toolbar-right">
@@ -181,10 +175,17 @@
       <section class="painel-alertas">
         <div class="painel-header">
           <div>
-            <h3>Ocorrências narrativas</h3>
-            <p id="resultadoTexto">
-              Os alertas aparecerão organizados abaixo.
-            </p>
+            <h3 id="tituloPainelAlertas">Alertas não resolvidos</h3>
+            <p id="resultadoTexto">Os alertas aparecerão organizados abaixo.</p>
+          </div>
+
+          <div class="abas-alertas" id="alertTabs">
+            <button type="button" class="aba-alerta ativa" data-tab="ativos">
+              Não resolvidos
+            </button>
+            <button type="button" class="aba-alerta" data-tab="historico">
+              Histórico
+            </button>
           </div>
         </div>
 
@@ -194,8 +195,8 @@
           <div class="empty-icon">
             <i class="fa-solid fa-bell-slash"></i>
           </div>
-          <h3>Nenhum alerta encontrado</h3>
-          <p>Não existem alertas para os filtros aplicados neste momento.</p>
+          <h3 id="emptyTitle">Nenhum alerta encontrado</h3>
+          <p id="emptyDescription">Não existem alertas para os filtros aplicados neste momento.</p>
         </div>
       </section>
     </main>

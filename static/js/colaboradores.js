@@ -951,6 +951,51 @@ function renderizarPreviewFoto(containerId, url, titulo) {
   `;
 }
 
+function obterResolvidos() {
+  try {
+    return JSON.parse(localStorage.getItem("gorota_alertas_resolvidos_v2") || "{}");
+  } catch {
+    return {};
+  }
+}
+
+async function carregarCardsViaAlertas() {
+  try {
+    const res = await fetch("/api/alertas");
+    const data = await res.json();
+
+    if (!res.ok || data.sucesso === false) return;
+
+    const alertas = data.alertas || [];
+    const resolvidos = obterResolvidos();
+
+    const ativos = alertas.filter(a => !resolvidos[a.id]);
+
+    const contar = (tipo) => ativos.filter(a => a.tipo === tipo).length;
+
+    if (cardColaboradoresAtivos)
+      cardColaboradoresAtivos.textContent = contar("colaboradores_ativos") || "--";
+
+    if (cardVeiculosEmUso)
+      cardVeiculosEmUso.textContent = contar("veiculos_em_uso") || "--";
+
+    if (cardChecklistFaltando)
+      cardChecklistFaltando.textContent = contar("checklist_faltando") || "--";
+
+    if (cardVeiculoDanificado)
+      cardVeiculoDanificado.textContent = contar("veiculo_danificado") || "--";
+
+    if (cardObservacoes)
+      cardObservacoes.textContent = contar("observacoes") || "--";
+
+    if (cardPendencias)
+      cardPendencias.textContent = contar("pendentes") || "--";
+
+  } catch (e) {
+    console.error("Erro ao carregar cards via alertas:", e);
+  }
+}
+
 function renderizarChecklistEditavel(containerId, detalhe = {}) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -1251,6 +1296,9 @@ if (clearHistoryButton) {
 
 document.addEventListener("DOMContentLoaded", async () => {
   await carregarRegistros();
+await carregarCardsViaAlertas();
+
+
   aplicarRedirecionamentoDoAlerta();
 });
 

@@ -43,6 +43,31 @@
   color:var(--roxo1);
 }
 
+.topo{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:14px;
+  margin-bottom:20px;
+}
+
+.topo-botoes{
+  display:flex;
+  gap:12px;
+  flex-wrap: wrap;
+}
+
+.item-menu{
+  text-decoration:none;
+  color:#222;
+  padding:12px 14px;
+  border-radius:12px;
+  font-size:16px;
+  background:#f4f4f8;
+  transition:all 0.2s ease;
+}
+
+
 .monitor-resumo{
   display:grid;
   grid-template-columns: repeat(4, minmax(220px, 1fr));
