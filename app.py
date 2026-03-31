@@ -5,7 +5,7 @@ import secrets
 import json
 from datetime import timedelta, date, datetime
 
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, g
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, g, send_file
 from werkzeug.security import check_password_hash, generate_password_hash
 from psycopg2 import errors
 
@@ -5148,7 +5148,94 @@ def api_dashboard():
         if conn:
             conn.close()
 
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import cm
 
+@app.get("/api/alertas/<int:alerta_id>/pdf")
+def gerar_pdf_alerta(alerta_id):
+    r = proteger_api()
+    if r:
+        return r
+
+    conn = cur = None
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        # 🔥 BUSCA DADOS DO EXPEDIENTE
+        cur.execute("""
+            SELECT
+                e.id,
+                m.nome,
+                v.modelo,
+                v.placa,
+                e.horario_inicio,
+                e.horario_fim,
+                e.observacao_dano_saida,
+                e.veiculo_danificado_saida,
+                e.foto_saida_url
+            FROM expedientes e
+            LEFT JOIN motoristas m ON m.id = e.colaborador_id
+            LEFT JOIN veiculos v ON v.id = e.veiculo_id
+            WHERE e.id = %s
+        """, (alerta_id,))
+
+        row = cur.fetchone()
+
+        if not row:
+            return jsonify({"erro": "Registro não encontrado"}), 404
+
+        buffer_path = f"/tmp/alerta_{alerta_id}.pdf"
+
+        doc = SimpleDocTemplate(buffer_path, pagesize=A4)
+        styles = getSampleStyleSheet()
+
+        story = []
+
+        # LOGO
+        logo_path = os.path.join(STATIC_DIR, "img", "logo.png")
+        if os.path.exists(logo_path):
+            story.append(Image(logo_path, width=4*cm, height=4*cm))
+
+        story.append(Spacer(1, 10))
+
+        story.append(Paragraph("<b>Relatório de Ocorrência - Nexar</b>", styles["Title"]))
+        story.append(Spacer(1, 10))
+
+        story.append(Paragraph(f"<b>Colaborador:</b> {row[1]}", styles["Normal"]))
+        story.append(Paragraph(f"<b>Veículo:</b> {row[2]}", styles["Normal"]))
+        story.append(Paragraph(f"<b>Placa:</b> {row[3]}", styles["Normal"]))
+
+        story.append(Spacer(1, 10))
+
+        story.append(Paragraph(f"<b>Entrada:</b> {row[4]}", styles["Normal"]))
+        story.append(Paragraph(f"<b>Saída:</b> {row[5]}", styles["Normal"]))
+
+        story.append(Spacer(1, 10))
+
+        story.append(Paragraph(f"<b>Veículo danificado:</b> {row[7]}", styles["Normal"]))
+        story.append(Paragraph(f"<b>Observação:</b> {row[6]}", styles["Normal"]))
+
+        story.append(Spacer(1, 20))
+
+        story.append(Paragraph("Contato: contatoagencianexar@gmail.com", styles["Normal"]))
+
+        doc.build(story)
+
+        return send_file(buffer_path, as_attachment=True)
+
+    except Exception as e:
+        print("ERRO PDF:", e)
+        return jsonify({"erro": str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
             
             # =========================
 # START

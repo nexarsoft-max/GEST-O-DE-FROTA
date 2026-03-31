@@ -46,21 +46,9 @@ let tipoDestacado = obterTipoDaUrl();
 let abaAtual = "ativos";
 
 function inserirAbasSeNaoExistirem() {
-  const painelHeader = document.querySelector(".painel-header");
-  if (!painelHeader) return;
-
-  const jaExiste = document.getElementById("abasAlertas");
-  if (jaExiste) return;
-
-  const abas = document.createElement("div");
-  abas.id = "abasAlertas";
-  abas.className = "abas-alertas";
-  abas.innerHTML = `
-    <button type="button" class="aba-alerta ativa" data-tab="ativos">Não resolvidos</button>
-    <button type="button" class="aba-alerta" data-tab="historico">Histórico</button>
-  `;
-
-  painelHeader.appendChild(abas);
+  // 🚫 NÃO CRIAR MAIS ABAS VIA JS
+  // As abas já existem no HTML
+  return;
 }
 
 function aplicarEstiloAbasSeNaoExistir() {
