@@ -109,10 +109,10 @@ select{
   transform:translateX(4px);
 }
 
-.item-menu.ativo{
-  background:linear-gradient(90deg, var(--roxo-1), var(--roxo-2));
-  color:#fff;
-  font-weight:700;
+.item-menu.ativo {
+  background: linear-gradient(90deg, #6f2cff, #9b5cff);
+  color: white;
+  font-weight: bold;
 }
 
 .item-menu.sair{
@@ -156,25 +156,25 @@ select{
   margin-bottom:10px;
 }
 
-.topo h1{
-  font-size:34px;
-  line-height:1.04;
-  letter-spacing:-1px;
-  font-weight:900;
-  margin-bottom:10px;
-  color:#17151f;
-}
-
-.topo p{
-  font-size:15px;
-  line-height:1.65;
-  color:var(--muted);
+.topo{
+ display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:14px;
+  margin-bottom: 20px;
 }
 
 .topo-botoes{
   display:flex;
   gap:12px;
-  flex-wrap:wrap;
+}
+
+
+.topo h1{
+  font-size: 28px;
+  font-weight: 950;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
 }
 
 .item-menu-topo{

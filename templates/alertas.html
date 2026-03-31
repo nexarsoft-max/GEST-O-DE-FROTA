@@ -35,23 +35,29 @@
     </aside>
 
     <main class="conteudo">
-      <header class="topo">
-        <div class="topo-texto">
-          <span class="eyebrow">Visão Executiva</span>
-          <h1>Central de Alertas</h1>
-          <p>
-            Consolidação de ocorrências operacionais, pendências e registros críticos
-            relacionados a expedientes, checklist e condição dos veículos.
-          </p>
-        </div>
+          <header class="topo">
 
-        <div class="topo-botoes">
-          <a class="item-menu-topo" href="{{ url_for('dashboard') }}">Consumo</a>
-          <a class="item-menu-topo" href="{{ url_for('monitoramento') }}">Monitoramento</a>
-          <a class="item-menu-topo" href="{{ url_for('colaboradores') }}">Colaboradores</a>
-          <a class="item-menu-topo ativo" href="{{ url_for('alertas') }}">Alertas</a>
-        </div>
-      </header>
+  <h1>Visão Executiva</h1>
+
+<div class="topo-botoes">
+  <a class="item-menu ativo" href="{{ url_for('dashboard') }}">
+    Consumo
+  </a>
+
+  <a class="item-menu " href="{{ url_for('monitoramento') }}">
+    Monitoramento
+  </a>
+
+  <a class="item-menu" href="{{ url_for('colaboradores') }}">
+    Colaboradores
+  </a>
+
+  <a class="item-menu " href="{{ url_for('alertas') }}">
+          Alertas
+  </a>
+</div>
+</header>
+
 
       <section class="hero-alertas">
         <div class="hero-left">
