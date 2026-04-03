@@ -2967,7 +2967,7 @@ def gerar_pdf_alerta(alerta_id):
             story.append(Paragraph("<b>Agência Nexar</b>", style_title))
 
         story.append(Spacer(1, 0.35 * cm))
-        story.append(Paragraph("Relatório de alerta / expediente", style_title))
+        story.append(Paragraph(f"Ocorrência Nº {alerta_id}", style_title))
         story.append(Spacer(1, 0.25 * cm))
 
         resumo = Table([
@@ -3057,10 +3057,12 @@ def gerar_pdf_alerta(alerta_id):
         doc.build(story)
         buffer.seek(0)
 
+        nome_pdf = f"Ocorrencia_{alerta_id}.pdf"
+
         return send_file(
             buffer,
-            as_attachment=False,
-            download_name=f"alerta-dano-saida-{alerta_id}.pdf",
+            as_attachment=True,
+            download_name=nome_pdf,
             mimetype="application/pdf"
         )
 

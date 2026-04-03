@@ -2762,7 +2762,322 @@ def api_alertas():
             "erro": str(e)
         }), 500
 
+@app.get("/api/alertas/pdf/<int:alerta_id>")
+def gerar_pdf_alerta(alerta_id):
+    r = proteger_api()
+    if r:
+        return r
 
+    uid = usuario_id_atual()
+    conn = cur = None
+
+    def _baixar_imagem_para_bytes(url):
+        try:
+            if not url:
+                return None
+            req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urlopen(req, timeout=15) as resp:
+                return BytesIO(resp.read())
+        except Exception as e:
+            print("ERRO ao baixar imagem para PDF:", e, flush=True)
+            return None
+
+    def _fmt_datahora(dt):
+        if not dt:
+            return "-"
+        try:
+            tz_br = ZoneInfo("America/Sao_Paulo")
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+            dt = dt.astimezone(tz_br)
+            return dt.strftime("%d/%m/%Y %H:%M")
+        except Exception:
+            return str(dt)
+
+    def _fmt_bool(valor):
+        return "Sim" if valor is True else "Não" if valor is False else "-"
+
+    def _texto(v):
+        return str(v or "").strip() or "-"
+
+    def _normalizar_checklist_pdf(valor):
+        detalhe = _normalizar_checklist_detalhe_colaboradores(valor)
+        itens = detalhe.get("itens_marcados") or detalhe.get("itens") or []
+        if not isinstance(itens, list):
+            itens = []
+        return {
+            "itens": [str(i).strip() for i in itens if str(i).strip()],
+            "veiculo_perfeito": detalhe.get("veiculo_perfeito"),
+            "observacao": str(detalhe.get("observacao") or "").strip(),
+            "quantidade_cones": str(detalhe.get("quantidade_cones") or "").strip(),
+            "trabalhando_em_dupla_ou_mais": detalhe.get("trabalhando_em_dupla_ou_mais"),
+            "nomes_dupla_ou_mais": str(detalhe.get("nomes_dupla_ou_mais") or "").strip(),
+            "confirmacao_veracidade": bool(detalhe.get("confirmacao_veracidade"))
+        }
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'expedientes'
+              AND column_name = 'foto_odometro_entrada_url'
+            LIMIT 1
+        """)
+        tem_foto_odometro = cur.fetchone() is not None
+
+        cur.execute("""
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'expedientes'
+              AND column_name = 'foto_dano_saida_url_1'
+            LIMIT 1
+        """)
+        tem_dano_saida = cur.fetchone() is not None
+
+        campo_foto_odometro = (
+            "COALESCE(e.foto_odometro_entrada_url, '')"
+            if tem_foto_odometro else "''"
+        )
+
+        if tem_dano_saida:
+            campos_dano_saida = """
+                COALESCE(e.foto_dano_saida_url_1, ''),
+                COALESCE(e.foto_dano_saida_url_2, ''),
+                COALESCE(e.foto_dano_saida_url_3, '')
+            """
+        else:
+            campos_dano_saida = """
+                '',
+                '',
+                ''
+            """
+
+        cur.execute(f"""
+            SELECT
+                e.id,
+                COALESCE(m.nome, '') AS colaborador_nome,
+                COALESCE(m.cpf, '') AS colaborador_cpf,
+                COALESCE(m.email, '') AS colaborador_email,
+                COALESCE(v.modelo, '') AS veiculo_modelo,
+                COALESCE(v.placa, '') AS veiculo_placa,
+                e.horario_inicio,
+                e.horario_fim,
+                e.checklist_entrada,
+                e.checklist_saida,
+                COALESCE(e.foto_entrada_url, '') AS foto_entrada_url,
+                COALESCE(e.foto_saida_url, '') AS foto_saida_url,
+                {campo_foto_odometro} AS foto_odometro_url,
+                COALESCE(e.veiculo_danificado_saida, FALSE) AS veiculo_danificado_saida,
+                COALESCE(e.observacao_dano_saida, '') AS observacao_dano_saida,
+                COALESCE(e.motivo_ajuste, '') AS motivo_ajuste,
+                COALESCE(e.ajustado, FALSE) AS ajustado,
+                {campos_dano_saida}
+            FROM expedientes e
+            LEFT JOIN motoristas m
+                ON m.id = COALESCE(e.colaborador_id, e.motorista_id)
+            LEFT JOIN veiculos v
+                ON v.id = e.veiculo_id
+            WHERE e.id = %s
+              AND e.usuario_id = %s
+            LIMIT 1
+        """, (alerta_id, uid))
+
+        row = cur.fetchone()
+
+        if not row:
+            return jsonify({
+                "sucesso": False,
+                "erro": "Registro não encontrado"
+            }), 404
+
+        checklist_entrada = _normalizar_checklist_pdf(row[8])
+        checklist_saida = _normalizar_checklist_pdf(row[9])
+
+        fotos_dano = [
+            str(url).strip()
+            for url in [row[17], row[18], row[19]]
+            if url and str(url).strip()
+        ]
+
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=1.6 * cm,
+            leftMargin=1.6 * cm,
+            topMargin=1.3 * cm,
+            bottomMargin=1.3 * cm
+        )
+
+        styles = getSampleStyleSheet()
+        style_title = ParagraphStyle(
+            "TitleNexar",
+            parent=styles["Title"],
+            fontSize=21,
+            leading=24,
+            textColor=colors.HexColor("#24163A"),
+            spaceAfter=10
+        )
+        style_h2 = ParagraphStyle(
+            "H2Nexar",
+            parent=styles["Heading2"],
+            fontSize=13,
+            leading=16,
+            textColor=colors.HexColor("#6F2CFF"),
+            spaceBefore=10,
+            spaceAfter=8
+        )
+        style_body = ParagraphStyle(
+            "BodyNexar",
+            parent=styles["BodyText"],
+            fontSize=9.5,
+            leading=13,
+            textColor=colors.HexColor("#2B2438")
+        )
+        style_small = ParagraphStyle(
+            "SmallNexar",
+            parent=styles["BodyText"],
+            fontSize=8.5,
+            leading=11,
+            textColor=colors.HexColor("#5F5870")
+        )
+
+        story = []
+
+        logo_path = os.path.join(STATIC_DIR, "img", "logo.png")
+        if os.path.exists(logo_path):
+            logo = Image(logo_path, width=1.9 * cm, height=1.9 * cm)
+            titulo_bloco = Paragraph(
+                "<b>Agência Nexar</b><br/><font size='9' color='#5F5870'>Relatório completo do expediente e ocorrência</font>",
+                style_body
+            )
+            header = Table([[logo, titulo_bloco]], colWidths=[2.3 * cm, 13.5 * cm])
+            header.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ]))
+            story.append(header)
+        else:
+            story.append(Paragraph("<b>Agência Nexar</b>", style_title))
+
+        story.append(Spacer(1, 0.35 * cm))
+        story.append(Paragraph(f"Ocorrência Nº {alerta_id}", style_title))
+        story.append(Spacer(1, 0.25 * cm))
+
+        resumo = Table([
+            ["Colaborador", _texto(row[1]), "CPF", _texto(row[2])],
+            ["Email", _texto(row[3]), "Veículo", _texto(row[4])],
+            ["Placa", _texto(row[5]), "Ajustado", _fmt_bool(bool(row[16]))],
+            ["Entrada", _fmt_datahora(row[6]), "Saída", _fmt_datahora(row[7])],
+        ], colWidths=[2.8 * cm, 5.2 * cm, 2.2 * cm, 5.6 * cm])
+        resumo.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F7F4FD")),
+            ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#DDD3F7")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#E9E1FB")),
+            ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#2B2438")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 7),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+        ]))
+        story.append(resumo)
+        story.append(Spacer(1, 0.35 * cm))
+
+        story.append(Paragraph("Checklist de entrada", style_h2))
+        entrada_texto = "<br/>".join([f"- {item}" for item in checklist_entrada["itens"]]) if checklist_entrada["itens"] else "- Nenhum item marcado"
+        story.append(Paragraph(
+            f"<b>Estado do veículo:</b> {_fmt_bool(False if checklist_entrada['veiculo_perfeito'] is False else True if checklist_entrada['veiculo_perfeito'] is True else None)}<br/>"
+            f"<b>Observação entrada:</b> {_texto(checklist_entrada['observacao'])}<br/>"
+            f"<b>Cones:</b> {_texto(checklist_entrada['quantidade_cones'])}<br/>"
+            f"<b>Dupla:</b> {_fmt_bool(checklist_entrada['trabalhando_em_dupla_ou_mais'])}<br/>"
+            f"<b>Nomes dupla:</b> {_texto(checklist_entrada['nomes_dupla_ou_mais'])}<br/>"
+            f"<b>Confirmação de veracidade:</b> {_fmt_bool(checklist_entrada['confirmacao_veracidade'])}",
+            style_body
+        ))
+        story.append(Spacer(1, 0.12 * cm))
+        story.append(Paragraph(f"<b>Itens marcados:</b><br/>{entrada_texto}", style_body))
+        story.append(Spacer(1, 0.25 * cm))
+
+        story.append(Paragraph("Checklist / condição na saída", style_h2))
+        saida_texto = "<br/>".join([f"- {item}" for item in checklist_saida["itens"]]) if checklist_saida["itens"] else "- Nenhum item marcado"
+        story.append(Paragraph(
+            f"<b>Veículo danificado:</b> {_fmt_bool(bool(row[13]))}<br/>"
+            f"<b>Observação do dano:</b> {_texto(row[14])}<br/>"
+            f"<b>Motivo de ajuste:</b> {_texto(row[15])}",
+            style_body
+        ))
+        story.append(Spacer(1, 0.12 * cm))
+        story.append(Paragraph(f"<b>Itens de saída:</b><br/>{saida_texto}", style_body))
+        story.append(Spacer(1, 0.25 * cm))
+
+        story.append(Paragraph("Fotos anexadas", style_h2))
+
+        fotos_bloco = [
+            ("Foto de entrada", row[10]),
+            ("Foto de saída", row[11]),
+            ("Foto do odômetro", row[12]),
+        ]
+
+        for titulo, url in fotos_bloco:
+            story.append(Paragraph(f"<b>{titulo}:</b> {_texto(url)}", style_small))
+            img_bytes = _baixar_imagem_para_bytes(url)
+            if img_bytes:
+                try:
+                    story.append(Image(img_bytes, width=7.2 * cm, height=5.2 * cm))
+                except Exception as e:
+                    print("ERRO ao inserir imagem no PDF:", e, flush=True)
+            story.append(Spacer(1, 0.18 * cm))
+
+        if fotos_dano:
+            story.append(Paragraph("<b>Fotos do dano:</b>", style_small))
+            for idx, url in enumerate(fotos_dano, start=1):
+                story.append(Paragraph(f"Foto do dano {idx}: {_texto(url)}", style_small))
+                img_bytes = _baixar_imagem_para_bytes(url)
+                if img_bytes:
+                    try:
+                        story.append(Image(img_bytes, width=7.2 * cm, height=5.2 * cm))
+                    except Exception as e:
+                        print("ERRO ao inserir foto de dano no PDF:", e, flush=True)
+                story.append(Spacer(1, 0.18 * cm))
+
+        story.append(Spacer(1, 0.3 * cm))
+        story.append(Paragraph("Contato: contatoagencianexar@gmail.com", style_small))
+
+        doc.build(story)
+        buffer.seek(0)
+
+        nome_pdf = f"Ocorrencia_{alerta_id}.pdf"
+
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=nome_pdf,
+            mimetype="application/pdf"
+        )
+
+    except Exception as e:
+        print("ERRO PDF:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": f"Erro ao gerar PDF: {str(e)}"
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 # =========================
 # API COLABORADORES - PENDÊNCIAS
 # =========================
@@ -5233,340 +5548,9 @@ def api_dashboard():
         if conn:
             conn.close()
 
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import cm
 
-@app.get("/api/alertas/pdf/<int:alerta_id>")
-def gerar_pdf_alerta(alerta_id):
-    r = proteger_api()
-    if r:
-        return r
 
-    uid = usuario_id_atual()
-    conn = cur = None
 
-    def _baixar_imagem_para_bytes(url):
-        try:
-            if not url:
-                return None
-            req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urlopen(req, timeout=15) as resp:
-                return BytesIO(resp.read())
-        except Exception as e:
-            print("ERRO ao baixar imagem para PDF:", e, flush=True)
-            return None
-
-    def _fmt_datahora(dt):
-        if not dt:
-            return "-"
-        try:
-            tz_br = ZoneInfo("America/Sao_Paulo")
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=ZoneInfo("UTC"))
-            dt = dt.astimezone(tz_br)
-            return dt.strftime("%d/%m/%Y %H:%M")
-        except Exception:
-            return str(dt)
-
-    def _fmt_bool(valor):
-        return "Sim" if valor is True else "Não" if valor is False else "-"
-
-    def _texto(v):
-        return str(v or "").strip() or "-"
-
-    def _normalizar_checklist_pdf(valor):
-        detalhe = _normalizar_checklist_detalhe_colaboradores(valor)
-        itens = detalhe.get("itens_marcados") or detalhe.get("itens") or []
-        if not isinstance(itens, list):
-            itens = []
-        return {
-            "itens": [str(i).strip() for i in itens if str(i).strip()],
-            "veiculo_perfeito": detalhe.get("veiculo_perfeito"),
-            "observacao": str(detalhe.get("observacao") or "").strip(),
-            "quantidade_cones": str(detalhe.get("quantidade_cones") or "").strip(),
-            "trabalhando_em_dupla_ou_mais": detalhe.get("trabalhando_em_dupla_ou_mais"),
-            "nomes_dupla_ou_mais": str(detalhe.get("nomes_dupla_ou_mais") or "").strip(),
-            "confirmacao_veracidade": bool(detalhe.get("confirmacao_veracidade"))
-        }
-
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-
-        # Verifica colunas opcionais
-        cur.execute("""
-            SELECT 1
-            FROM information_schema.columns
-            WHERE table_name = 'expedientes'
-              AND column_name = 'foto_odometro_entrada_url'
-            LIMIT 1
-        """)
-        tem_foto_odometro = cur.fetchone() is not None
-
-        cur.execute("""
-            SELECT 1
-            FROM information_schema.columns
-            WHERE table_name = 'expedientes'
-              AND column_name = 'foto_dano_saida_url_1'
-            LIMIT 1
-        """)
-        tem_dano_saida = cur.fetchone() is not None
-
-        campo_foto_odometro = (
-            "COALESCE(e.foto_odometro_entrada_url, '')"
-            if tem_foto_odometro else "''"
-        )
-
-        if tem_dano_saida:
-            campos_dano_saida = """
-                COALESCE(e.foto_dano_saida_url_1, ''),
-                COALESCE(e.foto_dano_saida_url_2, ''),
-                COALESCE(e.foto_dano_saida_url_3, '')
-            """
-        else:
-            campos_dano_saida = """
-                '',
-                '',
-                ''
-            """
-
-        cur.execute(f"""
-            SELECT
-                e.id,
-                COALESCE(m.nome, '') AS colaborador_nome,
-                COALESCE(m.cpf, '') AS colaborador_cpf,
-                COALESCE(m.email, '') AS colaborador_email,
-                COALESCE(v.modelo, '') AS veiculo_modelo,
-                COALESCE(v.placa, '') AS veiculo_placa,
-                e.horario_inicio,
-                e.horario_fim,
-                e.checklist_entrada,
-                e.checklist_saida,
-                COALESCE(e.foto_entrada_url, '') AS foto_entrada_url,
-                COALESCE(e.foto_saida_url, '') AS foto_saida_url,
-                {campo_foto_odometro} AS foto_odometro_url,
-                COALESCE(e.veiculo_danificado_saida, FALSE) AS veiculo_danificado_saida,
-                COALESCE(e.observacao_dano_saida, '') AS observacao_dano_saida,
-                COALESCE(e.motivo_ajuste, '') AS motivo_ajuste,
-                COALESCE(e.ajustado, FALSE) AS ajustado,
-                {campos_dano_saida}
-            FROM expedientes e
-            LEFT JOIN motoristas m
-                ON m.id = COALESCE(e.colaborador_id, e.motorista_id)
-            LEFT JOIN veiculos v
-                ON v.id = e.veiculo_id
-            WHERE e.id = %s
-              AND e.usuario_id = %s
-            LIMIT 1
-        """, (alerta_id, uid))
-
-        row = cur.fetchone()
-
-        if not row:
-            return jsonify({
-                "sucesso": False,
-                "erro": "Registro não encontrado"
-            }), 404
-
-        checklist_entrada = _normalizar_checklist_pdf(row[8])
-        checklist_saida = _normalizar_checklist_pdf(row[9])
-
-        fotos_dano = [
-            str(url).strip()
-            for url in [row[17], row[18], row[19]]
-            if url and str(url).strip()
-        ]
-
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=A4,
-            rightMargin=1.6 * cm,
-            leftMargin=1.6 * cm,
-            topMargin=1.3 * cm,
-            bottomMargin=1.3 * cm
-        )
-
-        styles = getSampleStyleSheet()
-        style_title = ParagraphStyle(
-            "TitleNexar",
-            parent=styles["Title"],
-            fontSize=21,
-            leading=24,
-            textColor=colors.HexColor("#24163A"),
-            spaceAfter=10
-        )
-        style_h2 = ParagraphStyle(
-            "H2Nexar",
-            parent=styles["Heading2"],
-            fontSize=13,
-            leading=16,
-            textColor=colors.HexColor("#6F2CFF"),
-            spaceBefore=10,
-            spaceAfter=8
-        )
-        style_body = ParagraphStyle(
-            "BodyNexar",
-            parent=styles["BodyText"],
-            fontSize=9.5,
-            leading=13,
-            textColor=colors.HexColor("#2B2438")
-        )
-        style_small = ParagraphStyle(
-            "SmallNexar",
-            parent=styles["BodyText"],
-            fontSize=8.5,
-            leading=11,
-            textColor=colors.HexColor("#5F5870")
-        )
-
-        story = []
-
-        # Cabeçalho com logo + nome
-        logo_path = os.path.join(STATIC_DIR, "img", "logo.png")
-        header_data = []
-
-        if os.path.exists(logo_path):
-            logo = Image(logo_path, width=1.9 * cm, height=1.9 * cm)
-            titulo_bloco = Paragraph(
-                "<b>Agência Nexar</b><br/><font size='9' color='#5F5870'>Relatório completo do expediente e ocorrência</font>",
-                style_body
-            )
-            header_data.append([logo, titulo_bloco])
-            header = Table(header_data, colWidths=[2.3 * cm, 13.5 * cm])
-            header.setStyle(TableStyle([
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                ("TOPPADDING", (0, 0), (-1, -1), 0),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-            ]))
-            story.append(header)
-        else:
-            story.append(Paragraph("<b>Agência Nexar</b>", style_title))
-
-        story.append(Spacer(1, 0.35 * cm))
-        story.append(Paragraph("Relatório de alerta / expediente", style_title))
-        story.append(Spacer(1, 0.25 * cm))
-
-        # Bloco principal
-        resumo = Table([
-            ["Colaborador", _texto(row[1]), "CPF", _texto(row[2])],
-            ["Email", _texto(row[3]), "Veículo", _texto(row[4])],
-            ["Placa", _texto(row[5]), "Ajustado", _fmt_bool(bool(row[16]))],
-            ["Entrada", _fmt_datahora(row[6]), "Saída", _fmt_datahora(row[7])],
-        ], colWidths=[2.8 * cm, 5.2 * cm, 2.2 * cm, 5.6 * cm])
-        resumo.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F7F4FD")),
-            ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#DDD3F7")),
-            ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#E9E1FB")),
-            ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-            ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#2B2438")),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 8),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-            ("TOPPADDING", (0, 0), (-1, -1), 7),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-        ]))
-        story.append(resumo)
-        story.append(Spacer(1, 0.35 * cm))
-
-        # Entrada
-        story.append(Paragraph("Checklist de entrada", style_h2))
-        entrada_texto = "<br/>".join(
-            [f"- {item}" for item in checklist_entrada["itens"]]
-        ) if checklist_entrada["itens"] else "- Nenhum item marcado"
-
-        story.append(Paragraph(
-            f"<b>Estado do veículo:</b> {_fmt_bool(False if checklist_entrada['veiculo_perfeito'] is False else True if checklist_entrada['veiculo_perfeito'] is True else None)}<br/>"
-            f"<b>Observação entrada:</b> {_texto(checklist_entrada['observacao'])}<br/>"
-            f"<b>Cones:</b> {_texto(checklist_entrada['quantidade_cones'])}<br/>"
-            f"<b>Dupla:</b> {_fmt_bool(checklist_entrada['trabalhando_em_dupla_ou_mais'])}<br/>"
-            f"<b>Nomes dupla:</b> {_texto(checklist_entrada['nomes_dupla_ou_mais'])}<br/>"
-            f"<b>Confirmação de veracidade:</b> {_fmt_bool(checklist_entrada['confirmacao_veracidade'])}",
-            style_body
-        ))
-        story.append(Spacer(1, 0.12 * cm))
-        story.append(Paragraph(f"<b>Itens marcados:</b><br/>{entrada_texto}", style_body))
-        story.append(Spacer(1, 0.25 * cm))
-
-        # Saída
-        story.append(Paragraph("Checklist / condição na saída", style_h2))
-        saida_texto = "<br/>".join(
-            [f"- {item}" for item in checklist_saida["itens"]]
-        ) if checklist_saida["itens"] else "- Nenhum item marcado"
-
-        story.append(Paragraph(
-            f"<b>Veículo danificado:</b> {_fmt_bool(bool(row[13]))}<br/>"
-            f"<b>Observação do dano:</b> {_texto(row[14])}<br/>"
-            f"<b>Motivo de ajuste:</b> {_texto(row[15])}",
-            style_body
-        ))
-        story.append(Spacer(1, 0.12 * cm))
-        story.append(Paragraph(f"<b>Itens de saída:</b><br/>{saida_texto}", style_body))
-        story.append(Spacer(1, 0.25 * cm))
-
-        # Fotos
-        story.append(Paragraph("Fotos anexadas", style_h2))
-
-        fotos_bloco = [
-            ("Foto de entrada", row[10]),
-            ("Foto de saída", row[11]),
-            ("Foto do odômetro", row[12]),
-        ]
-
-        for titulo, url in fotos_bloco:
-            story.append(Paragraph(f"<b>{titulo}:</b> {_texto(url)}", style_small))
-            img_bytes = _baixar_imagem_para_bytes(url)
-            if img_bytes:
-                try:
-                    story.append(Image(img_bytes, width=7.2 * cm, height=5.2 * cm))
-                except Exception as e:
-                    print("ERRO ao inserir imagem no PDF:", e, flush=True)
-            story.append(Spacer(1, 0.18 * cm))
-
-        if fotos_dano:
-            story.append(Paragraph("<b>Fotos do dano:</b>", style_small))
-            for idx, url in enumerate(fotos_dano, start=1):
-                story.append(Paragraph(f"Foto do dano {idx}: {_texto(url)}", style_small))
-                img_bytes = _baixar_imagem_para_bytes(url)
-                if img_bytes:
-                    try:
-                        story.append(Image(img_bytes, width=7.2 * cm, height=5.2 * cm))
-                    except Exception as e:
-                        print("ERRO ao inserir foto de dano no PDF:", e, flush=True)
-                story.append(Spacer(1, 0.18 * cm))
-
-        story.append(Spacer(1, 0.3 * cm))
-        story.append(Paragraph("Contato: contatoagencianexar@gmail.com", style_small))
-
-        doc.build(story)
-        buffer.seek(0)
-
-        return send_file(
-            buffer,
-            as_attachment=False,
-            download_name=f"alerta-dano-saida-{alerta_id}.pdf",
-            mimetype="application/pdf"
-        )
-
-    except Exception as e:
-        print("ERRO PDF:", e, flush=True)
-        return jsonify({
-            "sucesso": False,
-            "erro": f"Erro ao gerar PDF: {str(e)}"
-        }), 500
-
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
             
             # =========================
 # START
