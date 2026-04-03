@@ -3736,6 +3736,14 @@ def api_mobile_finalizar_expediente():
     expediente_id = request.form.get("expediente_id")
     foto = request.files.get("foto")
 
+    checklist_raw = request.form.get("checklist")
+    veiculo_danificado_raw = request.form.get("veiculo_danificado")
+    observacao_dano = (request.form.get("observacao_dano") or "").strip()
+
+    foto_dano_1 = request.files.get("foto_dano_1")
+    foto_dano_2 = request.files.get("foto_dano_2")
+    foto_dano_3 = request.files.get("foto_dano_3")
+
     if not foto:
         return jsonify({
             "sucesso": False,
@@ -3796,6 +3804,22 @@ def api_mobile_finalizar_expediente():
 
         _, veiculo_id = expediente_row
 
+        # =========================
+        # CHECKLIST SAÍDA
+        # =========================
+        try:
+            checklist_saida = _parse_checklist_json(checklist_raw)
+        except ValueError as e:
+            return jsonify({
+                "sucesso": False,
+                "erro": str(e)
+            }), 400
+
+        veiculo_danificado = str(veiculo_danificado_raw or "").strip().lower() == "true"
+
+        # =========================
+        # FOTO SAÍDA
+        # =========================
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
         filename = f"saida/{motorista_id}_{timestamp}.jpg"
 
@@ -3808,16 +3832,49 @@ def api_mobile_finalizar_expediente():
 
         url_foto = montar_url_publica_r2(filename)
 
+        # =========================
+        # FOTOS DE DANO
+        # =========================
+        foto_dano_url_1 = ""
+        foto_dano_url_2 = ""
+        foto_dano_url_3 = ""
+
+        if veiculo_danificado:
+            if not foto_dano_1:
+                return jsonify({
+                    "sucesso": False,
+                    "erro": "Ao marcar veículo danificado, a foto_dano_1 é obrigatória"
+                }), 400
+
+            foto_dano_url_1 = _upload_foto_dano_saida(expediente_id_int, 1, foto_dano_1)
+            foto_dano_url_2 = _upload_foto_dano_saida(expediente_id_int, 2, foto_dano_2)
+            foto_dano_url_3 = _upload_foto_dano_saida(expediente_id_int, 3, foto_dano_3)
+
+        # =========================
+        # UPDATE EXPEDIENTE
+        # =========================
         cur.execute("""
             UPDATE expedientes
             SET
                 foto_saida_url = %s,
                 horario_fim = CURRENT_TIMESTAMP,
+                checklist_saida = %s,
+                veiculo_danificado_saida = %s,
+                observacao_dano_saida = %s,
+                foto_dano_saida_url_1 = %s,
+                foto_dano_saida_url_2 = %s,
+                foto_dano_saida_url_3 = %s,
                 status = 'finalizado'
             WHERE id = %s
               AND colaborador_id = %s
         """, (
             url_foto,
+            json.dumps(checklist_saida),
+            veiculo_danificado,
+            observacao_dano,
+            foto_dano_url_1,
+            foto_dano_url_2,
+            foto_dano_url_3,
             expediente_id_int,
             motorista_id
         ))
@@ -3843,7 +3900,12 @@ def api_mobile_finalizar_expediente():
         return jsonify({
             "sucesso": True,
             "expediente_id": expediente_id_int,
-            "foto_url": url_foto
+            "foto_url": url_foto,
+            "veiculo_danificado": veiculo_danificado,
+            "observacao_dano": observacao_dano,
+            "foto_dano_1": foto_dano_url_1,
+            "foto_dano_2": foto_dano_url_2,
+            "foto_dano_3": foto_dano_url_3
         }), 200
 
     except Exception as e:
@@ -3859,7 +3921,7 @@ def api_mobile_finalizar_expediente():
         if cur:
             cur.close()
         if conn:
-            conn.close()            
+            conn.close()          
 
             
             # =========================

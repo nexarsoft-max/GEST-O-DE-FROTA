@@ -4,8 +4,8 @@ import hashlib
 import secrets 
 import json
 from datetime import timedelta, date, datetime
-
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, g
+from zoneinfo import ZoneInfo
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, g, send_file
 from werkzeug.security import check_password_hash, generate_password_hash
 from psycopg2 import errors
 
@@ -1919,26 +1919,162 @@ def formatar_data(inicio, fim):
     dt = ajustar_fuso(inicio) or ajustar_fuso(fim)
     return dt.date().isoformat() if dt else ""
 
+CHECKLIST_PADRAO_ALERTAS = [
+    "power meet pon",
+    "Step",
+    "Cones",
+    "bobina de fibra",
+    "Escada principal",
+    "Escada de alumínio",
+    "martelete",
+    "kit FTTH",
+    "KIT EPI COMPLETO"
+]
 
-@app.get("/api/colaboradores/registros")
-def api_colaboradores_registros():
-    r = proteger_api()
-    if r:
-        return r
+def _normalizar_texto_alerta(valor):
+    if valor is None:
+        return ""
+    texto = str(valor).strip().lower()
+    texto = re.sub(r"\s+", " ", texto)
+    return texto
 
-    uid = usuario_id_atual()
+def _parse_datahora_registro(data_str, hora_str):
+    if not data_str or not hora_str:
+        return None
+
+    try:
+        data_base = str(data_str).split("T")[0]
+        hora_base = str(hora_str)[:5]
+        return datetime.strptime(f"{data_base} {hora_base}", "%Y-%m-%d %H:%M")
+    except Exception:
+        return None
+
+def _registro_aberto_alerta(registro):
+    if registro.get("horaSaida"):
+        return False
+    if str(registro.get("status") or "").strip().lower() == "finalizado":
+        return False
+    return bool(registro.get("horaEntrada"))
+
+def _horas_aberto_alerta(registro):
+    inicio = _parse_datahora_registro(registro.get("data"), registro.get("horaEntrada"))
+    if not inicio:
+        return 0.0
+    return (datetime.now() - inicio).total_seconds() / 3600.0
+
+def _obter_nomes_dupla_alerta(registro):
+    detalhe = registro.get("checklistEntradaDetalhe") or {}
+
+    dupla_ativa = (
+        detalhe.get("trabalhando_em_dupla_ou_mais") is True
+        or registro.get("trabalhandoEmDuplaOuMais") is True
+    )
+
+    nomes_brutos = (
+        registro.get("nomesDuplaOuMais")
+        or detalhe.get("nomes_dupla_ou_mais")
+        or ""
+    )
+
+    if not dupla_ativa or not nomes_brutos:
+        return []
+
+    return [
+        nome.strip()
+        for nome in re.split(r"[,;/|]+", str(nomes_brutos))
+        if nome and str(nome).strip()
+    ]
+
+def _itens_faltando_alerta(registro):
+    detalhe = registro.get("checklistEntradaDetalhe") or {}
+
+    itens = []
+    if isinstance(detalhe.get("itens_marcados"), list):
+        itens = detalhe.get("itens_marcados")
+    elif isinstance(detalhe.get("itens"), list):
+        itens = detalhe.get("itens")
+    elif isinstance(registro.get("checklistEntrada"), list):
+        itens = registro.get("checklistEntrada")
+
+    itens_normalizados = {_normalizar_texto_alerta(item) for item in itens if str(item).strip()}
+
+    faltando = []
+    for item_padrao in CHECKLIST_PADRAO_ALERTAS:
+        if _normalizar_texto_alerta(item_padrao) not in itens_normalizados:
+            faltando.append(item_padrao)
+
+    return faltando
+
+def _tem_observacao_alerta(registro):
+    detalhe = registro.get("checklistEntradaDetalhe") or {}
+
+    observacao_entrada = (
+        registro.get("observacaoEntrada")
+        or detalhe.get("observacao")
+        or ""
+    ).strip()
+
+    observacao_saida = (
+        registro.get("observacaoDanoSaida")
+        or ""
+    ).strip()
+
+    return observacao_entrada, observacao_saida
+
+def _titulo_data_hora_br(registro):
+    dt = _parse_datahora_registro(registro.get("data"), registro.get("horaEntrada"))
+    if not dt:
+        return registro.get("data") or "-"
+    return dt.strftime("%d/%m/%Y às %H:%M")
+
+def _buscar_registros_colaboradores(uid):
     conn = cur = None
 
-    def ajustar_fuso(dt):
-        return dt if dt else None
+    def _status_calculado(status_db, horario_inicio, horario_fim):
+        status_db = (status_db or "").strip().lower()
 
-    def formatar_hora(dt):
-        dt = ajustar_fuso(dt)
-        return dt.strftime("%H:%M") if dt else ""
+        if horario_inicio and horario_fim:
+            return "finalizado"
 
-    def formatar_data(inicio, fim):
-        dt = ajustar_fuso(inicio) or ajustar_fuso(fim)
-        return dt.date().isoformat() if dt else ""
+        if horario_inicio and not horario_fim:
+            return "em_andamento"
+
+        if status_db in ("finalizado", "em_andamento", "pendente"):
+            return status_db
+
+        return "pendente"
+
+    def _extrair_observacao_entrada(checklist_detalhe):
+        if not isinstance(checklist_detalhe, dict):
+            return ""
+        return str(checklist_detalhe.get("observacao") or "").strip()
+
+    def _extrair_dupla(checklist_detalhe):
+        if not isinstance(checklist_detalhe, dict):
+            return {
+                "trabalhando_em_dupla_ou_mais": None,
+                "nomes_dupla_ou_mais": ""
+            }
+
+        return {
+            "trabalhando_em_dupla_ou_mais": checklist_detalhe.get("trabalhando_em_dupla_ou_mais"),
+            "nomes_dupla_ou_mais": str(checklist_detalhe.get("nomes_dupla_ou_mais") or "").strip()
+        }
+
+    def _veiculo_danificado_entrada(checklist_detalhe):
+        if not isinstance(checklist_detalhe, dict):
+            return False
+
+        veiculo_perfeito = checklist_detalhe.get("veiculo_perfeito")
+        estado_veiculo = str(checklist_detalhe.get("estado_veiculo") or "").strip().lower()
+
+        if veiculo_perfeito is False:
+            return True
+
+        if estado_veiculo == "danificado":
+            return True
+
+        return False
 
     try:
         conn = get_db()
@@ -1988,23 +2124,25 @@ def api_colaboradores_registros():
         cur.execute(f"""
             SELECT
                 e.id,
-                m.nome,
-                v.modelo,
-                v.placa,
+                COALESCE(m.nome, '') AS colaborador_nome,
+                COALESCE(v.modelo, '') AS veiculo_modelo,
+                COALESCE(v.placa, '') AS veiculo_placa,
                 e.horario_inicio,
                 e.horario_fim,
-                e.status,
+                COALESCE(e.status, '') AS status_db,
                 e.checklist_entrada,
                 e.checklist_saida,
-                e.foto_entrada_url,
-                e.foto_saida_url,
+                COALESCE(e.foto_entrada_url, '') AS foto_entrada_url,
+                COALESCE(e.foto_saida_url, '') AS foto_saida_url,
                 {campo_foto_odometro} AS foto_odometro,
-                e.ajustado,
-                COALESCE(e.motivo_ajuste, ''),
+                COALESCE(e.ajustado, FALSE) AS ajustado,
+                COALESCE(e.motivo_ajuste, '') AS motivo_ajuste,
                 {campos_dano_saida}
             FROM expedientes e
-            LEFT JOIN motoristas m ON m.id = COALESCE(e.colaborador_id, e.motorista_id)
-            LEFT JOIN veiculos v ON v.id = e.veiculo_id
+            LEFT JOIN motoristas m
+                ON m.id = COALESCE(e.colaborador_id, e.motorista_id)
+            LEFT JOIN veiculos v
+                ON v.id = e.veiculo_id
             WHERE e.usuario_id = %s
             ORDER BY e.id DESC
         """, (uid,))
@@ -2012,30 +2150,307 @@ def api_colaboradores_registros():
         rows = cur.fetchall()
         data = []
 
-        for r in rows:
-            checklist_inicio = _normalizar_checklist_colaboradores(r[7])
-            checklist_fim = _normalizar_checklist_colaboradores(r[8])
+        for row in rows:
+            checklist_entrada_raw = row[7]
+            checklist_saida_raw = row[8]
 
-            fotos_dano_saida = _lista_fotos_dano_saida([r[16], r[17], r[18]])
+            checklist_entrada_lista = _normalizar_checklist_colaboradores(checklist_entrada_raw)
+            checklist_saida_lista = _normalizar_checklist_colaboradores(checklist_saida_raw)
+
+            checklist_entrada_detalhe = _normalizar_checklist_detalhe_colaboradores(checklist_entrada_raw)
+            checklist_saida_detalhe = _normalizar_checklist_detalhe_colaboradores(checklist_saida_raw)
+
+            fotos_dano_saida = _lista_fotos_dano_saida([row[16], row[17], row[18]])
+
+            dupla_info = _extrair_dupla(checklist_entrada_detalhe)
+            observacao_entrada = _extrair_observacao_entrada(checklist_entrada_detalhe)
+            veiculo_danificado_entrada = _veiculo_danificado_entrada(checklist_entrada_detalhe)
+
+            horario_inicio = row[4]
+            horario_fim = row[5]
+            status_final = _status_calculado(row[6], horario_inicio, horario_fim)
 
             data.append({
-                "id": r[0],
-                "colaborador": r[1],
-                "veiculo": r[2],
-                "placa": r[3],
-                "data": formatar_data(r[4], r[5]),
-                "horaEntrada": formatar_hora(r[4]),
-                "horaSaida": formatar_hora(r[5]),
-                "status": r[6],
-                "checklistEntrada": checklist_inicio,
-                "checklistSaida": checklist_fim,  # mantido por compatibilidade temporária
-                "fotoEntrada": r[9] or "",
-                "fotoSaida": r[10] or "",
-                "fotoOdometro": r[11] or "",
-                "ajustado": bool(r[12]),
-                "motivoAjuste": r[13] or "",
-                "veiculoDanificadoSaida": bool(r[14]),
-                "observacaoDanoSaida": r[15] or "",
+                "id": row[0],
+                "colaborador": row[1] or "",
+                "veiculo": row[2] or "",
+                "placa": row[3] or "",
+
+                "data": formatar_data(horario_inicio, horario_fim),
+                "horaEntrada": formatar_hora(horario_inicio),
+                "horaSaida": formatar_hora(horario_fim),
+                "status": status_final,
+
+                "checklistEntrada": checklist_entrada_lista,
+                "checklistSaida": checklist_saida_lista,
+
+                "checklistEntradaDetalhe": checklist_entrada_detalhe,
+                "checklistSaidaDetalhe": checklist_saida_detalhe,
+
+                "fotoEntrada": row[9] or "",
+                "fotoSaida": row[10] or "",
+                "fotoOdometro": row[11] or "",
+
+                "ajustado": bool(row[12]),
+                "motivoAjuste": row[13] or "",
+
+                "veiculoDanificadoEntrada": bool(veiculo_danificado_entrada),
+                "veiculoDanificadoSaida": bool(row[14]),
+                "observacaoEntrada": observacao_entrada,
+                "observacaoDanoSaida": row[15] or "",
+
+                "trabalhandoEmDuplaOuMais": dupla_info["trabalhando_em_dupla_ou_mais"],
+                "nomesDuplaOuMais": dupla_info["nomes_dupla_ou_mais"],
+
+                "fotosDanoSaida": fotos_dano_saida,
+                "fotoDanoSaida": fotos_dano_saida[0] if fotos_dano_saida else ""
+            })
+
+        return data
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+@app.get("/api/colaboradores/registros")
+def api_colaboradores_registros():
+    r = proteger_api()
+    if r:
+        return r
+
+    uid = usuario_id_atual()
+    conn = cur = None
+
+    def ajustar_fuso(dt):
+        if not dt:
+            return None
+
+        tz_br = ZoneInfo("America/Sao_Paulo")
+
+        # Se vier sem timezone, assume UTC para não jogar o registro no dia errado
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+
+        return dt.astimezone(tz_br)
+
+    def formatar_hora(dt):
+        dt = ajustar_fuso(dt)
+        return dt.strftime("%H:%M") if dt else ""
+
+    def formatar_data(inicio, fim):
+        dt = ajustar_fuso(inicio) or ajustar_fuso(fim)
+        return dt.date().isoformat() if dt else ""
+
+    def _status_calculado(status_db, horario_inicio, horario_fim):
+        status_db = (status_db or "").strip().lower()
+
+        if horario_inicio and horario_fim:
+            return "finalizado"
+
+        if horario_inicio and not horario_fim:
+            return "em_andamento"
+
+        if status_db in ("finalizado", "em_andamento", "pendente"):
+            return status_db
+
+        return "pendente"
+
+    def _extrair_observacao_entrada(checklist_detalhe):
+        if not isinstance(checklist_detalhe, dict):
+            return ""
+        return str(checklist_detalhe.get("observacao") or "").strip()
+
+    def _extrair_dupla(checklist_detalhe):
+        if not isinstance(checklist_detalhe, dict):
+            return {
+                "trabalhando_em_dupla_ou_mais": None,
+                "nomes_dupla_ou_mais": ""
+            }
+
+        return {
+            "trabalhando_em_dupla_ou_mais": checklist_detalhe.get("trabalhando_em_dupla_ou_mais"),
+            "nomes_dupla_ou_mais": str(checklist_detalhe.get("nomes_dupla_ou_mais") or "").strip()
+        }
+
+    def _veiculo_danificado_entrada(checklist_detalhe):
+        if not isinstance(checklist_detalhe, dict):
+            return False
+
+        veiculo_perfeito = checklist_detalhe.get("veiculo_perfeito")
+        estado_veiculo = str(checklist_detalhe.get("estado_veiculo") or "").strip().lower()
+
+        if veiculo_perfeito is False:
+            return True
+
+        if estado_veiculo == "danificado":
+            return True
+
+        return False
+
+    def _itens_faltando_checklist(checklist_detalhe):
+        checklist_padrao = [
+            "power meet pon",
+            "Step",
+            "Cones",
+            "bobina de fibra",
+            "Escada principal",
+            "Escada de alumínio",
+            "martelete",
+            "kit FTTH",
+            "KIT EPI COMPLETO"
+        ]
+
+        if not isinstance(checklist_detalhe, dict):
+            return []
+
+        itens_marcados = checklist_detalhe.get("itens_marcados") or checklist_detalhe.get("itens") or []
+        if not isinstance(itens_marcados, list):
+            itens_marcados = []
+
+        def norm(txt):
+            return str(txt or "").strip().lower()
+
+        marcados_norm = {norm(item) for item in itens_marcados if str(item).strip()}
+
+        faltando = []
+        for item in checklist_padrao:
+            if norm(item) not in marcados_norm:
+                faltando.append(item)
+
+        return faltando
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'expedientes'
+              AND column_name = 'foto_odometro_entrada_url'
+            LIMIT 1
+        """)
+        tem_foto_odometro = cur.fetchone() is not None
+
+        campo_foto_odometro = (
+            "COALESCE(e.foto_odometro_entrada_url, '')"
+            if tem_foto_odometro
+            else "''"
+        )
+
+        cur.execute("""
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'expedientes'
+              AND column_name = 'veiculo_danificado_saida'
+            LIMIT 1
+        """)
+        tem_dano_saida = cur.fetchone() is not None
+
+        if tem_dano_saida:
+            campos_dano_saida = """
+                COALESCE(e.veiculo_danificado_saida, FALSE),
+                COALESCE(e.observacao_dano_saida, ''),
+                COALESCE(e.foto_dano_saida_url_1, ''),
+                COALESCE(e.foto_dano_saida_url_2, ''),
+                COALESCE(e.foto_dano_saida_url_3, '')
+            """
+        else:
+            campos_dano_saida = """
+                FALSE,
+                '',
+                '',
+                '',
+                ''
+            """
+
+        cur.execute(f"""
+            SELECT
+                e.id,
+                COALESCE(m.nome, '') AS colaborador_nome,
+                COALESCE(v.modelo, '') AS veiculo_modelo,
+                COALESCE(v.placa, '') AS veiculo_placa,
+                e.horario_inicio,
+                e.horario_fim,
+                COALESCE(e.status, '') AS status_db,
+                e.checklist_entrada,
+                e.checklist_saida,
+                COALESCE(e.foto_entrada_url, '') AS foto_entrada_url,
+                COALESCE(e.foto_saida_url, '') AS foto_saida_url,
+                {campo_foto_odometro} AS foto_odometro,
+                COALESCE(e.ajustado, FALSE) AS ajustado,
+                COALESCE(e.motivo_ajuste, '') AS motivo_ajuste,
+                {campos_dano_saida}
+            FROM expedientes e
+            LEFT JOIN motoristas m
+                ON m.id = COALESCE(e.colaborador_id, e.motorista_id)
+            LEFT JOIN veiculos v
+                ON v.id = e.veiculo_id
+            WHERE e.usuario_id = %s
+            ORDER BY e.id DESC
+        """, (uid,))
+
+        rows = cur.fetchall()
+        data = []
+
+        for row in rows:
+            checklist_entrada_raw = row[7]
+            checklist_saida_raw = row[8]
+
+            checklist_entrada_lista = _normalizar_checklist_colaboradores(checklist_entrada_raw)
+            checklist_saida_lista = _normalizar_checklist_colaboradores(checklist_saida_raw)
+
+            checklist_entrada_detalhe = _normalizar_checklist_detalhe_colaboradores(checklist_entrada_raw)
+            checklist_saida_detalhe = _normalizar_checklist_detalhe_colaboradores(checklist_saida_raw)
+
+            fotos_dano_saida = _lista_fotos_dano_saida([row[16], row[17], row[18]])
+
+            dupla_info = _extrair_dupla(checklist_entrada_detalhe)
+            observacao_entrada = _extrair_observacao_entrada(checklist_entrada_detalhe)
+            veiculo_danificado_entrada = _veiculo_danificado_entrada(checklist_entrada_detalhe)
+            itens_faltando = _itens_faltando_checklist(checklist_entrada_detalhe)
+
+            horario_inicio = row[4]
+            horario_fim = row[5]
+            status_final = _status_calculado(row[6], horario_inicio, horario_fim)
+
+            data.append({
+                "id": row[0],
+                "colaborador": row[1] or "",
+                "veiculo": row[2] or "",
+                "placa": row[3] or "",
+
+                "data": formatar_data(horario_inicio, horario_fim),
+                "horaEntrada": formatar_hora(horario_inicio),
+                "horaSaida": formatar_hora(horario_fim),
+                "status": status_final,
+
+                "checklistEntrada": checklist_entrada_lista,
+                "checklistSaida": checklist_saida_lista,
+
+                "checklistEntradaDetalhe": checklist_entrada_detalhe,
+                "checklistSaidaDetalhe": checklist_saida_detalhe,
+
+                "fotoEntrada": row[9] or "",
+                "fotoSaida": row[10] or "",
+                "fotoOdometro": row[11] or "",
+
+                "ajustado": bool(row[12]),
+                "motivoAjuste": row[13] or "",
+
+                "veiculoDanificadoEntrada": bool(veiculo_danificado_entrada),
+                "veiculoDanificadoSaida": bool(row[14]),
+                "observacaoEntrada": observacao_entrada,
+                "observacaoDanoSaida": row[15] or "",
+
+                "trabalhandoEmDuplaOuMais": dupla_info["trabalhando_em_dupla_ou_mais"],
+                "nomesDuplaOuMais": dupla_info["nomes_dupla_ou_mais"],
+
+                "itensFaltandoChecklist": itens_faltando,
+                "temChecklistFaltando": len(itens_faltando) > 0,
+
                 "fotosDanoSaida": fotos_dano_saida,
                 "fotoDanoSaida": fotos_dano_saida[0] if fotos_dano_saida else ""
             })
@@ -2051,6 +2466,288 @@ def api_colaboradores_registros():
             cur.close()
         if conn:
             conn.close()
+    
+
+
+@app.get("/api/alertas")
+def api_alertas():
+    r = proteger_api()
+    if r:
+        return r
+
+    uid = usuario_id_atual()
+
+    try:
+        registros = _buscar_registros_colaboradores(uid)
+        alertas = []
+
+        def _parse_datahora_registro(data_str, hora_str):
+            if not data_str or not hora_str:
+                return None
+
+            try:
+                data_base = str(data_str).split("T")[0]
+                hora_base = str(hora_str)[:5]
+                return datetime.strptime(f"{data_base} {hora_base}", "%Y-%m-%d %H:%M")
+            except Exception:
+                return None
+
+        def _registro_aberto_alerta(registro):
+            if registro.get("horaSaida"):
+                return False
+            if str(registro.get("status") or "").strip().lower() == "finalizado":
+                return False
+            return bool(registro.get("horaEntrada"))
+
+        def _horas_aberto_alerta(registro):
+            inicio = _parse_datahora_registro(registro.get("data"), registro.get("horaEntrada"))
+            if not inicio:
+                return 0.0
+            return (datetime.now() - inicio).total_seconds() / 3600.0
+
+        def _obter_nomes_dupla_alerta(registro):
+            detalhe = registro.get("checklistEntradaDetalhe") or {}
+
+            dupla_ativa = (
+                detalhe.get("trabalhando_em_dupla_ou_mais") is True
+                or registro.get("trabalhandoEmDuplaOuMais") is True
+            )
+
+            nomes_brutos = (
+                registro.get("nomesDuplaOuMais")
+                or detalhe.get("nomes_dupla_ou_mais")
+                or ""
+            )
+
+            if not dupla_ativa or not nomes_brutos:
+                return []
+
+            return [
+                nome.strip()
+                for nome in re.split(r"[,;/|]+", str(nomes_brutos))
+                if nome and str(nome).strip()
+            ]
+
+        def _titulo_data_hora_br(registro, usar_saida=False):
+            hora_ref = registro.get("horaSaida") if usar_saida and registro.get("horaSaida") else registro.get("horaEntrada")
+            dt = _parse_datahora_registro(registro.get("data"), hora_ref)
+            if not dt:
+                return registro.get("data") or "-"
+            return dt.strftime("%d/%m/%Y às %H:%M")
+
+        def add_alerta(
+            alerta_id,
+            tipo,
+            expediente_id,
+            titulo,
+            texto,
+            data_hora,
+            colaborador="",
+            veiculo="",
+            placa="",
+            critico=False,
+            resolvivel=False,
+        ):
+            alertas.append({
+                "id": str(alerta_id),
+                "tipo": tipo,
+                "expediente_id": int(expediente_id),
+                "titulo": titulo,
+                "texto": texto,
+                "dataHora": data_hora.isoformat() if data_hora else "",
+                "critico": bool(critico),
+                "resolvivel": bool(resolvivel),
+                "meta": {
+                    "colaborador": colaborador or "",
+                    "veiculo": veiculo or "",
+                    "placa": placa or ""
+                }
+            })
+
+        for reg in registros:
+            colaborador = reg.get("colaborador") or "Colaborador"
+            veiculo = reg.get("veiculo") or "Veículo"
+            placa = reg.get("placa") or ""
+            expediente_id = reg.get("id")
+            data_hora_inicio = _parse_datahora_registro(reg.get("data"), reg.get("horaEntrada"))
+            data_hora_saida = _parse_datahora_registro(reg.get("data"), reg.get("horaSaida")) or data_hora_inicio
+
+            # COLABORADORES ATIVOS
+            if _registro_aberto_alerta(reg):
+                nomes_dupla = _obter_nomes_dupla_alerta(reg)
+
+                if nomes_dupla:
+                    texto = (
+                        f"{colaborador} iniciou expediente em {_titulo_data_hora_br(reg)} "
+                        f"e está em dupla com {', '.join(nomes_dupla)}."
+                    )
+                else:
+                    texto = f"{colaborador} iniciou expediente em {_titulo_data_hora_br(reg)}."
+
+                add_alerta(
+                    alerta_id=f"colaborador-ativo-{expediente_id}",
+                    tipo="colaboradores_ativos",
+                    expediente_id=expediente_id,
+                    titulo="Expediente em andamento",
+                    texto=texto,
+                    data_hora=data_hora_inicio,
+                    colaborador=colaborador,
+                    veiculo=veiculo,
+                    placa=placa,
+                    critico=False,
+                    resolvivel=False
+                )
+
+            # VEÍCULOS EM USO
+            if _registro_aberto_alerta(reg):
+                texto = f"O veículo {veiculo} {placa and f'({placa})' or ''} está vinculado a expediente em aberto."
+                add_alerta(
+                    alerta_id=f"veiculo-uso-{expediente_id}",
+                    tipo="veiculos_em_uso",
+                    expediente_id=expediente_id,
+                    titulo="Veículo em uso",
+                    texto=texto.strip(),
+                    data_hora=data_hora_inicio,
+                    colaborador=colaborador,
+                    veiculo=veiculo,
+                    placa=placa,
+                    critico=False,
+                    resolvivel=False
+                )
+
+            # CHECKLIST FALTANDO
+            itens_faltando = reg.get("itensFaltandoChecklist") or []
+            if itens_faltando:
+                texto = (
+                    f"No checklist de entrada de {colaborador}, faltaram os itens: "
+                    f"{', '.join(itens_faltando)}."
+                )
+                add_alerta(
+                    alerta_id=f"checklist-faltando-{expediente_id}",
+                    tipo="checklist_faltando",
+                    expediente_id=expediente_id,
+                    titulo="Checklist com equipamento faltando",
+                    texto=texto,
+                    data_hora=data_hora_inicio,
+                    colaborador=colaborador,
+                    veiculo=veiculo,
+                    placa=placa,
+                    critico=True,
+                    resolvivel=True
+                )
+
+            # VEÍCULO DANIFICADO NA ENTRADA
+            if reg.get("veiculoDanificadoEntrada") is True:
+                texto = f"No início do expediente de {colaborador}, o veículo foi informado como danificado."
+                add_alerta(
+                    alerta_id=f"dano-entrada-{expediente_id}",
+                    tipo="veiculo_danificado",
+                    expediente_id=expediente_id,
+                    titulo="Veículo danificado",
+                    texto=texto,
+                    data_hora=data_hora_inicio,
+                    colaborador=colaborador,
+                    veiculo=veiculo,
+                    placa=placa,
+                    critico=True,
+                    resolvivel=True
+                )
+
+            # VEÍCULO DANIFICADO NA SAÍDA
+            if reg.get("veiculoDanificadoSaida") is True:
+                if reg.get("veiculoDanificadoEntrada") is True:
+                    texto = (
+                        f"No encerramento do expediente de {colaborador}, o veículo foi informado novamente como danificado."
+                    )
+                else:
+                    texto = (
+                        f"No encerramento do expediente de {colaborador}, o veículo foi informado como danificado."
+                    )
+
+                add_alerta(
+                    alerta_id=f"dano-saida-{expediente_id}",
+                    tipo="veiculo_danificado",
+                    expediente_id=expediente_id,
+                    titulo="Veículo danificado",
+                    texto=texto,
+                    data_hora=data_hora_saida,
+                    colaborador=colaborador,
+                    veiculo=veiculo,
+                    placa=placa,
+                    critico=True,
+                    resolvivel=True
+                )
+
+            # OBSERVAÇÕES
+            observacao_entrada = str(reg.get("observacaoEntrada") or "").strip()
+            observacao_saida = str(reg.get("observacaoDanoSaida") or "").strip()
+
+            if observacao_entrada:
+                add_alerta(
+                    alerta_id=f"obs-entrada-{expediente_id}",
+                    tipo="observacoes",
+                    expediente_id=expediente_id,
+                    titulo="Observação registrada",
+                    texto=f'{colaborador} registrou a observação: "{observacao_entrada}".',
+                    data_hora=data_hora_inicio,
+                    colaborador=colaborador,
+                    veiculo=veiculo,
+                    placa=placa,
+                    critico=False,
+                    resolvivel=False
+                )
+
+            if observacao_saida:
+                add_alerta(
+                    alerta_id=f"obs-saida-{expediente_id}",
+                    tipo="observacoes",
+                    expediente_id=expediente_id,
+                    titulo="Observação registrada",
+                    texto=f'{colaborador} registrou a observação: "{observacao_saida}".',
+                    data_hora=data_hora_saida,
+                    colaborador=colaborador,
+                    veiculo=veiculo,
+                    placa=placa,
+                    critico=False,
+                    resolvivel=False
+                )
+
+            # PENDENTES
+            if _registro_aberto_alerta(reg) and _horas_aberto_alerta(reg) >= 11:
+                texto = (
+                    f"O expediente de {colaborador} permanece aberto há mais de 11 horas sem encerramento."
+                )
+                add_alerta(
+                    alerta_id=f"pendente-{expediente_id}",
+                    tipo="pendentes",
+                    expediente_id=expediente_id,
+                    titulo="Expediente pendente",
+                    texto=texto,
+                    data_hora=data_hora_inicio,
+                    colaborador=colaborador,
+                    veiculo=veiculo,
+                    placa=placa,
+                    critico=True,
+                    resolvivel=True
+                )
+
+        alertas.sort(
+            key=lambda a: a.get("dataHora") or "",
+            reverse=True
+        )
+
+        return jsonify({
+            "sucesso": True,
+            "alertas": alertas
+        }), 200
+
+    except Exception as e:
+        print("ERRO api_alertas:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": str(e)
+        }), 500
+
 
 # =========================
 # API COLABORADORES - PENDÊNCIAS
@@ -4460,7 +5157,94 @@ def api_dashboard():
         if conn:
             conn.close()
 
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import cm
 
+@app.get("/api/alertas/<int:alerta_id>/pdf")
+def gerar_pdf_alerta(alerta_id):
+    r = proteger_api()
+    if r:
+        return r
+
+    conn = cur = None
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        # 🔥 BUSCA DADOS DO EXPEDIENTE
+        cur.execute("""
+            SELECT
+                e.id,
+                m.nome,
+                v.modelo,
+                v.placa,
+                e.horario_inicio,
+                e.horario_fim,
+                e.observacao_dano_saida,
+                e.veiculo_danificado_saida,
+                e.foto_saida_url
+            FROM expedientes e
+            LEFT JOIN motoristas m ON m.id = e.colaborador_id
+            LEFT JOIN veiculos v ON v.id = e.veiculo_id
+            WHERE e.id = %s
+        """, (alerta_id,))
+
+        row = cur.fetchone()
+
+        if not row:
+            return jsonify({"erro": "Registro não encontrado"}), 404
+
+        buffer_path = f"/tmp/alerta_{alerta_id}.pdf"
+
+        doc = SimpleDocTemplate(buffer_path, pagesize=A4)
+        styles = getSampleStyleSheet()
+
+        story = []
+
+        # LOGO
+        logo_path = os.path.join(STATIC_DIR, "img", "logo.png")
+        if os.path.exists(logo_path):
+            story.append(Image(logo_path, width=4*cm, height=4*cm))
+
+        story.append(Spacer(1, 10))
+
+        story.append(Paragraph("<b>Relatório de Ocorrência - Nexar</b>", styles["Title"]))
+        story.append(Spacer(1, 10))
+
+        story.append(Paragraph(f"<b>Colaborador:</b> {row[1]}", styles["Normal"]))
+        story.append(Paragraph(f"<b>Veículo:</b> {row[2]}", styles["Normal"]))
+        story.append(Paragraph(f"<b>Placa:</b> {row[3]}", styles["Normal"]))
+
+        story.append(Spacer(1, 10))
+
+        story.append(Paragraph(f"<b>Entrada:</b> {row[4]}", styles["Normal"]))
+        story.append(Paragraph(f"<b>Saída:</b> {row[5]}", styles["Normal"]))
+
+        story.append(Spacer(1, 10))
+
+        story.append(Paragraph(f"<b>Veículo danificado:</b> {row[7]}", styles["Normal"]))
+        story.append(Paragraph(f"<b>Observação:</b> {row[6]}", styles["Normal"]))
+
+        story.append(Spacer(1, 20))
+
+        story.append(Paragraph("Contato: contatoagencianexar@gmail.com", styles["Normal"]))
+
+        doc.build(story)
+
+        return send_file(buffer_path, as_attachment=True)
+
+    except Exception as e:
+        print("ERRO PDF:", e)
+        return jsonify({"erro": str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
             
             # =========================
 # START
