@@ -309,33 +309,16 @@ function irParaColaboradores(alerta) {
 }
 
 function gerarPdfAlerta(alerta) {
-  if (!alerta) return;
+  if (!alerta || !alerta.expediente_id) {
+    console.error("Alerta inválido para PDF", alerta);
+    alert("Não foi possível gerar o PDF deste alerta.");
+    return;
+  }
 
-  const conteudo = `
-ALERTA OPERACIONAL
+  const url = `/api/alertas/pdf/${encodeURIComponent(alerta.expediente_id)}`;
 
-Tipo: ${nomeTipo[alerta.tipo] || alerta.tipo}
-Título: ${alerta.titulo || ""}
-Descrição: ${alerta.texto || ""}
-
-Colaborador: ${alerta.meta?.colaborador || ""}
-Veículo: ${alerta.meta?.veiculo || ""}
-Placa: ${alerta.meta?.placa || ""}
-Data/Hora: ${formatarDataHora(alerta.dataHora || "")}
-Expediente ID: ${alerta.expediente_id || ""}
-  `.trim();
-
-  const blob = new Blob([conteudo], { type: "application/pdf" });
-  const url = URL.createObjectURL(blob);
-
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `alerta-${alerta.id || "registro"}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  // força a chamada real da rota no backend, sem depender de popup
+  window.location.href = url;
 }
 
 function criarCard(alerta) {
