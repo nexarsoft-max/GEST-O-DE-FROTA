@@ -4,7 +4,7 @@ import hashlib
 import secrets 
 import json
 from datetime import timedelta, date, datetime
-
+from zoneinfo import ZoneInfo
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, g, send_file
 from werkzeug.security import check_password_hash, generate_password_hash
 from psycopg2 import errors
@@ -2224,7 +2224,16 @@ def api_colaboradores_registros():
     conn = cur = None
 
     def ajustar_fuso(dt):
-        return dt if dt else None
+        if not dt:
+            return None
+
+        tz_br = ZoneInfo("America/Sao_Paulo")
+
+        # Se vier sem timezone, assume UTC para não jogar o registro no dia errado
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+
+        return dt.astimezone(tz_br)
 
     def formatar_hora(dt):
         dt = ajustar_fuso(dt)
