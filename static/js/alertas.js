@@ -46,8 +46,6 @@ let tipoDestacado = obterTipoDaUrl();
 let abaAtual = "ativos";
 
 function inserirAbasSeNaoExistirem() {
-  // 🚫 NÃO CRIAR MAIS ABAS VIA JS
-  // As abas já existem no HTML
   return;
 }
 
@@ -203,7 +201,7 @@ function aplicarEstadoResolvido(alertas) {
 
 async function carregarAlertas() {
   const response = await fetch("/api/alertas", {
-    headers: { "Accept": "application/json" }
+    headers: { Accept: "application/json" }
   });
 
   const data = await response.json();
@@ -239,7 +237,6 @@ function atualizarResumo(alertas) {
 function obterAlertasFiltrados() {
   const termo = normalizarTexto(searchInput ? searchInput.value : "");
   const tipo = typeFilter ? typeFilter.value : "";
-  const status = statusFilter ? statusFilter.value : "ativos";
 
   return alertasBase.filter((alerta) => {
     const textoPesquisa = normalizarTexto([
@@ -253,18 +250,9 @@ function obterAlertasFiltrados() {
 
     const matchTexto = !termo || textoPesquisa.includes(termo);
     const matchTipo = !tipo || alerta.tipo === tipo;
+    const matchAba = abaAtual === "ativos" ? !alerta.resolvido : alerta.resolvido;
 
-    let matchStatus = true;
-    if (status === "ativos") matchStatus = !alerta.resolvido;
-    if (status === "resolvidos") matchStatus = alerta.resolvido;
-    if (status === "todos") matchStatus = true;
-
-    const matchAba =
-      abaAtual === "ativos"
-        ? !alerta.resolvido
-        : alerta.resolvido;
-
-    return matchTexto && matchTipo && matchStatus && matchAba;
+    return matchTexto && matchTipo && matchAba;
   });
 }
 
@@ -316,9 +304,39 @@ function gerarPdfAlerta(alerta) {
   }
 
   const url = `/api/alertas/pdf/${encodeURIComponent(alerta.expediente_id)}`;
-
-  // força a chamada real da rota no backend, sem depender de popup
   window.location.href = url;
+}
+
+async function resolverNoBackend(alerta) {
+  try {
+    await fetch("/api/alertas/resolver", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({
+        alerta_id: String(alerta.id),
+        tipo: String(alerta.tipo || ""),
+        expediente_id: alerta.expediente_id || null
+      })
+    });
+  } catch (e) {
+    console.warn("Falha ao resolver alerta no backend:", e);
+  }
+}
+
+async function desresolverNoBackend(alertaId) {
+  try {
+    await fetch(`/api/alertas/resolver/${encodeURIComponent(alertaId)}`, {
+      method: "DELETE",
+      headers: {
+        "Accept": "application/json"
+      }
+    });
+  } catch (e) {
+    console.warn("Falha ao desresolver alerta no backend:", e);
+  }
 }
 
 function criarCard(alerta) {
@@ -363,11 +381,9 @@ function criarCard(alerta) {
     </div>
 
     <div class="alert-actions">
-      ${alerta.resolvivel ? `
-        <button class="${botaoOkClasse}" data-action="toggle-ok" data-id="${alerta.id}">
-          ${botaoOkTexto}
-        </button>
-      ` : `<div></div>`}
+      <button class="${botaoOkClasse}" data-action="toggle-ok" data-id="${alerta.id}">
+        ${botaoOkTexto}
+      </button>
 
       ${critico ? `
         <button class="btn-pdf" data-action="pdf" data-id="${alerta.id}">
@@ -418,21 +434,27 @@ function renderizarAlertas() {
   });
 }
 
-function alternarResolvido(id) {
+async function alternarResolvido(id) {
+  const alerta = obterAlertaPorId(id);
+  if (!alerta) return;
+
   const resolvidos = obterResolvidos();
   const chave = String(id);
+  const estavaResolvido = !!resolvidos[chave];
 
-  if (resolvidos[chave]) {
+  if (estavaResolvido) {
     delete resolvidos[chave];
+    await desresolverNoBackend(chave);
   } else {
     resolvidos[chave] = true;
+    await resolverNoBackend(alerta);
   }
 
   salvarResolvidos(resolvidos);
 
-  alertasBase = alertasBase.map((alerta) => ({
-    ...alerta,
-    resolvido: !!resolvidos[String(alerta.id)]
+  alertasBase = alertasBase.map((item) => ({
+    ...item,
+    resolvido: !!resolvidos[String(item.id)]
   }));
 
   atualizarResumo(alertasBase);
@@ -446,13 +468,18 @@ function obterAlertaPorId(id) {
 function configurarEventos() {
   if (searchInput) searchInput.addEventListener("input", renderizarAlertas);
   if (typeFilter) typeFilter.addEventListener("change", renderizarAlertas);
-  if (statusFilter) statusFilter.addEventListener("change", renderizarAlertas);
+
+  if (statusFilter) {
+    statusFilter.addEventListener("change", () => {
+      renderizarAlertas();
+    });
+  }
 
   if (clearFiltersBtn) {
     clearFiltersBtn.addEventListener("click", () => {
       if (searchInput) searchInput.value = "";
       if (typeFilter) typeFilter.value = "";
-      if (statusFilter) statusFilter.value = "ativos";
+      if (statusFilter) statusFilter.value = "";
       abaAtual = "ativos";
 
       document.querySelectorAll(".aba-alerta").forEach((btn) => {
@@ -483,7 +510,7 @@ function configurarEventos() {
   });
 
   if (alertList) {
-    alertList.addEventListener("click", (event) => {
+    alertList.addEventListener("click", async (event) => {
       const botao = event.target.closest("button");
       const card = event.target.closest(".alert-card");
 
@@ -494,7 +521,7 @@ function configurarEventos() {
 
         if (action === "toggle-ok") {
           event.stopPropagation();
-          alternarResolvido(id);
+          await alternarResolvido(id);
           return;
         }
 

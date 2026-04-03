@@ -790,6 +790,120 @@ def localizacao_veiculo(veiculo_id):
             cur.close()
         if conn:
             conn.close()
+
+@app.post("/api/alertas/resolver")
+def api_alertas_resolver():
+    r = proteger_api()
+    if r:
+        return r
+
+    uid = usuario_id_atual()
+    dados = request.get_json(silent=True) or {}
+
+    alerta_id = str(dados.get("alerta_id") or "").strip()
+    alerta_tipo = str(dados.get("tipo") or "").strip()
+    expediente_id = dados.get("expediente_id")
+
+    if not alerta_id:
+        return jsonify({
+            "sucesso": False,
+            "erro": "alerta_id é obrigatório"
+        }), 400
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            INSERT INTO alertas_resolvidos (
+                usuario_id,
+                alerta_id,
+                alerta_tipo,
+                expediente_id,
+                resolvido_em
+            )
+            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (usuario_id, alerta_id)
+            DO UPDATE SET
+                alerta_tipo = EXCLUDED.alerta_tipo,
+                expediente_id = EXCLUDED.expediente_id,
+                resolvido_em = CURRENT_TIMESTAMP
+        """, (
+            uid,
+            alerta_id,
+            alerta_tipo if alerta_tipo else None,
+            int(expediente_id) if expediente_id else None
+        ))
+
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("ERRO api_alertas_resolver:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": str(e)
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.delete("/api/alertas/resolver/<path:alerta_id>")
+def api_alertas_desresolver(alerta_id):
+    r = proteger_api()
+    if r:
+        return r
+
+    uid = usuario_id_atual()
+    alerta_id = str(alerta_id or "").strip()
+
+    if not alerta_id:
+        return jsonify({
+            "sucesso": False,
+            "erro": "alerta_id inválido"
+        }), 400
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            DELETE FROM alertas_resolvidos
+            WHERE usuario_id = %s
+              AND alerta_id = %s
+        """, (uid, alerta_id))
+
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("ERRO api_alertas_desresolver:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": str(e)
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
             
 @app.get("/api/monitoramento/resumo")
 def api_monitoramento_resumo():
