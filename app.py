@@ -2596,7 +2596,6 @@ def api_colaboradores_registros():
             conn.close()
     
 
-
 @app.get("/api/alertas")
 def api_alertas():
     r = proteger_api()
@@ -2605,9 +2604,22 @@ def api_alertas():
 
     uid = usuario_id_atual()
 
+    conn = cur = None
     try:
         registros = _buscar_registros_colaboradores(uid)
+
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT alerta_id
+            FROM alertas_resolvidos
+            WHERE usuario_id = %s
+        """, (uid,))
+        resolvidos_ids = {str(row[0]) for row in cur.fetchall()}
+
         alertas = []
+        alertas_ids = set()
 
         def _parse_datahora_registro(data_str, hora_str):
             if not data_str or not hora_str:
@@ -2652,16 +2664,9 @@ def api_alertas():
 
             return [
                 nome.strip()
-                for nome in re.split(r"[,;/|]+", str(nomes_brutos))
+                for nome in re.split(r"[,/|;]+", str(nomes_brutos))
                 if nome and str(nome).strip()
             ]
-
-        def _titulo_data_hora_br(registro, usar_saida=False):
-            hora_ref = registro.get("horaSaida") if usar_saida and registro.get("horaSaida") else registro.get("horaEntrada")
-            dt = _parse_datahora_registro(registro.get("data"), hora_ref)
-            if not dt:
-                return registro.get("data") or "-"
-            return dt.strftime("%d/%m/%Y às %H:%M")
 
         def add_alerta(
             alerta_id,
@@ -2676,8 +2681,15 @@ def api_alertas():
             critico=False,
             resolvivel=False,
         ):
+            alerta_id = str(alerta_id)
+
+            if alerta_id in alertas_ids:
+                return
+
+            alertas_ids.add(alerta_id)
+
             alertas.append({
-                "id": str(alerta_id),
+                "id": alerta_id,
                 "tipo": tipo,
                 "expediente_id": int(expediente_id),
                 "titulo": titulo,
@@ -2685,6 +2697,7 @@ def api_alertas():
                 "dataHora": data_hora.isoformat() if data_hora else "",
                 "critico": bool(critico),
                 "resolvivel": bool(resolvivel),
+                "resolvido": alerta_id in resolvidos_ids,
                 "meta": {
                     "colaborador": colaborador or "",
                     "veiculo": veiculo or "",
@@ -2697,20 +2710,22 @@ def api_alertas():
             veiculo = reg.get("veiculo") or "Veículo"
             placa = reg.get("placa") or ""
             expediente_id = reg.get("id")
+
+            if not expediente_id:
+                continue
+
             data_hora_inicio = _parse_datahora_registro(reg.get("data"), reg.get("horaEntrada"))
             data_hora_saida = _parse_datahora_registro(reg.get("data"), reg.get("horaSaida")) or data_hora_inicio
 
-            # COLABORADORES ATIVOS
             if _registro_aberto_alerta(reg):
                 nomes_dupla = _obter_nomes_dupla_alerta(reg)
-
                 if nomes_dupla:
                     texto = (
-                        f"{colaborador} iniciou expediente em {_titulo_data_hora_br(reg)} "
+                        f"{colaborador} iniciou expediente em {reg.get('data')} às {reg.get('horaEntrada')} "
                         f"e está em dupla com {', '.join(nomes_dupla)}."
                     )
                 else:
-                    texto = f"{colaborador} iniciou expediente em {_titulo_data_hora_br(reg)}."
+                    texto = f"{colaborador} iniciou expediente em {reg.get('data')} às {reg.get('horaEntrada')}."
 
                 add_alerta(
                     alerta_id=f"colaborador-ativo-{expediente_id}",
@@ -2726,9 +2741,8 @@ def api_alertas():
                     resolvivel=False
                 )
 
-            # VEÍCULOS EM USO
             if _registro_aberto_alerta(reg):
-                texto = f"O veículo {veiculo} {placa and f'({placa})' or ''} está vinculado a expediente em aberto."
+                texto = f"O veículo {veiculo} {f'({placa})' if placa else ''} está vinculado a expediente em aberto."
                 add_alerta(
                     alerta_id=f"veiculo-uso-{expediente_id}",
                     tipo="veiculos_em_uso",
@@ -2743,18 +2757,14 @@ def api_alertas():
                     resolvivel=False
                 )
 
-            # CHECKLIST FALTANDO
             itens_faltando = reg.get("itensFaltandoChecklist") or []
             if itens_faltando:
-                texto = (
-                    f"No checklist de entrada de {colaborador}, faltaram os itens: "
-                    f"{', '.join(itens_faltando)}."
-                )
+                texto = f"No checklist de entrada de {colaborador}, faltaram os itens: {', '.join(itens_faltando)}."
                 add_alerta(
-                    alerta_id=f"checklist-faltando-{expediente_id}",
+                    alerta_id=f"checklist-{expediente_id}",
                     tipo="checklist_faltando",
                     expediente_id=expediente_id,
-                    titulo="Checklist com equipamento faltando",
+                    titulo="Checklist faltando equipamento",
                     texto=texto,
                     data_hora=data_hora_inicio,
                     colaborador=colaborador,
@@ -2764,7 +2774,6 @@ def api_alertas():
                     resolvivel=True
                 )
 
-            # VEÍCULO DANIFICADO NA ENTRADA
             if reg.get("veiculoDanificadoEntrada") is True:
                 texto = f"No início do expediente de {colaborador}, o veículo foi informado como danificado."
                 add_alerta(
@@ -2781,17 +2790,12 @@ def api_alertas():
                     resolvivel=True
                 )
 
-            # VEÍCULO DANIFICADO NA SAÍDA
             if reg.get("veiculoDanificadoSaida") is True:
-                if reg.get("veiculoDanificadoEntrada") is True:
-                    texto = (
-                        f"No encerramento do expediente de {colaborador}, o veículo foi informado novamente como danificado."
-                    )
-                else:
-                    texto = (
-                        f"No encerramento do expediente de {colaborador}, o veículo foi informado como danificado."
-                    )
-
+                texto = (
+                    f"No encerramento do expediente de {colaborador}, o veículo foi informado novamente como danificado."
+                    if reg.get("veiculoDanificadoEntrada") is True
+                    else f"No encerramento do expediente de {colaborador}, o veículo foi informado como danificado."
+                )
                 add_alerta(
                     alerta_id=f"dano-saida-{expediente_id}",
                     tipo="veiculo_danificado",
@@ -2806,7 +2810,6 @@ def api_alertas():
                     resolvivel=True
                 )
 
-            # OBSERVAÇÕES
             observacao_entrada = str(reg.get("observacaoEntrada") or "").strip()
             observacao_saida = str(reg.get("observacaoDanoSaida") or "").strip()
 
@@ -2840,11 +2843,8 @@ def api_alertas():
                     resolvivel=False
                 )
 
-            # PENDENTES
             if _registro_aberto_alerta(reg) and _horas_aberto_alerta(reg) >= 11:
-                texto = (
-                    f"O expediente de {colaborador} permanece aberto há mais de 11 horas sem encerramento."
-                )
+                texto = f"O expediente de {colaborador} permanece aberto há mais de 11 horas sem encerramento."
                 add_alerta(
                     alerta_id=f"pendente-{expediente_id}",
                     tipo="pendentes",
@@ -2859,10 +2859,7 @@ def api_alertas():
                     resolvivel=True
                 )
 
-        alertas.sort(
-            key=lambda a: a.get("dataHora") or "",
-            reverse=True
-        )
+        alertas.sort(key=lambda a: a.get("dataHora") or "", reverse=True)
 
         return jsonify({
             "sucesso": True,
@@ -2875,6 +2872,12 @@ def api_alertas():
             "sucesso": False,
             "erro": str(e)
         }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 @app.get("/api/alertas/pdf/<int:alerta_id>")
 def gerar_pdf_alerta(alerta_id):
