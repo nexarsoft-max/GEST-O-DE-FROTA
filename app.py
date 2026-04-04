@@ -3325,6 +3325,7 @@ def api_ajustar_ponto():
                 horario_inicio,
                 horario_fim,
                 status,
+                data,
                 COALESCE(foto_dano_saida_url_1, ''),
                 COALESCE(foto_dano_saida_url_2, ''),
                 COALESCE(foto_dano_saida_url_3, '')
@@ -3341,9 +3342,17 @@ def api_ajustar_ponto():
                 "erro": "Expediente não encontrado"
             }), 404
 
-        horario_inicio_atual, horario_fim_atual, status_atual, foto1_atual, foto2_atual, foto3_atual = row
+        (
+            horario_inicio_atual,
+            horario_fim_atual,
+            status_atual,
+            data_expediente,
+            foto1_atual,
+            foto2_atual,
+            foto3_atual
+        ) = row
 
-        def _combinar_data_com_hora(base_dt, hora_str):
+        def _parse_hora_texto(hora_str):
             if hora_str is None:
                 return None
 
@@ -3352,27 +3361,48 @@ def api_ajustar_ponto():
                 return None
 
             try:
-                hora_obj = datetime.strptime(texto, "%H:%M").time()
+                return datetime.strptime(texto, "%H:%M").time()
             except ValueError:
                 raise ValueError("Horário inválido. Use o formato HH:MM.")
 
-            base = base_dt if isinstance(base_dt, datetime) else datetime.utcnow()
-            return datetime.combine(base.date(), hora_obj)
+        def _combinar_data_com_hora(data_base, hora_str, dt_base=None):
+            hora_obj = _parse_hora_texto(hora_str)
+            if not hora_obj:
+                return None
+
+            if isinstance(data_base, datetime):
+                data_ref = data_base.date()
+            elif isinstance(data_base, date):
+                data_ref = data_base
+            elif isinstance(dt_base, datetime):
+                data_ref = dt_base.date()
+            else:
+                data_ref = date.today()
+
+            return datetime.combine(data_ref, hora_obj)
 
         campos = []
         valores = []
 
         if entrada:
-            base_inicio = horario_inicio_atual or horario_fim_atual or datetime.utcnow()
-            novo_horario_inicio = _combinar_data_com_hora(base_inicio, entrada)
-            campos.append("horario_inicio = %s")
-            valores.append(novo_horario_inicio)
+            novo_horario_inicio = _combinar_data_com_hora(
+                data_base=data_expediente,
+                hora_str=entrada,
+                dt_base=horario_inicio_atual or horario_fim_atual
+            )
+            if novo_horario_inicio is not None:
+                campos.append("horario_inicio = %s")
+                valores.append(novo_horario_inicio)
 
         if saida:
-            base_fim = horario_fim_atual or horario_inicio_atual or datetime.utcnow()
-            novo_horario_fim = _combinar_data_com_hora(base_fim, saida)
-            campos.append("horario_fim = %s")
-            valores.append(novo_horario_fim)
+            novo_horario_fim = _combinar_data_com_hora(
+                data_base=data_expediente,
+                hora_str=saida,
+                dt_base=horario_fim_atual or horario_inicio_atual
+            )
+            if novo_horario_fim is not None:
+                campos.append("horario_fim = %s")
+                valores.append(novo_horario_fim)
 
         if checklist_entrada is not None:
             checklist_entrada_json = _parse_checklist_json(checklist_entrada)
@@ -3432,9 +3462,18 @@ def api_ajustar_ponto():
 
         campos.append("ajustado = TRUE")
 
+        # mantém o fluxo atual de status sem quebrar
+        horario_fim_resultante = None
         if saida:
-            campos.append("status = 'finalizado'")
-        elif horario_fim_atual:
+            horario_fim_resultante = _combinar_data_com_hora(
+                data_base=data_expediente,
+                hora_str=saida,
+                dt_base=horario_fim_atual or horario_inicio_atual
+            )
+        else:
+            horario_fim_resultante = horario_fim_atual
+
+        if horario_fim_resultante:
             campos.append("status = 'finalizado'")
         else:
             campos.append("status = 'em_andamento'")
