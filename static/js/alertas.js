@@ -189,14 +189,7 @@ function montarMetaHtml(meta = {}) {
   return itens.join("");
 }
 
-function aplicarEstadoResolvido(alertas) {
-  const resolvidos = obterResolvidos();
 
-  return alertas.map((alerta) => ({
-    ...alerta,
-    resolvido: !!resolvidos[String(alerta.id)]
-  }));
-}
 
 async function carregarAlertas() {
   const response = await fetch("/api/alertas", {
