@@ -114,9 +114,16 @@
       </div>
 
       <div class="monitor-titulo">
-        <h2>Frota Disponível</h2>
-        <span class="pill" id="m_pill">0 veículos</span>
-      </div>
+  <h2>Frota Disponível</h2>
+
+  <div class="monitor-acoes">
+    <span class="pill" id="m_pill">0 veículos</span>
+
+    <a href="{{ url_for('mapa_geral') }}" class="btn-mapa-geral">
+      Ver Mapa Geral
+    </a>
+  </div>
+</div>
 
       <div class="monitor-grid" id="monitorGrid"></div>
 

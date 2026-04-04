@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapa Geral - Gestão de Frota</title>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/mapageral.css') }}">
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    crossorigin=""
+  >
+</head>
+<body>
+  <div class="container-principal">
+    <aside class="barra-lateral">
+      <div class="logo">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo">
+      </div>
+
+      <nav class="menu-novo">
+        <a href="{{ url_for('dashboard') }}" class="item-menu ativo">Executivo</a>
+        <a href="{{ url_for('geral_informacao') }}" class="item-menu">Registros</a>
+        <a href="{{ url_for('abastecimento') }}" class="item-menu">Registrar abastecimento</a>
+        <a href="{{ url_for('cadastro') }}" class="item-menu">Cadastrar</a>
+        <a href="{{ url_for('termos') }}" class="item-menu">Termos</a>
+        <a href="{{ url_for('logout') }}" class="item-menu sair">Sair</a>
+      </nav>
+    </aside>
+
+    <main class="conteudo mapa-geral-conteudo">
+      <header class="mapageral-topo">
+        <div class="mapageral-topo-texto">
+          <h1>Mapa Geral da Frota</h1>
+          <p>
+            Visualize todos os veículos em um único mapa, com acesso rápido ao rastreamento individual.
+          </p>
+        </div>
+
+        <div class="mapageral-topo-acoes">
+          <a href="{{ url_for('monitoramento') }}" class="btn-mapageral btn-mapageral-secundario">
+            Voltar ao Monitoramento
+          </a>
+        </div>
+      </header>
+
+      <section class="mapageral-resumo">
+        <div class="mapageral-card total">
+          <div class="mapageral-icone">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 11l1.4-4.2A2 2 0 0 1 8.3 5h7.4a2 2 0 0 1 1.9 1.8L19 11m-14 0h14m-14 0a2 2 0 0 0-2 2v3h2m14-5a2 2 0 0 1 2 2v3h-2m-11 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/>
+            </svg>
+          </div>
+          <div class="mapageral-card-texto">
+            <span>Total de Veículos</span>
+            <strong id="mg_total">0</strong>
+          </div>
+        </div>
+
+        <div class="mapageral-card moving">
+          <div class="mapageral-icone">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2l8 20-8-4-8 4 8-20zm0 6.5L9.8 14 12 13l2.2 1L12 8.5z"/>
+            </svg>
+          </div>
+          <div class="mapageral-card-texto">
+            <span>Em Movimento</span>
+            <strong id="mg_moving">0</strong>
+          </div>
+        </div>
+
+        <div class="mapageral-card stopped">
+          <div class="mapageral-icone">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 22s7-5.2 7-12A7 7 0 1 0 5 10c0 6.8 7 12 7 12zm0-9.5A2.5 2.5 0 1 0 12 7a2.5 2.5 0 0 0 0 5.5z"/>
+            </svg>
+          </div>
+          <div class="mapageral-card-texto">
+            <span>Parados</span>
+            <strong id="mg_stopped">0</strong>
+          </div>
+        </div>
+
+        <div class="mapageral-card offline">
+          <div class="mapageral-icone">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M2.8 3.5l18 18-1.3 1.3-2.3-2.3a9.8 9.8 0 0 1-5.2 1.5c-1.8 0-3.6-.5-5.2-1.5l2-2a7 7 0 0 0 8.9 0l-2.2-2.2a4 4 0 0 1-4.5 0l-2 2a9.7 9.7 0 0 1-2.8-3.2l2.3-2.3a7.2 7.2 0 0 0 4.1 2.4l-2-2a4.2 4.2 0 0 1-1.2-.7L3.5 4.8 2.8 3.5zm8.8 17.2l.4-.4.4.4-.8 0zM12 2c3.7 0 7.2 1.5 9.8 4.2l-2.3 2.3A10 10 0 0 0 12 6c-1.7 0-3.4.4-4.9 1.2L4.8 5A12 12 0 0 1 12 2z"/>
+            </svg>
+          </div>
+          <div class="mapageral-card-texto">
+            <span>Offline</span>
+            <strong id="mg_offline">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="mapageral-layout">
+        <div class="mapageral-mapa-painel">
+          <div class="mapageral-painel-topo">
+            <div>
+              <h2>Mapa da Operação</h2>
+              <p>Todos os veículos plotados em um único mapa.</p>
+            </div>
+            <span class="mapageral-pill" id="mg_pill">0 veículos</span>
+          </div>
+
+          <div class="mapageral-mapa-wrap">
+            <div class="mapageral-overlay">
+              <strong>Visualização Geral</strong>
+              <span>Clique em um veículo na lateral para focar no mapa.</span>
+            </div>
+            <div id="mapaGeral"></div>
+          </div>
+        </div>
+
+        <aside class="mapageral-lista-painel">
+          <div class="mapageral-painel-topo">
+            <div>
+              <h2>Veículos</h2>
+              <p>Busca rápida e foco individual.</p>
+            </div>
+          </div>
+
+          <div class="mapageral-busca-wrap">
+            <div class="mapageral-busca-input">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M10 2a8 8 0 1 1 5.3 14l4.2 4.2-1.4 1.4-4.2-4.2A8 8 0 0 1 10 2zm0 2a6 6 0 1 0 0 12 6 6 0 0 0 0-12z"/>
+              </svg>
+              <input
+                id="mapageralSearch"
+                type="text"
+                placeholder="Buscar por veículo, placa ou motorista..."
+              >
+            </div>
+          </div>
+
+          <div class="mapageral-lista" id="mapageralLista"></div>
+
+          <div id="mapageralEmpty" class="mapageral-vazio" style="display:none;">
+            Nenhum veículo encontrado.
+          </div>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    crossorigin=""
+  ></script>
+  <script src="{{ url_for('static', filename='js/mapageral.js') }}"></script>
+</body>
+</html>
