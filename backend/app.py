@@ -3310,12 +3310,11 @@ def api_ajustar_ponto():
                 "erro": "id é obrigatório"
             }), 400
 
-        if veiculo_danificado_saida is True:
-            if not observacao_dano_saida:
-                return jsonify({
-                    "sucesso": False,
-                    "erro": "Observação do dano é obrigatória quando o veículo estiver danificado"
-                }), 400
+        if veiculo_danificado_saida is True and not observacao_dano_saida:
+            return jsonify({
+                "sucesso": False,
+                "erro": "Observação do dano é obrigatória quando o veículo estiver danificado"
+            }), 400
 
         conn = get_db()
         cur = conn.cursor()
@@ -3370,6 +3369,9 @@ def api_ajustar_ponto():
             if not hora_obj:
                 return None
 
+            tz_br = ZoneInfo("America/Sao_Paulo")
+            tz_utc = ZoneInfo("UTC")
+
             if isinstance(data_base, datetime):
                 data_ref = data_base.date()
             elif isinstance(data_base, date):
@@ -3379,10 +3381,20 @@ def api_ajustar_ponto():
             else:
                 data_ref = date.today()
 
-            return datetime.combine(data_ref, hora_obj)
+            # Horário digitado pelo gestor é horário local do Brasil
+            dt_local = datetime.combine(data_ref, hora_obj).replace(tzinfo=tz_br)
+
+            # Converte para UTC para manter compatibilidade com o restante do sistema
+            dt_utc = dt_local.astimezone(tz_utc)
+
+            # Banco usa TIMESTAMP sem timezone
+            return dt_utc.replace(tzinfo=None)
 
         campos = []
         valores = []
+
+        novo_horario_inicio = None
+        novo_horario_fim = None
 
         if entrada:
             novo_horario_inicio = _combinar_data_com_hora(
@@ -3463,15 +3475,7 @@ def api_ajustar_ponto():
         campos.append("ajustado = TRUE")
 
         # mantém o fluxo atual de status sem quebrar
-        horario_fim_resultante = None
-        if saida:
-            horario_fim_resultante = _combinar_data_com_hora(
-                data_base=data_expediente,
-                hora_str=saida,
-                dt_base=horario_fim_atual or horario_inicio_atual
-            )
-        else:
-            horario_fim_resultante = horario_fim_atual
+        horario_fim_resultante = novo_horario_fim if novo_horario_fim is not None else horario_fim_atual
 
         if horario_fim_resultante:
             campos.append("status = 'finalizado'")
@@ -3522,7 +3526,6 @@ def api_ajustar_ponto():
             cur.close()
         if conn:
             conn.close()
-
 # =========================
 # API UPLOAD FOTO (S3)
 # =========================
