@@ -3381,13 +3381,10 @@ def api_ajustar_ponto():
             else:
                 data_ref = date.today()
 
-            # Horário digitado pelo gestor é horário local do Brasil
             dt_local = datetime.combine(data_ref, hora_obj).replace(tzinfo=tz_br)
-
-            # Converte para UTC para manter compatibilidade com o restante do sistema
             dt_utc = dt_local.astimezone(tz_utc)
 
-            # Banco usa TIMESTAMP sem timezone
+            # salva como TIMESTAMP sem timezone no banco
             return dt_utc.replace(tzinfo=None)
 
         campos = []
@@ -3447,7 +3444,6 @@ def api_ajustar_ponto():
                 campos.append("foto_dano_saida_url_3 = %s")
                 valores.append("")
 
-        # sobe novas fotos do dano, se vierem
         urls_finais = [foto1_atual or "", foto2_atual or "", foto3_atual or ""]
 
         if arquivos_dano:
@@ -3474,7 +3470,6 @@ def api_ajustar_ponto():
 
         campos.append("ajustado = TRUE")
 
-        # mantém o fluxo atual de status sem quebrar
         horario_fim_resultante = novo_horario_fim if novo_horario_fim is not None else horario_fim_atual
 
         if horario_fim_resultante:
