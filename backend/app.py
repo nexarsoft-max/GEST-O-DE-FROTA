@@ -1649,7 +1649,19 @@ def api_detalhe_expediente(expediente_id):
     conn = cur = None
 
     def ajustar_fuso(dt):
-        return dt if dt else None
+        if not dt:
+            return None
+
+        try:
+            tz_br = ZoneInfo("America/Sao_Paulo")
+            tz_utc = ZoneInfo("UTC")
+
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=tz_utc)
+
+            return dt.astimezone(tz_br)
+        except Exception:
+            return dt
 
     def formatar_hora(dt):
         dt = ajustar_fuso(dt)
@@ -1906,7 +1918,6 @@ def api_detalhe_expediente(expediente_id):
             conn.close()
             
             
-            
 @app.get("/api/mobile/terms/status")
 def api_mobile_terms_status():
     r = proteger_api_mobile()
@@ -2035,7 +2046,16 @@ def _ip_request():
 # =========================
 
 def ajustar_fuso(dt):
-    return dt if dt else None
+    if not dt:
+        return None
+
+    tz_br = ZoneInfo("America/Sao_Paulo")
+    tz_utc = ZoneInfo("UTC")
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=tz_utc)
+
+    return dt.astimezone(tz_br)
 
 
 def formatar_hora(dt):
@@ -2065,7 +2085,6 @@ def _normalizar_texto_alerta(valor):
     texto = str(valor).strip().lower()
     texto = re.sub(r"\s+", " ", texto)
     return texto
-
 def _parse_datahora_registro(data_str, hora_str):
     if not data_str or not hora_str:
         return None
@@ -2073,7 +2092,8 @@ def _parse_datahora_registro(data_str, hora_str):
     try:
         data_base = str(data_str).split("T")[0]
         hora_base = str(hora_str)[:5]
-        return datetime.strptime(f"{data_base} {hora_base}", "%Y-%m-%d %H:%M")
+        dt = datetime.strptime(f"{data_base} {hora_base}", "%Y-%m-%d %H:%M")
+        return dt.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
     except Exception:
         return None
 
@@ -2088,7 +2108,7 @@ def _horas_aberto_alerta(registro):
     inicio = _parse_datahora_registro(registro.get("data"), registro.get("horaEntrada"))
     if not inicio:
         return 0.0
-    return (datetime.now() - inicio).total_seconds() / 3600.0
+    
 
 def _obter_nomes_dupla_alerta(registro):
     detalhe = registro.get("checklistEntradaDetalhe") or {}
@@ -2628,7 +2648,8 @@ def api_alertas():
             try:
                 data_base = str(data_str).split("T")[0]
                 hora_base = str(hora_str)[:5]
-                return datetime.strptime(f"{data_base} {hora_base}", "%Y-%m-%d %H:%M")
+                dt = datetime.strptime(f"{data_base} {hora_base}", "%Y-%m-%d %H:%M")
+                return dt.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
             except Exception:
                 return None
 
@@ -2643,8 +2664,10 @@ def api_alertas():
             inicio = _parse_datahora_registro(registro.get("data"), registro.get("horaEntrada"))
             if not inicio:
                 return 0.0
-            return (datetime.now() - inicio).total_seconds() / 3600.0
 
+            agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
+            return (agora - inicio).total_seconds() / 3600.0
+        
         def _obter_nomes_dupla_alerta(registro):
             detalhe = registro.get("checklistEntradaDetalhe") or {}
 
@@ -2694,7 +2717,7 @@ def api_alertas():
                 "expediente_id": int(expediente_id),
                 "titulo": titulo,
                 "texto": texto,
-                "dataHora": data_hora.isoformat() if data_hora else "",
+                "dataHora": ajustar_fuso(data_hora).strftime("%d/%m/%Y %H:%M") if data_hora else "",
                 "critico": bool(critico),
                 "resolvivel": bool(resolvivel),
                 "resolvido": alerta_id in resolvidos_ids,

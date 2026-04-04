@@ -138,18 +138,7 @@ function normalizarTexto(valor) {
 }
 
 function formatarDataHora(valor) {
-  if (!valor) return "-";
-
-  const data = new Date(valor);
-  if (Number.isNaN(data.getTime())) return valor;
-
-  return data.toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
+  return valor || "-";
 }
 
 function classificaCritico(tipo) {
