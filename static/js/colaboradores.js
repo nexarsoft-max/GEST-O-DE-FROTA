@@ -952,45 +952,52 @@ function renderizarPreviewFoto(containerId, url, titulo) {
 }
 
 function obterResolvidos() {
-  try {
-    return JSON.parse(localStorage.getItem("gorota_alertas_resolvidos_v2") || "{}");
-  } catch {
-    return {};
-  }
+  return {};
 }
 
 async function carregarCardsViaAlertas() {
   try {
-    const res = await fetch("/api/alertas");
+    const res = await fetch("/api/alertas", {
+      headers: {
+        "Accept": "application/json"
+      }
+    });
+
     const data = await res.json();
 
-    if (!res.ok || data.sucesso === false) return;
+    if (!res.ok || data.sucesso === false) {
+      throw new Error(data.erro || "Erro ao carregar alertas para os cards");
+    }
 
-    const alertas = data.alertas || [];
-    const resolvidos = obterResolvidos();
+    const alertas = Array.isArray(data.alertas) ? data.alertas : [];
 
-    const ativos = alertas.filter(a => !resolvidos[a.id]);
+    const ativos = alertas.filter((a) => a.resolvido !== true);
 
-    const contar = (tipo) => ativos.filter(a => a.tipo === tipo).length;
+    const contar = (tipo) => ativos.filter((a) => a.tipo === tipo).length;
 
-    if (cardColaboradoresAtivos)
+    if (cardColaboradoresAtivos) {
       cardColaboradoresAtivos.textContent = contar("colaboradores_ativos") || "--";
+    }
 
-    if (cardVeiculosEmUso)
+    if (cardVeiculosEmUso) {
       cardVeiculosEmUso.textContent = contar("veiculos_em_uso") || "--";
+    }
 
-    if (cardChecklistFaltando)
+    if (cardChecklistFaltando) {
       cardChecklistFaltando.textContent = contar("checklist_faltando") || "--";
+    }
 
-    if (cardVeiculoDanificado)
+    if (cardVeiculoDanificado) {
       cardVeiculoDanificado.textContent = contar("veiculo_danificado") || "--";
+    }
 
-    if (cardObservacoes)
+    if (cardObservacoes) {
       cardObservacoes.textContent = contar("observacoes") || "--";
+    }
 
-    if (cardPendencias)
+    if (cardPendencias) {
       cardPendencias.textContent = contar("pendentes") || "--";
-
+    }
   } catch (e) {
     console.error("Erro ao carregar cards via alertas:", e);
   }

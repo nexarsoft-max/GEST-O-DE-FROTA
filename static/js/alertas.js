@@ -110,15 +110,14 @@ function obterTipoDaUrl() {
 }
 
 function obterResolvidos() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-  } catch {
-    return {};
-  }
+  return {};
 }
 
-function salvarResolvidos(obj) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+function aplicarEstadoResolvido(alertas) {
+  return alertas.map((alerta) => ({
+    ...alerta,
+    resolvido: alerta.resolvido === true
+  }));
 }
 
 function escapeHtml(texto) {
@@ -308,35 +307,44 @@ function gerarPdfAlerta(alerta) {
 }
 
 async function resolverNoBackend(alerta) {
-  try {
-    await fetch("/api/alertas/resolver", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify({
-        alerta_id: String(alerta.id),
-        tipo: String(alerta.tipo || ""),
-        expediente_id: alerta.expediente_id || null
-      })
-    });
-  } catch (e) {
-    console.warn("Falha ao resolver alerta no backend:", e);
+  const response = await fetch("/api/alertas/resolver", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: JSON.stringify({
+      alerta_id: String(alerta.id),
+      tipo: String(alerta.tipo || ""),
+      expediente_id: alerta.expediente_id || null
+    })
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data.sucesso === false) {
+    throw new Error(data.erro || "Falha ao resolver alerta no backend");
   }
+
+  return data;
 }
 
+
 async function desresolverNoBackend(alertaId) {
-  try {
-    await fetch(`/api/alertas/resolver/${encodeURIComponent(alertaId)}`, {
-      method: "DELETE",
-      headers: {
-        "Accept": "application/json"
-      }
-    });
-  } catch (e) {
-    console.warn("Falha ao desresolver alerta no backend:", e);
+  const response = await fetch(`/api/alertas/resolver/${encodeURIComponent(alertaId)}`, {
+    method: "DELETE",
+    headers: {
+      "Accept": "application/json"
+    }
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data.sucesso === false) {
+    throw new Error(data.erro || "Falha ao desresolver alerta no backend");
   }
+
+  return data;
 }
 
 function criarCard(alerta) {
@@ -438,27 +446,29 @@ async function alternarResolvido(id) {
   const alerta = obterAlertaPorId(id);
   if (!alerta) return;
 
-  const resolvidos = obterResolvidos();
-  const chave = String(id);
-  const estavaResolvido = !!resolvidos[chave];
+  try {
+    if (alerta.resolvido) {
+      await desresolverNoBackend(String(id));
+      abaAtual = "ativos";
+    } else {
+      await resolverNoBackend(alerta);
+      abaAtual = "historico";
+    }
 
-  if (estavaResolvido) {
-    delete resolvidos[chave];
-    await desresolverNoBackend(chave);
-  } else {
-    resolvidos[chave] = true;
-    await resolverNoBackend(alerta);
+    alertasBase = await carregarAlertas();
+    atualizarResumo(alertasBase);
+    renderizarAlertas();
+
+    document.querySelectorAll(".aba-alerta").forEach((btn) => {
+      btn.classList.remove("ativa");
+      if (btn.dataset.tab === abaAtual) {
+        btn.classList.add("ativa");
+      }
+    });
+  } catch (e) {
+    console.error("Erro ao alternar alerta resolvido:", e);
+    alert("Não foi possível atualizar o alerta.");
   }
-
-  salvarResolvidos(resolvidos);
-
-  alertasBase = alertasBase.map((item) => ({
-    ...item,
-    resolvido: !!resolvidos[String(item.id)]
-  }));
-
-  atualizarResumo(alertasBase);
-  renderizarAlertas();
 }
 
 function obterAlertaPorId(id) {
