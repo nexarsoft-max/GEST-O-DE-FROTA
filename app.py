@@ -4765,14 +4765,13 @@ def api_postos():
 def receber_localizacao_rastreador():
     dados = request.get_json(silent=True) or {}
 
-    # 🔥 O rastreador normalmente manda algo assim:
-    identificador = dados.get("placa") or dados.get("imei")
+    placa = (dados.get("placa") or "").strip().upper()
     lat = dados.get("lat")
     lng = dados.get("lng")
     velocidade = dados.get("velocidade")
     endereco = dados.get("endereco")
 
-    if not identificador or lat is None or lng is None:
+    if not placa or lat is None or lng is None:
         return jsonify({"erro": "Dados incompletos"}), 400
 
     conn = cur = None
@@ -4780,14 +4779,14 @@ def receber_localizacao_rastreador():
         conn = get_db()
         cur = conn.cursor()
 
-        # 🔥 acha veículo pelo identificador
         cur.execute("""
             SELECT id, usuario_id
             FROM veiculos
             WHERE placa = %s
-        """, (identificador,))
-
+            LIMIT 1
+        """, (placa,))
         row = cur.fetchone()
+
         if not row:
             return jsonify({"erro": "Veículo não encontrado"}), 404
 
@@ -4813,13 +4812,12 @@ def receber_localizacao_rastreador():
         ))
 
         conn.commit()
-
-        return jsonify({"sucesso": True})
+        return jsonify({"sucesso": True}), 200
 
     except Exception as e:
         if conn:
             conn.rollback()
-        print("ERRO rastreador:", e)
+        print("ERRO rastreador:", e, flush=True)
         return jsonify({"erro": str(e)}), 500
 
     finally:
@@ -4829,70 +4827,6 @@ def receber_localizacao_rastreador():
             conn.close()
 
 
-
-@app.post("/api/rastreador/localizacao")
-def receber_localizacao_rastreador():
-    dados = request.get_json(silent=True) or {}
-
-    placa = dados.get("placa")
-    lat = dados.get("lat")
-    lng = dados.get("lng")
-    velocidade = dados.get("velocidade")
-
-    if not placa or lat is None or lng is None:
-        return jsonify({"erro": "Dados incompletos"}), 400
-
-    conn = cur = None
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-
-        # 🔥 busca veículo
-        cur.execute("""
-            SELECT id, usuario_id
-            FROM veiculos
-            WHERE placa = %s
-        """, (placa,))
-
-        row = cur.fetchone()
-        if not row:
-            return jsonify({"erro": "Veículo não encontrado"}), 404
-
-        veiculo_id, usuario_id = row
-
-        # 🔥 salva localização
-        cur.execute("""
-            INSERT INTO veiculos_localizacao (
-                usuario_id,
-                veiculo_id,
-                latitude,
-                longitude,
-                velocidade_kmh
-            )
-            VALUES (%s, %s, %s, %s, %s)
-        """, (
-            usuario_id,
-            veiculo_id,
-            float(lat),
-            float(lng),
-            float(velocidade or 0)
-        ))
-
-        conn.commit()
-
-        return jsonify({"sucesso": True})
-
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        print("ERRO rastreador:", e)
-        return jsonify({"erro": str(e)}), 500
-
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
 
             
 @app.get("/api/veiculos/<int:veiculo_id>/percurso")
