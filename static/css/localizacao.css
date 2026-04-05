@@ -294,3 +294,27 @@ body{
     grid-template-columns: 1fr;
   }
 }
+
+#mapaIndividual{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  z-index:1;
+  border:0;
+}
+
+.map-area.sem-gps #mapaIndividual{
+  display:none;
+}
+
+.map-overlay{
+  z-index:2;
+  pointer-events:none;
+}
+
+.map-overlay .coords,
+.map-overlay .map-info,
+.map-overlay .map-pin{
+  pointer-events:none;
+}

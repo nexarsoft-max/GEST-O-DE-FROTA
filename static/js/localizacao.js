@@ -1,4 +1,8 @@
 (function init() {
+  const MAPTILER_KEY = "5nbVfauzMVPTkqi3q0iz";
+  let mapaIndividual = null;
+  let marcadorVeiculo = null;
+
   let v = null;
   const dataEl = document.getElementById("loc-data");
 
@@ -12,6 +16,10 @@
 
   if (!v && window.VEICULO_ATUAL) {
     v = window.VEICULO_ATUAL;
+  }
+
+  if (!v) {
+    v = {};
   }
 
   const nome = v?.nome || v?.modelo || "Veículo";
@@ -44,8 +52,14 @@
   }
 
   applyStatus(status);
-  setMap(lat, lng, endereco);
+  setMap(lat, lng, endereco, nome, placa, status);
   configurarBotaoPercurso(lat, lng);
+
+  window.addEventListener("resize", () => {
+    if (mapaIndividual) {
+      mapaIndividual.invalidateSize();
+    }
+  });
 
   function byId(id) {
     return document.getElementById(id);
@@ -134,42 +148,96 @@
     }
   }
 
-  function setMap(lat, lng, enderecoAtual) {
+  function corStatusMapa(statusAtual) {
+    const s = String(statusAtual || "").toLowerCase();
+
+    if (s === "moving" || s === "em movimento") return "#16a34a";
+    if (s === "stopped" || s === "parado") return "#d97706";
+    return "#dc2626";
+  }
+
+  function criarIconeCarro(statusAtual) {
+    const cor = corStatusMapa(statusAtual);
+
+    return L.divIcon({
+      className: "marcador-veiculo-individual",
+      html: `
+        <div style="
+          width: 44px;
+          height: 44px;
+          border-radius: 999px;
+          background: #ffffff;
+          border: 2px solid ${cor};
+          box-shadow: 0 10px 22px rgba(15, 23, 42, 0.20);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        ">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="display:block;">
+            <path fill="${cor}" d="M5 11l1.4-4.2A2 2 0 0 1 8.3 5h7.4a2 2 0 0 1 1.9 1.8L19 11m-14 0h14m-14 0a2 2 0 0 0-2 2v3h2m14-5a2 2 0 0 1 2 2v3h-2m-11 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/>
+          </svg>
+        </div>
+      `,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22],
+      popupAnchor: [0, -18]
+    });
+  }
+
+  function setMap(latAtual, lngAtual, enderecoAtual, nomeAtual, placaAtual, statusAtual) {
     const mapArea = byId("mapArea");
-    const mapFrame = byId("mapFrame");
+    const mapBox = byId("mapaIndividual");
     const semGpsTexto = byId("semGpsTexto");
 
-    if (!mapArea || !mapFrame) return;
+    if (!mapArea || !mapBox) return;
 
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      mapArea.classList.remove("sem-gps");
-      if (semGpsTexto) semGpsTexto.style.display = "none";
-
-      const bbox = `${lng - 0.01}%2C${lat - 0.01}%2C${lng + 0.01}%2C${lat + 0.01}`;
-      const marker = `${lat}%2C${lng}`;
-
-      mapFrame.src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${marker}`;
-      mapFrame.style.display = "block";
+    if (!Number.isFinite(latAtual) || !Number.isFinite(lngAtual)) {
+      mapArea.classList.add("sem-gps");
+      if (semGpsTexto) semGpsTexto.style.display = "block";
+      byId("enderecoText").textContent = enderecoAtual || "Localização indisponível no momento";
       return;
     }
 
-    mapArea.classList.add("sem-gps");
-    mapFrame.removeAttribute("src");
-    mapFrame.style.display = "none";
+    mapArea.classList.remove("sem-gps");
+    if (semGpsTexto) semGpsTexto.style.display = "none";
 
-    if (semGpsTexto) {
-      semGpsTexto.style.display = "block";
-    }
+    mapaIndividual = L.map("mapaIndividual", {
+      zoomControl: true
+    }).setView([latAtual, lngAtual], 16);
 
-    byId("enderecoText").textContent = enderecoAtual || "Localização indisponível no momento";
+    L.tileLayer(`https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=${MAPTILER_KEY}`, {
+      tileSize: 512,
+      zoomOffset: -1,
+      maxZoom: 20,
+      attribution: '&copy; MapTiler &copy; OpenStreetMap contributors'
+    }).addTo(mapaIndividual);
+
+    marcadorVeiculo = L.marker([latAtual, lngAtual], {
+      icon: criarIconeCarro(statusAtual)
+    }).addTo(mapaIndividual);
+
+    marcadorVeiculo.bindPopup(`
+      <div style="min-width:220px;">
+        <strong style="display:block;font-size:14px;color:#0f172a;">${escapeHtml(nomeAtual || "Veículo")}</strong>
+        <div style="margin-top:6px;font-size:12px;color:#475569;"><b>Placa:</b> ${escapeHtml(placaAtual || "—")}</div>
+        <div style="margin-top:4px;font-size:12px;color:#475569;"><b>Status:</b> ${escapeHtml(byId("statusText").textContent || "Offline")}</div>
+        <div style="margin-top:4px;font-size:12px;color:#475569;"><b>Endereço:</b> ${escapeHtml(enderecoAtual || "Localização indisponível")}</div>
+      </div>
+    `);
+
+    marcadorVeiculo.openPopup();
+
+    setTimeout(() => {
+      mapaIndividual.invalidateSize();
+    }, 200);
   }
 
-  function configurarBotaoPercurso(lat, lng) {
+  function configurarBotaoPercurso(latAtual, lngAtual) {
     const btn = byId("btnPercurso");
     if (!btn) return;
 
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      btn.href = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    if (Number.isFinite(latAtual) && Number.isFinite(lngAtual)) {
+      btn.href = `https://www.google.com/maps/dir/?api=1&destination=${latAtual},${lngAtual}`;
       btn.target = "_blank";
       btn.rel = "noopener";
       return;
@@ -180,5 +248,14 @@
       e.preventDefault();
       alert("Ainda não existe posição real do veículo para gerar o percurso.");
     });
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 })();

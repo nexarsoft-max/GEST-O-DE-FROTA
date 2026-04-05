@@ -6,6 +6,11 @@
   <title>Localização do Veículo</title>
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/localizacao.css') }}">
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    crossorigin=""
+  />
 </head>
 <body>
 
@@ -42,12 +47,7 @@
     <div class="content">
       <section class="map-card">
         <div class="map-area" id="mapArea">
-          <iframe
-            id="mapFrame"
-            title="Mapa"
-            loading="lazy"
-            referrerpolicy="no-referrer-when-downgrade">
-          </iframe>
+          <div id="mapaIndividual"></div>
 
           <div class="map-overlay">
             <div class="map-pin" id="mapPinIcon" aria-hidden="true"></div>
@@ -118,9 +118,10 @@
             <a class="btn primary" id="btnPercurso" href="#">
               🛣️ Percurso
             </a>
-<a class="btn ghost" href="{{ url_for('mapageral') }}">
-  Ver mapa geral
-</a>
+
+            <a class="btn ghost" href="{{ url_for('mapageral') }}">
+              Ver mapa geral
+            </a>
 
             <a class="btn ghost" href="{{ url_for('monitoramento') }}">
               ← Voltar
@@ -131,6 +132,10 @@
     </div>
   </div>
 
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    crossorigin=""
+  ></script>
   <script src="{{ url_for('static', filename='js/localizacao.js') }}"></script>
 </body>
 </html>

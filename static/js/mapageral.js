@@ -384,7 +384,7 @@ function mgCriarMapa() {
     padding: MAPA_CONFIG.paddingBounds
   });
 
-  L.tileLayer(`https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`, {
+  L.tileLayer(`https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=${MAPTILER_KEY}`, {
     tileSize: 512,
     zoomOffset: -1,
     maxZoom: 20,
