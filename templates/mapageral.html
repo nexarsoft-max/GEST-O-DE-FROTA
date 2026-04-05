@@ -31,24 +31,33 @@
       </nav>
     </aside>
 
+        <header class="topo monitor-topo">
+      <div>
+        <h1>Visão Executiva</h1>
+      </div>
+
+   <div class="topo-botoes">
+  <a class="item-menu" href="{{ url_for('dashboard') }}">
+    Consumo
+  </a>
+
+  <a class="item-menu ativo" href="{{ url_for('monitoramento') }}">
+    Monitoramento
+  </a>
+
+  <a class="item-menu" href="{{ url_for('colaboradores') }}">
+    Colaboradores
+  </a>
+
+  <a class="item-menu " href="{{ url_for('alertas') }}">
+          Alertas
+        </a>
+</div>
+    </header>
+
+
     <main class="conteudo mapa-geral-conteudo">
-      <header class="mapageral-topo">
-        <div class="mapageral-topo-texto">
-          <span class="mapageral-chip">Monitoramento avançado</span>
-          <h1>Mapa Geral da Frota</h1>
-          <p>
-            Visualize toda a operação em um único mapa, acompanhe os veículos disponíveis
-            e acesse rapidamente o rastreamento individual.
-          </p>
-        </div>
-
-        <div class="mapageral-topo-acoes">
-          <a href="{{ url_for('monitoramento') }}" class="btn-mapageral btn-mapageral-secundario">
-            ← Voltar ao Monitoramento
-          </a>
-        </div>
-      </header>
-
+      
       <section class="mapageral-resumo">
         <div class="mapageral-card total">
           <div class="mapageral-icone">

@@ -716,7 +716,7 @@ def monitoramento():
     r = proteger_pagina()
     if r:
         return r
-    return render_template("monitoramento.html")
+    return render_template("mapageral.html")
 
 
 @app.route("/mapageral")
@@ -733,12 +733,7 @@ def colaboradores():
         return r
     return render_template("colaboradores.html")
 
-@app.get("/mapa-geral")
-def mapa_geral():
-    r = proteger_pagina()
-    if r:
-        return r
-    return render_template("mapa_geral.html")
+
 
 @app.get("/alertas")
 def alertas():
