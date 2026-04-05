@@ -721,10 +721,9 @@ def monitoramento():
 
 @app.route("/mapageral")
 def mapageral():
-    r = proteger_api()
+    r = proteger_pagina()
     if r:
         return r
-
     return render_template("mapageral.html")
 
 @app.get("/colaboradores")

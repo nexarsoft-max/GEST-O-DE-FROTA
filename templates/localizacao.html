@@ -93,19 +93,6 @@
           </div>
 
           <div class="info-row">
-            <div class="info-icon purple">⛽</div>
-            <div class="info-col grow">
-              <div class="line">
-                <div class="label">Nível de Combustível</div>
-                <div class="value" id="combValue">—</div>
-              </div>
-              <div class="progress">
-                <div class="bar" id="combBar" style="width:0%"></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="info-row">
             <div class="info-icon purple">🕒</div>
             <div class="info-col">
               <div class="label">Última Atualização</div>
@@ -128,11 +115,11 @@
         <section class="card">
           <h3>Ações Rápidas</h3>
           <div class="actions">
-            <a class="btn primary" id="btnContato" href="#" target="_blank" rel="noopener">
-              ☎️ Contatar Motorista
+            <a class="btn primary" id="btnPercurso" href="#">
+              🛣️ Percurso
             </a>
 
-            <a class="btn ghost" href="{{ url_for('mapa_geral') }}">
+            <a class="btn ghost" href="{{ url_for('mapageral') }}">
               Ver mapa geral
             </a>
 

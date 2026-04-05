@@ -34,15 +34,17 @@
     <main class="conteudo mapa-geral-conteudo">
       <header class="mapageral-topo">
         <div class="mapageral-topo-texto">
+          <span class="mapageral-chip">Monitoramento avançado</span>
           <h1>Mapa Geral da Frota</h1>
           <p>
-            Visualize todos os veículos em um único mapa, com acesso rápido ao rastreamento individual.
+            Visualize toda a operação em um único mapa, acompanhe os veículos disponíveis
+            e acesse rapidamente o rastreamento individual.
           </p>
         </div>
 
         <div class="mapageral-topo-acoes">
           <a href="{{ url_for('monitoramento') }}" class="btn-mapageral btn-mapageral-secundario">
-            Voltar ao Monitoramento
+            ← Voltar ao Monitoramento
           </a>
         </div>
       </header>
@@ -101,17 +103,23 @@
         <div class="mapageral-mapa-painel">
           <div class="mapageral-painel-topo">
             <div>
-              <h2>Mapa da Operação</h2>
-              <p>Todos os veículos plotados em um único mapa.</p>
+              <h2>Visão Geral do Mapa</h2>
+              <p>Área completa da operação para visualizar todos os veículos disponíveis.</p>
             </div>
-            <span class="mapageral-pill" id="mg_pill">0 veículos</span>
+
+            <div class="mapageral-painel-topo-direita">
+              <span class="mapageral-pill" id="mg_pill">0 veículos</span>
+            </div>
           </div>
 
           <div class="mapageral-mapa-wrap">
             <div class="mapageral-overlay">
-              <strong>Visualização Geral</strong>
-              <span>Clique em um veículo na lateral para focar no mapa.</span>
+              <strong>Mapa inteligente da frota</strong>
+              <span>
+                Veículos com localização real serão exibidos automaticamente no mapa.
+              </span>
             </div>
+
             <div id="mapaGeral"></div>
           </div>
         </div>
@@ -119,8 +127,8 @@
         <aside class="mapageral-lista-painel">
           <div class="mapageral-painel-topo">
             <div>
-              <h2>Veículos</h2>
-              <p>Busca rápida e foco individual.</p>
+              <h2>Lista de Veículos</h2>
+              <p>Busque, filtre e clique para focar rapidamente no mapa.</p>
             </div>
           </div>
 
@@ -132,7 +140,7 @@
               <input
                 id="mapageralSearch"
                 type="text"
-                placeholder="Buscar por veículo, placa ou motorista..."
+                placeholder="Buscar por veículo, placa, cidade ou motorista..."
               >
             </div>
           </div>

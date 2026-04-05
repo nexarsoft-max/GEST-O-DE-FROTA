@@ -492,3 +492,57 @@
     padding:0 14px;
   }
 }
+
+
+.monitor-acoes{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.btn-mapa-geral{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  height:44px;
+  padding:0 18px;
+  border-radius:14px;
+  font-size:13px;
+  font-weight:900;
+  text-decoration:none;
+  color:#fff;
+  background:linear-gradient(135deg, var(--roxo1), var(--roxo2));
+  border:1px solid rgba(111,44,255,.18);
+  box-shadow:0 12px 24px rgba(111,44,255,.22);
+  transition:transform .2s ease, box-shadow .2s ease, filter .2s ease;
+}
+
+.btn-mapa-geral:hover{
+  transform:translateY(-2px);
+  filter:brightness(1.02);
+  box-shadow:0 16px 30px rgba(111,44,255,.28);
+}
+
+.btn-mapa-geral::before{
+  content:"🗺️";
+  font-size:14px;
+  line-height:1;
+}
+
+.vactions-single{
+  grid-template-columns:1fr;
+}
+
+@media (max-width:650px){
+  .monitor-acoes{
+    width:100%;
+    justify-content:space-between;
+  }
+
+  .btn-mapa-geral{
+    width:100%;
+    height:46px;
+  }
+}

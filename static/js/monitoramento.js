@@ -17,20 +17,13 @@ function statusLabel(status) {
   return "Offline";
 }
 
-function fuelText(v) {
-  const n = Number(v.combustivel_pct);
-  return Number.isFinite(n)
-    ? `${Math.max(0, Math.min(100, Math.round(n)))}%`
-    : "Aguardando app";
-}
-
 function speedText(v) {
   const n = Number(v.velocidade_kmh);
-  return Number.isFinite(n) ? `${n} km/h` : "Aguardando app";
+  return Number.isFinite(n) ? `${n} km/h` : "0 km/h";
 }
 
 function updatedText(v) {
-  return v.ultima_atualizacao_label || v.ultima_atualizacao || "Aguardando app";
+  return v.ultima_atualizacao_label || v.ultima_atualizacao || "Aguardando última localização";
 }
 
 function motoristaText(v) {
@@ -70,11 +63,6 @@ function atualizarContadores(listaTotal) {
 }
 
 function cardVeiculo(v) {
-  const fuelNumber = Number(v.combustivel_pct);
-  const fuelWidth = Number.isFinite(fuelNumber)
-    ? Math.max(0, Math.min(100, Math.round(fuelNumber)))
-    : 0;
-
   return `
     <article class="vcard" data-status="${escapeHtml(v.status)}">
       <div class="vcard-header">
@@ -102,16 +90,11 @@ function cardVeiculo(v) {
       <div class="vinfo">
         <div class="vrow"><span>Motorista</span> <b>${escapeHtml(motoristaText(v))}</b></div>
         <div class="vrow"><span>Velocidade</span> <b>${escapeHtml(speedText(v))}</b></div>
-        <div class="vrow"><span>Combustível</span> <b>${escapeHtml(fuelText(v))}</b></div>
-        <div class="vbar" aria-label="Combustível">
-          <i style="width:${fuelWidth}%"></i>
-        </div>
         <div class="vrow"><span>Última atualização</span> <b>${escapeHtml(updatedText(v))}</b></div>
       </div>
 
-      <div class="vactions">
+      <div class="vactions vactions-single">
         <a class="vbtn secondary" href="/localizacao/${encodeURIComponent(v.id)}">Ver localização</a>
-        <a class="vbtn" href="/localizacao/${encodeURIComponent(v.id)}">Individual</a>
       </div>
     </article>
   `;

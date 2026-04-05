@@ -1,202 +1,184 @@
-(function init(){
-  // 1) Pega dados do veículo via dataset
+(function init() {
   let v = null;
   const dataEl = document.getElementById("loc-data");
+
   if (dataEl?.dataset?.veiculo) {
-    try { v = JSON.parse(dataEl.dataset.veiculo); }
-    catch(e){ console.error("Erro ao ler JSON data-veiculo:", e); }
+    try {
+      v = JSON.parse(dataEl.dataset.veiculo);
+    } catch (e) {
+      console.error("Erro ao ler JSON data-veiculo:", e);
+    }
   }
 
-  // fallback (se você já usa isso em algum lugar)
-  if (!v && window.VEICULO_ATUAL) v = window.VEICULO_ATUAL;
+  if (!v && window.VEICULO_ATUAL) {
+    v = window.VEICULO_ATUAL;
+  }
 
-  // 2) Normaliza campos
   const nome = v?.nome || v?.modelo || "Veículo";
   const ano = v?.ano || v?.ano_modelo || "";
   const placa = v?.placa || v?.plate || "—";
   const sub = [ano ? String(ano) : null, placa].filter(Boolean).join(" • ");
 
-  const status = (v?.status || v?.situacao || "Offline").trim();
-  const motorista = v?.motorista || v?.driver || "—";
-  const velocidade = (v?.velocidade ?? v?.speed ?? 0);
-  const combustivel = clampPercent(v?.combustivel ?? v?.fuel ?? 0);
-  const ultima = v?.ultima_atualizacao || v?.atualizado_em || v?.updated_at || "—";
+  const status = String(v?.status || v?.situacao || "offline").trim();
+  const motorista = v?.motoristaNome || v?.motorista || v?.driver || "Aguardando vínculo do app";
+  const velocidade = asNum(v?.velocidade_kmh ?? v?.velocidade ?? v?.speed);
+  const ultima = v?.ultima_atualizacao_label || v?.ultima_atualizacao || v?.atualizado_em || v?.updated_at || "Sem atualização";
 
-  const endereco = v?.endereco || v?.address || "—";
+  const endereco = v?.endereco || v?.address || "Localização indisponível no momento";
   const lat = asNum(v?.lat ?? v?.latitude);
   const lng = asNum(v?.lng ?? v?.lon ?? v?.longitude);
 
-  // 3) Preenche UI
   byId("vehNome").textContent = nome;
-  byId("vehSub").textContent = sub;
+  byId("vehSub").textContent = sub || placa;
 
   byId("motoristaValue").textContent = motorista;
-  byId("velocidadeValue").textContent = String(velocidade ?? "—");
-  byId("combValue").textContent = `${combustivel}%`;
-  byId("combBar").style.width = `${combustivel}%`;
+  byId("velocidadeValue").textContent = Number.isFinite(velocidade) ? String(Math.round(velocidade)) : "0";
   byId("ultimaValue").textContent = formatDateTime(ultima);
-
   byId("enderecoText").textContent = endereco;
   byId("enderecoMini").textContent = endereco;
 
-  // coords
   if (Number.isFinite(lat) && Number.isFinite(lng)) {
     byId("coordsValue").textContent = `${lat.toFixed(5)} , ${lng.toFixed(5)}`;
   } else {
     byId("coordsValue").textContent = "—";
   }
 
-  // 4) Status pill + ícones
   applyStatus(status);
+  setMap(lat, lng, endereco);
+  configurarBotaoPercurso(lat, lng);
 
-  // 5) Mapa (OSM embed)
-  setMap(lat, lng);
-
-  // 6) botão contato (WhatsApp)
-  const tel = normalizePhone(v?.telefone_motorista || v?.telefone || v?.phone);
-  const msg = encodeURIComponent(`Olá ${motorista}! Pode me atualizar sua posição?`);
-  const contato = tel
-    ? `https://wa.me/${tel}?text=${msg}`
-    : `https://wa.me/?text=${encodeURIComponent(`Olá! ${msg}`)}`;
-
-  const btnContato = byId("btnContato");
-  if (btnContato) btnContato.href = contato;
-
-  // helpers
-  function byId(id){ return document.getElementById(id); }
-
-  function clampPercent(x){
-    const n = asNum(x);
-    if (!Number.isFinite(n)) return 0;
-    return Math.max(0, Math.min(100, Math.round(n)));
+  function byId(id) {
+    return document.getElementById(id);
   }
 
-  function asNum(x){
-    if (x === null || x === undefined) return NaN;
+  function asNum(x) {
+    if (x === null || x === undefined || x === "") return NaN;
     const n = Number(String(x).replace(",", "."));
     return Number.isFinite(n) ? n : NaN;
   }
 
-  function normalizePhone(p){
-    if (!p) return "";
-    const digits = String(p).replace(/\D/g, "");
-    if (!digits) return "";
-    return digits.startsWith("55") ? digits : ("55" + digits);
-  }
-
-  function formatDateTime(val){
-    try{
+  function formatDateTime(val) {
+    try {
       const d = new Date(val);
-      if (!isNaN(d.getTime())){
-        const dd = String(d.getDate()).padStart(2,"0");
-        const mm = String(d.getMonth()+1).padStart(2,"0");
+      if (!isNaN(d.getTime())) {
+        const dd = String(d.getDate()).padStart(2, "0");
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
         const yy = d.getFullYear();
-        const hh = String(d.getHours()).padStart(2,"0");
-        const mi = String(d.getMinutes()).padStart(2,"0");
+        const hh = String(d.getHours()).padStart(2, "0");
+        const mi = String(d.getMinutes()).padStart(2, "0");
         return `${dd}/${mm}/${yy}, ${hh}:${mi}`;
       }
-    }catch(e){}
+    } catch (e) {}
     return String(val ?? "—");
   }
 
-  function applyStatus(s){
+  function applyStatus(s) {
     const pill = byId("statusPill");
     const dot = byId("statusDot");
     const text = byId("statusText");
     const pin = byId("mapPinIcon");
 
-    const statusNorm = (s || "").toLowerCase();
+    const statusNorm = String(s || "").toLowerCase();
 
-    // defaults (parado)
-    let bg = "rgba(245,158,11,.12)";
-    let bd = "rgba(245,158,11,.35)";
-    let tx = "#b45309";
-    let dotColor = "#f59e0b";
-    let label = "Parado";
-    let iconSvg = mapPinSvg("#6f2cff");
-    let pinBg = "rgba(245,158,11,.18)";
+    let bg = "rgba(239,68,68,.10)";
+    let bd = "rgba(239,68,68,.30)";
+    let cor = "#dc2626";
+    let label = "Offline";
 
-    if (statusNorm.includes("mov")) {
-      bg = "rgba(34,197,94,.12)";
-      bd = "rgba(34,197,94,.35)";
-      tx = "#15803d";
-      dotColor = "#22c55e";
+    if (statusNorm === "moving" || statusNorm === "em movimento") {
+      bg = "rgba(34,197,94,.10)";
+      bd = "rgba(34,197,94,.30)";
+      cor = "#16a34a";
       label = "Em Movimento";
-      iconSvg = navSvg("#6f2cff");
-      pinBg = "rgba(34,197,94,.18)";
-    } else if (statusNorm.includes("off")) {
-      bg = "rgba(239,68,68,.12)";
-      bd = "rgba(239,68,68,.35)";
-      tx = "#b91c1c";
-      dotColor = "#ef4444";
-      label = "Offline";
-      iconSvg = wifiOffSvg("#6f2cff");
-      pinBg = "rgba(239,68,68,.18)";
-    } else if (statusNorm.includes("par")) {
+    } else if (statusNorm === "stopped" || statusNorm === "parado") {
+      bg = "rgba(245,158,11,.12)";
+      bd = "rgba(245,158,11,.30)";
+      cor = "#b45309";
       label = "Parado";
-      iconSvg = mapPinSvg("#6f2cff");
-      pinBg = "rgba(245,158,11,.18)";
     }
 
-    if (pill){
+    if (pill) {
       pill.style.background = bg;
       pill.style.borderColor = bd;
-      pill.style.color = tx;
+      pill.style.color = cor;
     }
-    if (dot) dot.style.background = dotColor;
-    if (text) text.textContent = label;
 
-    if (pin){
-      pin.style.background = pinBg;
-      pin.style.border = "1px solid rgba(255,255,255,.12)";
-      pin.innerHTML = iconSvg;
+    if (dot) {
+      dot.style.background = cor;
+    }
+
+    if (text) {
+      text.textContent = label;
+    }
+
+    if (pin) {
+      pin.innerHTML = `
+        <div style="
+          width:54px;
+          height:54px;
+          border-radius:18px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          background:rgba(255,255,255,.12);
+          border:1px solid rgba(255,255,255,.18);
+          backdrop-filter:blur(8px);
+          box-shadow:0 12px 24px rgba(0,0,0,.18);
+        ">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
+            <path d="M3 13.2V18a1 1 0 0 0 1 1h1.2a1 1 0 0 0 1-1v-1h11.6v1a1 1 0 0 0 1 1H21a1 1 0 0 0 1-1v-4.8a2.2 2.2 0 0 0-1.4-2.05l-1.56-5.2A2.2 2.2 0 0 0 16.93 4H7.07a2.2 2.2 0 0 0-2.11 1.95l-1.56 5.2A2.2 2.2 0 0 0 3 13.2Z" stroke="${cor}" stroke-width="1.8"/>
+            <path d="M6.5 16.5h.01M17.5 16.5h.01" stroke="${cor}" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        </div>
+      `;
     }
   }
 
-  function setMap(lat, lng){
-    const frame = document.getElementById("mapFrame");
-    if (!frame) return;
+  function setMap(lat, lng, enderecoAtual) {
+    const mapArea = byId("mapArea");
+    const mapFrame = byId("mapFrame");
+    const semGpsTexto = byId("semGpsTexto");
 
-    const latUse = Number.isFinite(lat) ? lat : -23.5505;
-    const lngUse = Number.isFinite(lng) ? lng : -46.6333;
+    if (!mapArea || !mapFrame) return;
 
-    const delta = 0.01;
-    const left = (lngUse - delta).toFixed(6);
-    const right = (lngUse + delta).toFixed(6);
-    const top = (latUse + delta).toFixed(6);
-    const bottom = (latUse - delta).toFixed(6);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      mapArea.classList.remove("sem-gps");
+      if (semGpsTexto) semGpsTexto.style.display = "none";
 
-    const src = `https://www.openstreetmap.org/export/embed.html?bbox=${left}%2C${bottom}%2C${right}%2C${top}&layer=mapnik&marker=${latUse}%2C${lngUse}`;
-    frame.src = src;
+      const bbox = `${lng - 0.01}%2C${lat - 0.01}%2C${lng + 0.01}%2C${lat + 0.01}`;
+      const marker = `${lat}%2C${lng}`;
+
+      mapFrame.src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${marker}`;
+      mapFrame.style.display = "block";
+      return;
+    }
+
+    mapArea.classList.add("sem-gps");
+    mapFrame.removeAttribute("src");
+    mapFrame.style.display = "none";
+
+    if (semGpsTexto) {
+      semGpsTexto.style.display = "block";
+    }
+
+    byId("enderecoText").textContent = enderecoAtual || "Localização indisponível no momento";
   }
 
-  // SVGs
-  function navSvg(color){
-    return `
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M3 11.5 21 3l-8.5 18-2.2-7.1L3 11.5Z" stroke="${color}" stroke-width="1.8" stroke-linejoin="round"/>
-      </svg>
-    `;
-  }
+  function configurarBotaoPercurso(lat, lng) {
+    const btn = byId("btnPercurso");
+    if (!btn) return;
 
-  function mapPinSvg(color){
-    return `
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M12 21s7-4.4 7-11a7 7 0 1 0-14 0c0 6.6 7 11 7 11Z" stroke="${color}" stroke-width="1.8"/>
-        <path d="M12 13.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" stroke="${color}" stroke-width="1.8"/>
-      </svg>
-    `;
-  }
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      btn.href = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+      btn.target = "_blank";
+      btn.rel = "noopener";
+      return;
+    }
 
-  function wifiOffSvg(color){
-    return `
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M2 8.5c5.5-5 14.5-5 20 0" stroke="${color}" stroke-width="1.8" stroke-linecap="round"/>
-        <path d="M5 12c3.8-3.4 10.2-3.4 14 0" stroke="${color}" stroke-width="1.8" stroke-linecap="round"/>
-        <path d="M8.5 15.5c2-1.8 5-1.8 7 0" stroke="${color}" stroke-width="1.8" stroke-linecap="round"/>
-        <path d="M4 4l16 16" stroke="${color}" stroke-width="1.8" stroke-linecap="round"/>
-        <path d="M12 19h0" stroke="${color}" stroke-width="4" stroke-linecap="round"/>
-      </svg>
-    `;
+    btn.href = "#";
+    btn.addEventListener("click", function (e) {
+      e.preventDefault();
+      alert("Ainda não existe posição real do veículo para gerar o percurso.");
+    });
   }
 })();
