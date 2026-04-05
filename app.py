@@ -4835,84 +4835,74 @@ def percurso_veiculo(veiculo_id):
     if r:
         return r
 
-    inicio = request.args.get("inicio")
-    fim = request.args.get("fim")
+    uid = usuario_id_atual()
+    inicio = (request.args.get("inicio") or "").strip()
+    fim = (request.args.get("fim") or "").strip()
+
+    if not inicio or not fim:
+        return jsonify({
+            "sucesso": False,
+            "erro": "Os parâmetros inicio e fim são obrigatórios"
+        }), 400
 
     conn = cur = None
-
     try:
         conn = get_db()
         cur = conn.cursor()
 
+        # garante que o veículo pertence ao usuário logado
         cur.execute("""
-            SELECT latitude, longitude, velocidade_kmh, recebido_em
+            SELECT 1
+            FROM veiculos
+            WHERE id = %s
+              AND usuario_id = %s
+            LIMIT 1
+        """, (veiculo_id, uid))
+
+        if not cur.fetchone():
+            return jsonify({
+                "sucesso": False,
+                "erro": "Veículo não encontrado"
+            }), 404
+
+        cur.execute("""
+            SELECT
+                latitude,
+                longitude,
+                velocidade_kmh,
+                endereco,
+                recebido_em
             FROM veiculos_localizacao
             WHERE veiculo_id = %s
+              AND usuario_id = %s
               AND recebido_em BETWEEN %s AND %s
             ORDER BY recebido_em ASC
-        """, (veiculo_id, inicio, fim))
+        """, (veiculo_id, uid, inicio, fim))
 
         rows = cur.fetchall()
 
         pontos = [
             {
-                "lat": r[0],
-                "lng": r[1],
-                "velocidade": r[2],
-                "data": r[3].isoformat()
+                "lat": float(row[0]) if row[0] is not None else None,
+                "lng": float(row[1]) if row[1] is not None else None,
+                "velocidade": float(row[2]) if row[2] is not None else 0,
+                "endereco": row[3],
+                "data": row[4].isoformat() if row[4] else None
             }
-            for r in rows
+            for row in rows
         ]
 
-        return jsonify(pontos)
+        return jsonify({
+            "sucesso": True,
+            "pontos": pontos
+        }), 200
 
     except Exception as e:
-        return jsonify({"erro": str(e)}), 500
-
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
-@app.get("/api/veiculos/<int:veiculo_id>/percurso")
-def percurso_veiculo(veiculo_id):
-    r = proteger_api()
-    if r:
-        return r
-
-    inicio = request.args.get("inicio")
-    fim = request.args.get("fim")
-
-    conn = cur = None
-
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-
-        cur.execute("""
-            SELECT latitude, longitude, velocidade_kmh, recebido_em
-            FROM veiculos_localizacao
-            WHERE veiculo_id = %s
-              AND recebido_em BETWEEN %s AND %s
-            ORDER BY recebido_em ASC
-        """, (veiculo_id, inicio, fim))
-
-        rows = cur.fetchall()
-
-        pontos = [
-            {
-                "lat": r[0],
-                "lng": r[1],
-                "velocidade": r[2],
-                "data": r[3].isoformat()
-            }
-            for r in rows
-        ]
-
-        return jsonify(pontos)
-
-    except Exception as e:
-        return jsonify({"erro": str(e)}), 500
+        print("ERRO percurso_veiculo:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": str(e)
+        }), 500
 
     finally:
         if cur:
