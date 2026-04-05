@@ -464,6 +464,22 @@ def proteger_api():
         return jsonify({"sucesso": False, "erro": "Sessão expirada. Faça login novamente."}), 401
     return None
 
+import math
+
+def calcular_distancia(lat1, lon1, lat2, lon2):
+    R = 6371000  # raio da terra em metros
+
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+
+    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+    return R * c  # metros
+
 # =========================
 # MOBILE AUTH HELPERS
 # =========================
@@ -716,7 +732,7 @@ def monitoramento():
     r = proteger_pagina()
     if r:
         return r
-    return render_template("monitoramento.html")
+    return render_template("mapageral.html")
 
 
 @app.route("/mapageral")
@@ -751,33 +767,108 @@ def localizacao_veiculo(veiculo_id):
     uid = usuario_id_atual()
     conn = cur = None
 
+    def _formatar_data_label(dt):
+        if not dt:
+            return "Sem atualização"
+        try:
+            tz_br = ZoneInfo("America/Sao_Paulo")
+            tz_utc = ZoneInfo("UTC")
+
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=tz_utc)
+
+            dt = dt.astimezone(tz_br)
+            return dt.strftime("%d/%m/%Y %H:%M")
+        except Exception:
+            try:
+                return dt.strftime("%d/%m/%Y %H:%M")
+            except Exception:
+                return "Sem atualização"
+
     try:
         conn = get_db()
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT id, modelo, placa, cidade
-            FROM veiculos
-            WHERE id = %s AND usuario_id = %s
+            SELECT
+                v.id,
+                v.modelo,
+                v.placa,
+                v.cidade,
+                vu.motorista_id,
+                m.nome
+            FROM veiculos v
+            LEFT JOIN veiculos_uso vu
+                ON vu.veiculo_id = v.id
+               AND vu.ativo = TRUE
+            LEFT JOIN motoristas m
+                ON m.id = vu.motorista_id
+            WHERE v.id = %s
+              AND v.usuario_id = %s
+            LIMIT 1
         """, (veiculo_id, uid))
 
         row = cur.fetchone()
         if not row:
             return redirect(url_for("monitoramento"))
 
+        veiculo_id_db, modelo, placa, cidade, motorista_id, motorista_nome = row
+
+        cur.execute("""
+            SELECT
+                latitude,
+                longitude,
+                velocidade_kmh,
+                endereco,
+                recebido_em
+            FROM veiculos_localizacao
+            WHERE veiculo_id = %s
+              AND usuario_id = %s
+            ORDER BY recebido_em DESC
+            LIMIT 1
+        """, (veiculo_id_db, uid))
+
+        loc = cur.fetchone()
+
+        lat = None
+        lng = None
+        velocidade = 0.0
+        endereco = "Localização indisponível no momento"
+        recebido_em = None
+
+        if loc:
+            lat = float(loc[0]) if loc[0] is not None else None
+            lng = float(loc[1]) if loc[1] is not None else None
+            velocidade = float(loc[2]) if loc[2] is not None else 0.0
+            endereco = loc[3] if loc[3] else "Localização indisponível no momento"
+            recebido_em = loc[4]
+
+        if lat is None or lng is None:
+            status = "offline"
+        elif velocidade >= 5:
+            status = "moving"
+        elif velocidade > 0:
+            status = "stopped"
+        else:
+            status = "stopped"
+
         veiculo = {
-            "id": row[0],
-            "modelo": row[1],
-            "placa": row[2],
-            "cidade": row[3],
-            "status": "offline",
-            "motoristaNome": "Aguardando vínculo do app",
-            "velocidade_kmh": None,
+            "id": int(veiculo_id_db),
+            "nome": modelo,
+            "modelo": modelo,
+            "placa": placa,
+            "cidade": cidade,
+            "status": status,
+            "motoristaNome": motorista_nome if motorista_nome else "Aguardando vínculo do app",
+            "velocidade_kmh": velocidade,
             "combustivel_pct": None,
-            "ultima_atualizacao": "Sem atualização",
-            "endereco": "Localização indisponível no momento",
-            "lat": None,
-            "lng": None,
+            "ultima_atualizacao": recebido_em.isoformat() if recebido_em else "Sem atualização",
+            "ultima_atualizacao_label": _formatar_data_label(recebido_em),
+            "endereco": endereco,
+            "lat": lat,
+            "lng": lng,
+            "latitude": lat,
+            "longitude": lng,
             "telefone_motorista": ""
         }
 
@@ -917,6 +1008,24 @@ def api_monitoramento_resumo():
     uid = usuario_id_atual()
     conn = cur = None
 
+    def _formatar_data_label(dt):
+        if not dt:
+            return None
+        try:
+            tz_br = ZoneInfo("America/Sao_Paulo")
+            tz_utc = ZoneInfo("UTC")
+
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=tz_utc)
+
+            dt = dt.astimezone(tz_br)
+            return dt.strftime("%d/%m/%Y %H:%M")
+        except Exception:
+            try:
+                return dt.strftime("%d/%m/%Y %H:%M")
+            except Exception:
+                return None
+
     try:
         conn = get_db()
         cur = conn.cursor()
@@ -940,11 +1049,48 @@ def api_monitoramento_resumo():
         """, (uid,))
 
         veiculos_rows = cur.fetchall()
-
         data_out = []
 
         for row in veiculos_rows:
             veiculo_id, modelo, placa, cidade, motorista_id, motorista_nome = row
+
+            cur.execute("""
+                SELECT
+                    latitude,
+                    longitude,
+                    velocidade_kmh,
+                    endereco,
+                    recebido_em
+                FROM veiculos_localizacao
+                WHERE veiculo_id = %s
+                  AND usuario_id = %s
+                ORDER BY recebido_em DESC
+                LIMIT 1
+            """, (veiculo_id, uid))
+
+            loc = cur.fetchone()
+
+            lat = None
+            lng = None
+            velocidade = 0.0
+            endereco = None
+            recebido_em = None
+
+            if loc:
+                lat = float(loc[0]) if loc[0] is not None else None
+                lng = float(loc[1]) if loc[1] is not None else None
+                velocidade = float(loc[2]) if loc[2] is not None else 0.0
+                endereco = loc[3]
+                recebido_em = loc[4]
+
+            if lat is None or lng is None:
+                status = "offline"
+            elif velocidade >= 5:
+                status = "moving"
+            elif velocidade > 0:
+                status = "stopped"
+            else:
+                status = "stopped"
 
             data_out.append({
                 "id": int(veiculo_id),
@@ -952,17 +1098,17 @@ def api_monitoramento_resumo():
                 "modelo": modelo,
                 "placa": placa,
                 "cidade": cidade,
-
-                # continua dependendo do rastreador depois
-                "status": "offline",
+                "status": status,
                 "motoristaNome": motorista_nome if motorista_nome else None,
-                "velocidade_kmh": None,
+                "velocidade_kmh": velocidade,
                 "combustivel_pct": None,
-                "ultima_atualizacao": None,
-                "ultima_atualizacao_label": None,
-                "lat": None,
-                "lng": None,
-                "endereco": None,
+                "ultima_atualizacao": recebido_em.isoformat() if recebido_em else None,
+                "ultima_atualizacao_label": _formatar_data_label(recebido_em),
+                "lat": lat,
+                "lng": lng,
+                "latitude": lat,
+                "longitude": lng,
+                "endereco": endereco,
                 "telefone_motorista": None
             })
 
@@ -4614,6 +4760,240 @@ def api_postos():
         if conn:
             conn.close()
 
+
+@app.post("/api/rastreador/localizacao")
+def receber_localizacao_rastreador():
+    dados = request.get_json(silent=True) or {}
+
+    placa = (dados.get("placa") or "").strip().upper()
+    lat = dados.get("lat")
+    lng = dados.get("lng")
+    velocidade = dados.get("velocidade")
+    endereco = dados.get("endereco")
+
+    if not placa or lat is None or lng is None:
+        return jsonify({"erro": "Dados incompletos"}), 400
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT id, usuario_id
+            FROM veiculos
+            WHERE placa = %s
+            LIMIT 1
+        """, (placa,))
+        row = cur.fetchone()
+
+        if not row:
+            return jsonify({"erro": "Veículo não encontrado"}), 404
+
+        veiculo_id, usuario_id = row
+
+        cur.execute("""
+            INSERT INTO veiculos_localizacao (
+                usuario_id,
+                veiculo_id,
+                latitude,
+                longitude,
+                velocidade_kmh,
+                endereco
+            )
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (
+            usuario_id,
+            veiculo_id,
+            float(lat),
+            float(lng),
+            float(velocidade or 0),
+            endereco
+        ))
+
+        conn.commit()
+        return jsonify({"sucesso": True}), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("ERRO rastreador:", e, flush=True)
+        return jsonify({"erro": str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+
+            
+@app.get("/api/veiculos/<int:veiculo_id>/percurso")
+def percurso_veiculo(veiculo_id):
+    r = proteger_api()
+    if r:
+        return r
+
+    uid = usuario_id_atual()
+    inicio = (request.args.get("inicio") or "").strip()
+    fim = (request.args.get("fim") or "").strip()
+
+    if not inicio or not fim:
+        return jsonify({
+            "sucesso": False,
+            "erro": "Os parâmetros inicio e fim são obrigatórios"
+        }), 400
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        # garante que o veículo pertence ao usuário logado
+        cur.execute("""
+            SELECT 1
+            FROM veiculos
+            WHERE id = %s
+              AND usuario_id = %s
+            LIMIT 1
+        """, (veiculo_id, uid))
+
+        if not cur.fetchone():
+            return jsonify({
+                "sucesso": False,
+                "erro": "Veículo não encontrado"
+            }), 404
+
+        cur.execute("""
+            SELECT
+                latitude,
+                longitude,
+                velocidade_kmh,
+                endereco,
+                recebido_em
+            FROM veiculos_localizacao
+            WHERE veiculo_id = %s
+              AND usuario_id = %s
+              AND recebido_em BETWEEN %s AND %s
+            ORDER BY recebido_em ASC
+        """, (veiculo_id, uid, inicio, fim))
+
+        rows = cur.fetchall()
+
+        pontos = [
+            {
+                "lat": float(row[0]) if row[0] is not None else None,
+                "lng": float(row[1]) if row[1] is not None else None,
+                "velocidade": float(row[2]) if row[2] is not None else 0,
+                "endereco": row[3],
+                "data": row[4].isoformat() if row[4] else None
+            }
+            for row in rows
+        ]
+
+        return jsonify({
+            "sucesso": True,
+            "pontos": pontos
+        }), 200
+
+    except Exception as e:
+        print("ERRO percurso_veiculo:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": str(e)
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+@app.post("/api/rastreamento/salvar")
+def salvar_localizacao():
+    r = proteger_api_mobile()
+    if r:
+        return r
+
+    dados = request.get_json() or {}
+
+    lat = dados.get("lat")
+    lng = dados.get("lng")
+
+    if lat is None or lng is None:
+        return jsonify({"erro": "Lat/Lng obrigatórios"}), 400
+
+    motorista_id = g.mobile_auth["motorista_id"]
+    usuario_id = g.mobile_auth["usuario_id"]
+
+    conn = cur = None
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        # pegar veículo em uso
+        cur.execute("""
+            SELECT veiculo_id
+            FROM veiculos_uso
+            WHERE motorista_id = %s
+              AND ativo = TRUE
+            LIMIT 1
+        """, (motorista_id,))
+        row = cur.fetchone()
+
+        if not row:
+            return jsonify({"erro": "Nenhum veículo em uso"}), 400
+
+        veiculo_id = row[0]
+
+        # pegar último ponto
+        cur.execute("""
+            SELECT latitude, longitude, recebido_em
+            FROM veiculos_localizacao
+            WHERE veiculo_id = %s
+            ORDER BY recebido_em DESC
+            LIMIT 1
+        """, (veiculo_id,))
+        ultimo = cur.fetchone()
+
+        velocidade = 0
+
+        if ultimo:
+            lat1, lon1, t1 = ultimo
+            lat2, lon2 = float(lat), float(lng)
+            t2 = datetime.utcnow()
+
+            distancia = calcular_distancia(lat1, lon1, lat2, lon2)
+            tempo = (t2 - t1).total_seconds()
+
+            if tempo > 0:
+                velocidade = (distancia / 1000) / (tempo / 3600)
+
+        # salvar
+        cur.execute("""
+            INSERT INTO veiculos_localizacao (
+                usuario_id, veiculo_id, latitude, longitude, velocidade_kmh
+            )
+            VALUES (%s, %s, %s, %s, %s)
+        """, (usuario_id, veiculo_id, lat, lng, velocidade))
+
+        conn.commit()
+
+        return jsonify({"sucesso": True})
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("ERRO rastreamento:", e)
+        return jsonify({"erro": str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 @app.route("/api/postos/<int:posto_id>", methods=["GET", "PUT", "DELETE"], strict_slashes=False)
 def api_posto_por_id(posto_id: int):

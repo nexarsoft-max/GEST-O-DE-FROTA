@@ -804,6 +804,30 @@ def criar_tabelas():
         END IF;
     END$$;
     """)
+    # =========================
+    # 11) LOCALIZAÇÕES DOS VEÍCULOS (RASTREAMENTO)
+    # =========================
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS veiculos_localizacao (
+        id BIGSERIAL PRIMARY KEY,
+        usuario_id BIGINT NOT NULL,
+        veiculo_id BIGINT NOT NULL,
+        latitude NUMERIC(10,6) NOT NULL,
+        longitude NUMERIC(10,6) NOT NULL,
+        velocidade_kmh NUMERIC(10,2),
+        endereco TEXT,
+        recebido_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+        FOREIGN KEY (veiculo_id) REFERENCES veiculos(id) ON DELETE CASCADE
+    );
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS ix_localizacao_veiculo
+    ON veiculos_localizacao (veiculo_id);
+    """)
+    
     conn.commit()
     cur.close()
     conn.close()
