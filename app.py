@@ -873,7 +873,11 @@ def localizacao_veiculo(veiculo_id):
         }
 
         import json
-        return render_template("localizacao.html", veiculo_json=json.dumps(veiculo))
+        return render_template(
+            "localizacao.html",
+            veiculo_json=json.dumps(veiculo),
+            veiculo_id=veiculo_id_db
+        )
 
     except Exception as e:
         print("ERRO localizacao_veiculo:", e, flush=True)
@@ -2510,6 +2514,7 @@ def _buscar_registros_colaboradores(uid):
             cur.close()
         if conn:
             conn.close()
+
 
 @app.get("/api/colaboradores/registros")
 def api_colaboradores_registros():
@@ -4760,7 +4765,6 @@ def api_postos():
         if conn:
             conn.close()
 
-
 @app.post("/api/rastreador/localizacao")
 def receber_localizacao_rastreador():
     dados = request.get_json(silent=True) or {}
@@ -4768,8 +4772,7 @@ def receber_localizacao_rastreador():
     placa = (dados.get("placa") or "").strip().upper()
     lat = dados.get("lat")
     lng = dados.get("lng")
-    velocidade = dados.get("velocidade")
-    endereco = dados.get("endereco")
+    endereco = (dados.get("endereco") or "").strip() or None
 
     if not placa or lat is None or lng is None:
         return jsonify({"erro": "Dados incompletos"}), 400
@@ -4792,6 +4795,42 @@ def receber_localizacao_rastreador():
 
         veiculo_id, usuario_id = row
 
+        lat_atual = float(lat)
+        lng_atual = float(lng)
+
+        cur.execute("""
+            SELECT latitude, longitude, recebido_em
+            FROM veiculos_localizacao
+            WHERE veiculo_id = %s
+              AND usuario_id = %s
+            ORDER BY recebido_em DESC
+            LIMIT 1
+        """, (veiculo_id, usuario_id))
+        anterior = cur.fetchone()
+
+        velocidade_kmh = 0.0
+        recebido_em_atual = datetime.utcnow()
+
+        if anterior:
+            lat_ant = float(anterior[0]) if anterior[0] is not None else None
+            lng_ant = float(anterior[1]) if anterior[1] is not None else None
+            recebido_em_ant = anterior[2]
+
+            if lat_ant is not None and lng_ant is not None and recebido_em_ant is not None:
+                distancia_m = calcular_distancia(lat_ant, lng_ant, lat_atual, lng_atual)
+                tempo_s = (recebido_em_atual - recebido_em_ant).total_seconds()
+
+                if tempo_s > 0:
+                    velocidade_kmh = (distancia_m / tempo_s) * 3.6
+
+                    # corta ruído e valores absurdos
+                    if distancia_m < 5:
+                        velocidade_kmh = 0.0
+                    if velocidade_kmh < 0:
+                        velocidade_kmh = 0.0
+                    if velocidade_kmh > 180:
+                        velocidade_kmh = 0.0
+
         cur.execute("""
             INSERT INTO veiculos_localizacao (
                 usuario_id,
@@ -4799,20 +4838,25 @@ def receber_localizacao_rastreador():
                 latitude,
                 longitude,
                 velocidade_kmh,
-                endereco
+                endereco,
+                recebido_em
             )
-            VALUES (%s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (
             usuario_id,
             veiculo_id,
-            float(lat),
-            float(lng),
-            float(velocidade or 0),
-            endereco
+            lat_atual,
+            lng_atual,
+            velocidade_kmh,
+            endereco,
+            recebido_em_atual
         ))
 
         conn.commit()
-        return jsonify({"sucesso": True}), 200
+        return jsonify({
+            "sucesso": True,
+            "velocidade_kmh": round(velocidade_kmh, 2)
+        }), 200
 
     except Exception as e:
         if conn:
@@ -4825,7 +4869,6 @@ def receber_localizacao_rastreador():
             cur.close()
         if conn:
             conn.close()
-
 
 
             
@@ -4850,7 +4893,6 @@ def percurso_veiculo(veiculo_id):
         conn = get_db()
         cur = conn.cursor()
 
-        # garante que o veículo pertence ao usuário logado
         cur.execute("""
             SELECT 1
             FROM veiculos
@@ -4903,6 +4945,48 @@ def percurso_veiculo(veiculo_id):
             "sucesso": False,
             "erro": str(e)
         }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+@app.get("/percurso/<int:veiculo_id>")
+def pagina_percurso_veiculo(veiculo_id):
+    r = proteger_pagina()
+    if r:
+        return r
+
+    uid = usuario_id_atual()
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT id, modelo, placa, cidade
+            FROM veiculos
+            WHERE id = %s
+              AND usuario_id = %s
+            LIMIT 1
+        """, (veiculo_id, uid))
+
+        row = cur.fetchone()
+        if not row:
+            return redirect(url_for("monitoramento"))
+
+        return render_template(
+            "percurso.html",
+            veiculo_id=row[0],
+            veiculo_modelo=row[1],
+            veiculo_placa=row[2],
+            veiculo_cidade=row[3]
+        )
+
+    except Exception as e:
+        print("ERRO pagina_percurso_veiculo:", e, flush=True)
+        return redirect(url_for("monitoramento"))
 
     finally:
         if cur:
