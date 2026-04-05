@@ -1,24 +1,21 @@
 // ======================================================
 // MAPA GERAL - GESTÃO DE FROTA
-// Fonte de dados real:
+// Integração real com MapTiler + Leaflet
+// Fonte dos dados:
 //   GET /api/monitoramento/resumo
-//
-// Este arquivo NÃO usa dados fakes.
-// Veículos só aparecem no mapa se vierem com latitude e longitude reais.
 // ======================================================
 
 // ------------------------------------------------------
 // CONFIGURAÇÕES PRINCIPAIS
 // ------------------------------------------------------
 const API_MAPAGERAL = "/api/monitoramento/resumo";
+const MAPTILER_KEY = "5nbVfauzMVPTkqi3q0iz";
 
 const MAPA_CONFIG = {
-  // Enquadramento padrão: Paraíba + Rio Grande do Norte
   boundsPadrao: [
     [-7.60, -38.90], // sudoeste
     [-4.70, -34.80]  // nordeste
   ],
-
   zoomFocoVeiculo: 15,
   zoomFocoUnico: 14,
   paddingBounds: [40, 40]
@@ -81,8 +78,6 @@ function mgSpeedText(veiculo) {
 
 // ======================================================
 // COORDENADAS
-// Lê vários nomes possíveis para facilitar integração futura.
-// Não cria coordenada fake.
 // ======================================================
 function mgLat(veiculo) {
   const latitude = Number(
@@ -91,7 +86,6 @@ function mgLat(veiculo) {
     veiculo.localizacao_lat ??
     veiculo.latitude_decimal
   );
-
   return Number.isFinite(latitude) ? latitude : null;
 }
 
@@ -104,7 +98,6 @@ function mgLng(veiculo) {
     veiculo.localizacao_lon ??
     veiculo.longitude_decimal
   );
-
   return Number.isFinite(longitude) ? longitude : null;
 }
 
@@ -160,8 +153,7 @@ function mgAtualizarResumo(lista) {
 }
 
 // ======================================================
-// ESTILO DO MARCADOR
-// Ícone de carrinho por status
+// MARCADOR DE CARRO
 // ======================================================
 function mgCorStatus(status) {
   if (status === "moving") return "#16a34a";
@@ -176,8 +168,8 @@ function mgCriarIconeCarrinho(status) {
     className: "mapageral-marker-custom",
     html: `
       <div style="
-        width: 38px;
-        height: 38px;
+        width: 42px;
+        height: 42px;
         border-radius: 999px;
         background: #ffffff;
         border: 2px solid ${cor};
@@ -191,14 +183,14 @@ function mgCriarIconeCarrinho(status) {
         </svg>
       </div>
     `,
-    iconSize: [38, 38],
-    iconAnchor: [19, 19],
-    popupAnchor: [0, -14]
+    iconSize: [42, 42],
+    iconAnchor: [21, 21],
+    popupAnchor: [0, -16]
   });
 }
 
 // ======================================================
-// POPUP DO MARCADOR
+// POPUP
 // ======================================================
 function mgPopupHtml(veiculo) {
   return `
@@ -221,7 +213,7 @@ function mgPopupHtml(veiculo) {
 }
 
 // ======================================================
-// ITEM DA LISTA LATERAL
+// LISTA LATERAL
 // ======================================================
 function mgListaItemHtml(veiculo) {
   return `
@@ -263,9 +255,6 @@ function mgListaItemHtml(veiculo) {
   `;
 }
 
-// ======================================================
-// ITEM ATIVO DA LISTA
-// ======================================================
 function mgMarcarAtivo(id) {
   MAPA_GERAL_ITEM_ATIVO = String(id);
 
@@ -274,15 +263,10 @@ function mgMarcarAtivo(id) {
   });
 }
 
-// ======================================================
-// FOCO EM UM VEÍCULO
-// ======================================================
 function mgFocarVeiculo(id) {
   const veiculo = MAPA_GERAL_DATA.find((v) => String(v.id) === String(id));
 
-  if (!veiculo || !mgTemCoordenadas(veiculo) || !MAPA_GERAL) {
-    return;
-  }
+  if (!veiculo || !mgTemCoordenadas(veiculo) || !MAPA_GERAL) return;
 
   const lat = mgLat(veiculo);
   const lng = mgLng(veiculo);
@@ -291,14 +275,9 @@ function mgFocarVeiculo(id) {
   mgMarcarAtivo(id);
 
   const marcador = MAPA_GERAL_MARCADORES.find((m) => String(m.veiculoId) === String(id));
-  if (marcador) {
-    marcador.openPopup();
-  }
+  if (marcador) marcador.openPopup();
 }
 
-// ======================================================
-// RENDERIZAÇÃO DA LISTA
-// ======================================================
 function mgRenderLista(lista) {
   const listaEl = document.getElementById("mapageralLista");
   const emptyEl = document.getElementById("mapageralEmpty");
@@ -323,15 +302,12 @@ function mgRenderLista(lista) {
 }
 
 // ======================================================
-// MARCADORES
+// MAPA / MARCADORES
 // ======================================================
 function mgLimparMarcadores() {
   MAPA_GERAL_MARCADORES.forEach((marcador) => {
-    if (MAPA_GERAL) {
-      MAPA_GERAL.removeLayer(marcador);
-    }
+    if (MAPA_GERAL) MAPA_GERAL.removeLayer(marcador);
   });
-
   MAPA_GERAL_MARCADORES = [];
 }
 
@@ -342,7 +318,6 @@ function mgRenderMapa(lista) {
 
   const comCoordenadas = lista.filter(mgTemCoordenadas);
 
-  // Sem dados reais de localização: mostra PB + RN
   if (!comCoordenadas.length) {
     MAPA_GERAL.fitBounds(MAPA_CONFIG.boundsPadrao, {
       padding: MAPA_CONFIG.paddingBounds
@@ -396,7 +371,7 @@ function mgAplicarBusca() {
 }
 
 // ======================================================
-// MAPA
+// MAPA REAL - MAPTILER
 // ======================================================
 function mgCriarMapa() {
   MAPA_GERAL = L.map("mapaGeral", {
@@ -409,44 +384,21 @@ function mgCriarMapa() {
     padding: MAPA_CONFIG.paddingBounds
   });
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap"
+  L.tileLayer(`https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`, {
+    tileSize: 512,
+    zoomOffset: -1,
+    maxZoom: 20,
+    attribution: '&copy; MapTiler &copy; OpenStreetMap contributors'
   }).addTo(MAPA_GERAL);
 }
 
 // ======================================================
-// CARREGAMENTO DE DADOS
-// ======================================================
-//
-// CAMPOS ESPERADOS DO BACKEND (ideal):
-// [
-//   {
-//     "id": 1,
-//     "modelo": "Strada",
-//     "placa": "ABC1D23",
-//     "cidade": "João Pessoa",
-//     "motoristaNome": "Rafael",
-//     "status": "moving",
-//     "velocidade_kmh": 38,
-//     "ultima_atualizacao": "2026-04-04 22:15",
-//     "latitude": -7.115,
-//     "longitude": -34.863
-//   }
-// ]
-//
-// A próxima IA/dev pode alterar a leitura dos campos em:
-// - mgLat()
-// - mgLng()
-// - mgMotoristaText()
-// - mgUpdatedText()
+// DADOS
 // ======================================================
 async function mgCarregarDados() {
   try {
     const resposta = await fetch(API_MAPAGERAL, {
-      headers: {
-        Accept: "application/json"
-      },
+      headers: { Accept: "application/json" },
       credentials: "same-origin"
     });
 
@@ -468,7 +420,7 @@ async function mgCarregarDados() {
 }
 
 // ======================================================
-// INICIALIZAÇÃO
+// INIT
 // ======================================================
 document.addEventListener("DOMContentLoaded", () => {
   mgCriarMapa();
