@@ -112,22 +112,22 @@
           </div>
         </section>
 
-        <section class="card">
-          <h3>Ações Rápidas</h3>
-          <div class="actions">
-            <a class="btn primary" id="btnPercurso" href="#">
-              🛣️ Percurso
-            </a>
+   <section class="card">
+  <h3>Ações Rápidas</h3>
+  <div class="actions">
+    <a class="btn primary" id="btnPercursoAgora" href="#">
+      Como chegar até ele
+    </a>
 
-            <a class="btn ghost" href="{{ url_for('mapageral') }}">
-              Ver mapa geral
-            </a>
+    <a class="btn ghost" href="{{ url_for('mapageral') }}">
+      Ver mapa geral
+    </a>
 
-            <a class="btn ghost" href="{{ url_for('monitoramento') }}">
-              ← Voltar
-            </a>
-          </div>
-        </section>
+    <a class="btn ghost" id="btnPorOndePassou" href="{{ url_for('pagina_percurso_veiculo', veiculo_id=veiculo_id) }}">
+      Por onde passou
+    </a>
+  </div>
+</section>
       </aside>
     </div>
   </div>

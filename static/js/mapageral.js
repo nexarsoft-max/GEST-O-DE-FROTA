@@ -168,24 +168,54 @@ function mgCriarIconeCarrinho(status) {
     className: "mapageral-marker-custom",
     html: `
       <div style="
-        width: 42px;
-        height: 42px;
-        border-radius: 999px;
-        background: #ffffff;
-        border: 2px solid ${cor};
-        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18);
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        position: relative;
+        width: 54px;
+        height: 54px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
       ">
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="display:block;">
-          <path fill="${cor}" d="M5 11l1.4-4.2A2 2 0 0 1 8.3 5h7.4a2 2 0 0 1 1.9 1.8L19 11m-14 0h14m-14 0a2 2 0 0 0-2 2v3h2m14-5a2 2 0 0 1 2 2v3h-2m-11 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/>
+        <div style="
+          position:absolute;
+          inset:6px;
+          border-radius:999px;
+          background: radial-gradient(circle at 30% 30%, #ffffff 0%, #f8fafc 55%, #e2e8f0 100%);
+          border: 2px solid ${cor};
+          box-shadow:
+            0 16px 28px rgba(15, 23, 42, 0.20),
+            inset 0 1px 0 rgba(255,255,255,0.95);
+        "></div>
+
+        <div style="
+          position:absolute;
+          bottom:2px;
+          width:26px;
+          height:8px;
+          border-radius:999px;
+          background: rgba(15,23,42,0.18);
+          filter: blur(4px);
+        "></div>
+
+        <svg viewBox="0 0 64 64" width="28" height="28" aria-hidden="true" style="position:relative;z-index:2;display:block;">
+          <defs>
+            <linearGradient id="mgCarBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="${cor}"/>
+              <stop offset="100%" stop-color="#111827"/>
+            </linearGradient>
+          </defs>
+          <path d="M18 38h28l3-9c.6-1.9-.8-3.9-2.8-3.9H23.8c-1.3 0-2.5.8-2.9 2L18 38z" fill="url(#mgCarBodyGrad)"/>
+          <path d="M14 39h36c2.2 0 4 1.8 4 4v5h-4a5 5 0 0 0-10 0H24a5 5 0 0 0-10 0h-4v-5c0-2.2 1.8-4 4-4z" fill="${cor}"/>
+          <path d="M24 27h16c1 0 1.9.5 2.4 1.4L45 33H19l2.4-4.6c.5-.9 1.4-1.4 2.6-1.4z" fill="#dbeafe"/>
+          <circle cx="19" cy="48" r="4.5" fill="#111827"/>
+          <circle cx="45" cy="48" r="4.5" fill="#111827"/>
+          <circle cx="19" cy="48" r="2" fill="#94a3b8"/>
+          <circle cx="45" cy="48" r="2" fill="#94a3b8"/>
         </svg>
       </div>
     `,
-    iconSize: [42, 42],
-    iconAnchor: [21, 21],
-    popupAnchor: [0, -16]
+    iconSize: [54, 54],
+    iconAnchor: [27, 27],
+    popupAnchor: [0, -20]
   });
 }
 

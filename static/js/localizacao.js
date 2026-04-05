@@ -53,7 +53,7 @@
 
   applyStatus(status);
   setMap(lat, lng, endereco, nome, placa, status);
-  configurarBotaoPercurso(lat, lng);
+  configurarBotoesAcao(lat, lng, v?.id);
 
   window.addEventListener("resize", () => {
     if (mapaIndividual) {
@@ -157,32 +157,62 @@
   }
 
   function criarIconeCarro(statusAtual) {
-    const cor = corStatusMapa(statusAtual);
+  const cor = corStatusMapa(statusAtual);
 
-    return L.divIcon({
-      className: "marcador-veiculo-individual",
-      html: `
+  return L.divIcon({
+    className: "marcador-veiculo-individual",
+    html: `
+      <div style="
+        position: relative;
+        width: 56px;
+        height: 56px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+      ">
         <div style="
-          width: 44px;
-          height: 44px;
-          border-radius: 999px;
-          background: #ffffff;
+          position:absolute;
+          inset:8px;
+          border-radius:999px;
+          background: radial-gradient(circle at 30% 30%, #ffffff 0%, #f8fafc 55%, #e2e8f0 100%);
           border: 2px solid ${cor};
-          box-shadow: 0 10px 22px rgba(15, 23, 42, 0.20);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        ">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="display:block;">
-            <path fill="${cor}" d="M5 11l1.4-4.2A2 2 0 0 1 8.3 5h7.4a2 2 0 0 1 1.9 1.8L19 11m-14 0h14m-14 0a2 2 0 0 0-2 2v3h2m14-5a2 2 0 0 1 2 2v3h-2m-11 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/>
-          </svg>
-        </div>
-      `,
-      iconSize: [44, 44],
-      iconAnchor: [22, 22],
-      popupAnchor: [0, -18]
-    });
-  }
+          box-shadow:
+            0 18px 28px rgba(15, 23, 42, 0.22),
+            inset 0 1px 0 rgba(255,255,255,0.95);
+        "></div>
+
+        <div style="
+          position:absolute;
+          bottom:2px;
+          width:26px;
+          height:8px;
+          border-radius:999px;
+          background: rgba(15,23,42,0.18);
+          filter: blur(4px);
+        "></div>
+
+        <svg viewBox="0 0 64 64" width="28" height="28" aria-hidden="true" style="position:relative;z-index:2;display:block;">
+          <defs>
+            <linearGradient id="carBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="${cor}"/>
+              <stop offset="100%" stop-color="#111827"/>
+            </linearGradient>
+          </defs>
+          <path d="M18 38h28l3-9c.6-1.9-.8-3.9-2.8-3.9H23.8c-1.3 0-2.5.8-2.9 2L18 38z" fill="url(#carBodyGrad)"/>
+          <path d="M14 39h36c2.2 0 4 1.8 4 4v5h-4a5 5 0 0 0-10 0H24a5 5 0 0 0-10 0h-4v-5c0-2.2 1.8-4 4-4z" fill="${cor}"/>
+          <path d="M24 27h16c1 0 1.9.5 2.4 1.4L45 33H19l2.4-4.6c.5-.9 1.4-1.4 2.6-1.4z" fill="#dbeafe"/>
+          <circle cx="19" cy="48" r="4.5" fill="#111827"/>
+          <circle cx="45" cy="48" r="4.5" fill="#111827"/>
+          <circle cx="19" cy="48" r="2" fill="#94a3b8"/>
+          <circle cx="45" cy="48" r="2" fill="#94a3b8"/>
+        </svg>
+      </div>
+    `,
+    iconSize: [56, 56],
+    iconAnchor: [28, 28],
+    popupAnchor: [0, -20]
+  });
+}
 
   function setMap(latAtual, lngAtual, enderecoAtual, nomeAtual, placaAtual, statusAtual) {
     const mapArea = byId("mapArea");
@@ -232,23 +262,36 @@
     }, 200);
   }
 
-  function configurarBotaoPercurso(latAtual, lngAtual) {
-    const btn = byId("btnPercurso");
-    if (!btn) return;
+  function configurarBotoesAcao(latAtual, lngAtual, veiculoId) {
+  const btnPercursoAgora = byId("btnPercursoAgora");
+  const btnPorOndePassou = byId("btnPorOndePassou");
 
+  if (btnPercursoAgora) {
     if (Number.isFinite(latAtual) && Number.isFinite(lngAtual)) {
-      btn.href = `https://www.google.com/maps/dir/?api=1&destination=${latAtual},${lngAtual}`;
-      btn.target = "_blank";
-      btn.rel = "noopener";
-      return;
+      btnPercursoAgora.href = `https://www.google.com/maps/dir/?api=1&destination=${latAtual},${lngAtual}`;
+      btnPercursoAgora.target = "_blank";
+      btnPercursoAgora.rel = "noopener";
+    } else {
+      btnPercursoAgora.href = "#";
+      btnPercursoAgora.addEventListener("click", function (e) {
+        e.preventDefault();
+        alert("Ainda não existe posição real do veículo para gerar a rota até ele.");
+      });
     }
-
-    btn.href = "#";
-    btn.addEventListener("click", function (e) {
-      e.preventDefault();
-      alert("Ainda não existe posição real do veículo para gerar o percurso.");
-    });
   }
+
+  if (btnPorOndePassou) {
+    if (veiculoId) {
+      btnPorOndePassou.href = `/percurso/${veiculoId}`;
+    } else {
+      btnPorOndePassou.href = "#";
+      btnPorOndePassou.addEventListener("click", function (e) {
+        e.preventDefault();
+        alert("Veículo inválido para consultar o histórico.");
+      });
+    }
+  }
+}
 
   function escapeHtml(value) {
     return String(value ?? "")

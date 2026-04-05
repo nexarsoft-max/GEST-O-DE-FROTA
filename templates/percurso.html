@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Percurso do Veículo</title>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/percurso.css') }}">
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    crossorigin=""
+  />
+</head>
+<body>
+  <div
+    class="page"
+    id="percursoPage"
+    data-veiculo-id="{{ veiculo_id }}"
+    data-veiculo-modelo="{{ veiculo_modelo }}"
+    data-veiculo-placa="{{ veiculo_placa }}"
+    data-veiculo-cidade="{{ veiculo_cidade }}"
+  >
+    <header class="topbar">
+      <a class="back-link" href="{{ url_for('monitoramento') }}">← Voltar ao monitoramento</a>
+
+      <div class="vehicle-head">
+        <div class="vehicle-chip">🚗</div>
+        <div>
+          <h1>{{ veiculo_modelo }}</h1>
+          <p>{{ veiculo_placa }} • {{ veiculo_cidade }}</p>
+        </div>
+      </div>
+    </header>
+
+    <section class="filters-card">
+      <div class="filters-grid">
+        <div class="field">
+          <label for="inicio">Data/hora inicial</label>
+          <input type="datetime-local" id="inicio">
+        </div>
+
+        <div class="field">
+          <label for="fim">Data/hora final</label>
+          <input type="datetime-local" id="fim">
+        </div>
+
+        <div class="actions">
+          <button id="btnBuscarPercurso" type="button">Buscar percurso</button>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span>Distância total</span>
+          <strong id="distanciaTotal">0 km</strong>
+        </div>
+
+        <div class="stat-card">
+          <span>Tempo total</span>
+          <strong id="tempoTotal">0 min</strong>
+        </div>
+
+        <div class="stat-card">
+          <span>Velocidade média</span>
+          <strong id="velocidadeMedia">0 km/h</strong>
+        </div>
+
+        <div class="stat-card">
+          <span>Pontos encontrados</span>
+          <strong id="quantidadePontos">0</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="map-card">
+        <div id="mapaPercurso"></div>
+      </div>
+
+      <aside class="timeline-card">
+        <div class="timeline-header">
+          <h2>Eventos do percurso</h2>
+          <p id="timelineStatus">Escolha um período para visualizar.</p>
+        </div>
+
+        <div id="timelineList" class="timeline-list"></div>
+      </aside>
+    </section>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    crossorigin=""
+  ></script>
+  <script src="{{ url_for('static', filename='js/percurso.js') }}"></script>
+</body>
+</html>
