@@ -827,7 +827,62 @@ def criar_tabelas():
     CREATE INDEX IF NOT EXISTS ix_localizacao_veiculo
     ON veiculos_localizacao (veiculo_id);
     """)
-    
+        # =========================
+    # 12) RASTREADORES
+    # =========================
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS rastreadores (
+        id BIGSERIAL PRIMARY KEY,
+        imei VARCHAR(50) UNIQUE NOT NULL,
+        veiculo_id BIGINT NOT NULL,
+        usuario_id BIGINT NOT NULL,
+        ativo BOOLEAN DEFAULT TRUE,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+        FOREIGN KEY (veiculo_id) REFERENCES veiculos(id) ON DELETE CASCADE,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+    );
+    """)
+
+    # garante colunas
+    cur.execute("""ALTER TABLE rastreadores ADD COLUMN IF NOT EXISTS imei VARCHAR(50);""")
+    cur.execute("""ALTER TABLE rastreadores ADD COLUMN IF NOT EXISTS veiculo_id BIGINT;""")
+    cur.execute("""ALTER TABLE rastreadores ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
+    cur.execute("""ALTER TABLE rastreadores ADD COLUMN IF NOT EXISTS ativo BOOLEAN DEFAULT TRUE;""")
+    cur.execute("""ALTER TABLE rastreadores ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
+
+    # index por IMEI
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname = 'public'
+              AND indexname = 'ix_rastreadores_imei'
+        ) THEN
+            CREATE INDEX ix_rastreadores_imei
+            ON rastreadores (imei);
+        END IF;
+    END$$;
+    """)
+
+    # index para histórico de localização por usuário + veículo + data
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname = 'public'
+              AND indexname = 'ix_localizacao_usuario_veiculo_recebido_em'
+        ) THEN
+            CREATE INDEX ix_localizacao_usuario_veiculo_recebido_em
+            ON veiculos_localizacao (usuario_id, veiculo_id, recebido_em DESC);
+        END IF;
+    END$$;
+    """)
+
     conn.commit()
     cur.close()
     conn.close()

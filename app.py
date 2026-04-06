@@ -3800,19 +3800,65 @@ def receber_localizacao():
 
 @app.get("/debug/gps")
 def debug_gps():
-    conn = get_db()
-    cur = conn.cursor()
+    r = proteger_pagina()
+    if r:
+        return r
 
-    cur.execute("""
-        SELECT latitude, longitude, velocidade_kmh, recebido_em
-        FROM veiculos_localizacao
-        ORDER BY recebido_em DESC
-        LIMIT 50
-    """)
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
 
-    dados = cur.fetchall()
+        cur.execute("""
+            SELECT
+                vl.latitude,
+                vl.longitude,
+                vl.velocidade_kmh,
+                COALESCE(vl.endereco, ''),
+                vl.recebido_em,
+                COALESCE(v.modelo, 'Veículo'),
+                COALESCE(v.placa, ''),
+                COALESCE(r.imei, '')
+            FROM veiculos_localizacao vl
+            LEFT JOIN veiculos v
+                ON v.id = vl.veiculo_id
+            LEFT JOIN rastreadores r
+                ON r.veiculo_id = vl.veiculo_id
+               AND r.usuario_id = vl.usuario_id
+               AND r.ativo = TRUE
+            WHERE vl.usuario_id = %s
+            ORDER BY vl.recebido_em DESC
+            LIMIT 100
+        """, (usuario_id_atual(),))
 
-    return render_template("debug_gps.html", dados=dados)
+        rows = cur.fetchall()
+
+        dados = []
+        for row in rows:
+            latitude, longitude, velocidade_kmh, endereco, recebido_em, modelo, placa, imei = row
+
+            dados.append({
+                "latitude": float(latitude) if latitude is not None else None,
+                "longitude": float(longitude) if longitude is not None else None,
+                "velocidade_kmh": float(velocidade_kmh) if velocidade_kmh is not None else 0.0,
+                "endereco": endereco or "",
+                "recebido_em": _formatar_data_label(recebido_em) if recebido_em else "",
+                "modelo": modelo or "Veículo",
+                "placa": placa or "",
+                "imei": imei or "",
+            })
+
+        return render_template("debug_gps.html", dados=dados)
+
+    except Exception as e:
+        print("ERRO debug_gps:", e, flush=True)
+        return f"Erro ao abrir debug GPS: {str(e)}", 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 @app.post("/api/mobile/terms/accept")
