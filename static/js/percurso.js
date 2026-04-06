@@ -1,14 +1,14 @@
 (function () {
- const pageEl = document.getElementById("percursoPage");
+  const pageEl = document.getElementById("percursoPage");
 
-const config = {
-  veiculoId: pageEl?.dataset.veiculoId || "",
-  modelo: pageEl?.dataset.veiculoModelo || "",
-  placa: pageEl?.dataset.veiculoPlaca || "",
-  cidade: pageEl?.dataset.veiculoCidade || ""
-};
+  const config = {
+    veiculoId: pageEl?.dataset.veiculoId || "",
+    modelo: pageEl?.dataset.veiculoModelo || "",
+    placa: pageEl?.dataset.veiculoPlaca || "",
+    cidade: pageEl?.dataset.veiculoCidade || ""
+  };
 
-const veiculoId = config.veiculoId;
+  const veiculoId = config.veiculoId;
 
   const elInicio = document.getElementById("inicio");
   const elFim = document.getElementById("fim");
@@ -61,67 +61,27 @@ const veiculoId = config.veiculoId;
     return `${dd}/${mm}/${aa} ${hh}:${mi}`;
   }
 
-  function haversine(lat1, lon1, lat2, lon2) {
-    const R = 6371000;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) *
-      Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
-  function calcularResumo(pontos) {
-    let distanciaMetros = 0;
-    let tempoSegundos = 0;
-
-    for (let i = 1; i < pontos.length; i++) {
-      const a = pontos[i - 1];
-      const b = pontos[i];
-
-      if (
-        a.lat == null || a.lng == null ||
-        b.lat == null || b.lng == null ||
-        !a.data || !b.data
-      ) {
-        continue;
-      }
-
-      distanciaMetros += haversine(a.lat, a.lng, b.lat, b.lng);
-
-      const t1 = new Date(a.data).getTime();
-      const t2 = new Date(b.data).getTime();
-
-      if (!isNaN(t1) && !isNaN(t2) && t2 > t1) {
-        tempoSegundos += (t2 - t1) / 1000;
-      }
-    }
-
-    const distanciaKm = distanciaMetros / 1000;
-    const velocidadeMedia = tempoSegundos > 0
-      ? distanciaKm / (tempoSegundos / 3600)
-      : 0;
-
-    elDistancia.textContent = `${distanciaKm.toFixed(2)} km`;
-    elTempo.textContent = formatarDuracao(tempoSegundos);
-    elVelMedia.textContent = `${velocidadeMedia.toFixed(2)} km/h`;
-    elQtd.textContent = String(pontos.length);
-  }
-
   function formatarDuracao(segundos) {
-    if (!segundos || segundos <= 0) return "0 min";
+    const total = Number(segundos || 0);
+    if (!total || total <= 0) return "0 min";
 
-    const horas = Math.floor(segundos / 3600);
-    const minutos = Math.floor((segundos % 3600) / 60);
+    const horas = Math.floor(total / 3600);
+    const minutos = Math.floor((total % 3600) / 60);
 
     if (horas > 0 && minutos > 0) return `${horas}h ${minutos}min`;
     if (horas > 0) return `${horas}h`;
     return `${minutos} min`;
+  }
+
+  function aplicarResumo(resumo, quantidadePontos) {
+    const distanciaKm = Number(resumo?.distancia_total_km || 0);
+    const tempoSegundos = Number(resumo?.tempo_total_segundos || 0);
+    const velocidadeMedia = Number(resumo?.velocidade_media_kmh || 0);
+
+    elDistancia.textContent = `${distanciaKm.toFixed(2)} km`;
+    elTempo.textContent = formatarDuracao(tempoSegundos);
+    elVelMedia.textContent = `${velocidadeMedia.toFixed(2)} km/h`;
+    elQtd.textContent = String(quantidadePontos || 0);
   }
 
   function renderTimeline(pontos) {
@@ -147,7 +107,7 @@ const veiculoId = config.veiculoId;
             <strong>${titulo}</strong>
             <span class="timeline-time">${formatarDataHora(ponto.data)}</span>
           </div>
-          <p><b>Velocidade:</b> ${velocidade.toFixed(2)} km/h</p>
+          <p><b>Velocidade reportada:</b> ${velocidade.toFixed(2)} km/h</p>
           <p><b>Endereço:</b> ${ponto.endereco || "Sem endereço informado"}</p>
           <p><b>Coordenadas:</b> ${Number(ponto.lat).toFixed(5)}, ${Number(ponto.lng).toFixed(5)}</p>
         </div>
@@ -224,8 +184,9 @@ const veiculoId = config.veiculoId;
       }
 
       const pontos = Array.isArray(data.pontos) ? data.pontos : [];
+      const resumo = data.resumo || {};
 
-      calcularResumo(pontos);
+      aplicarResumo(resumo, pontos.length);
       renderTimeline(pontos);
       renderMapa(pontos);
     } catch (err) {

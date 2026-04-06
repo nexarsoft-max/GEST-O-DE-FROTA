@@ -3804,11 +3804,64 @@ def debug_gps():
     if r:
         return r
 
+    uid = usuario_id_atual()
     conn = cur = None
+
     try:
         conn = get_db()
         cur = conn.cursor()
 
+        # veículos do usuário para popular o select
+        cur.execute("""
+            SELECT id, modelo, placa, cidade
+            FROM veiculos
+            WHERE usuario_id = %s
+            ORDER BY modelo ASC, placa ASC
+        """, (uid,))
+        veiculos_rows = cur.fetchall()
+
+        veiculos = []
+        for row in veiculos_rows:
+            veiculos.append({
+                "id": int(row[0]),
+                "modelo": row[1],
+                "placa": row[2],
+                "cidade": row[3]
+            })
+
+        # vínculos de rastreadores
+        cur.execute("""
+            SELECT
+                r.id,
+                r.imei,
+                r.veiculo_id,
+                r.ativo,
+                r.criado_em,
+                v.modelo,
+                v.placa,
+                v.cidade
+            FROM rastreadores r
+            INNER JOIN veiculos v
+                ON v.id = r.veiculo_id
+            WHERE r.usuario_id = %s
+            ORDER BY r.id DESC
+        """, (uid,))
+        rastreadores_rows = cur.fetchall()
+
+        rastreadores = []
+        for row in rastreadores_rows:
+            rastreadores.append({
+                "id": int(row[0]),
+                "imei": row[1],
+                "veiculo_id": int(row[2]),
+                "ativo": bool(row[3]),
+                "criado_em": _formatar_data_label(row[4]) if row[4] else "",
+                "modelo": row[5],
+                "placa": row[6],
+                "cidade": row[7]
+            })
+
+        # histórico gps
         cur.execute("""
             SELECT
                 vl.latitude,
@@ -3829,7 +3882,7 @@ def debug_gps():
             WHERE vl.usuario_id = %s
             ORDER BY vl.recebido_em DESC
             LIMIT 100
-        """, (usuario_id_atual(),))
+        """, (uid,))
 
         rows = cur.fetchall()
 
@@ -3848,7 +3901,12 @@ def debug_gps():
                 "imei": imei or "",
             })
 
-        return render_template("debug_gps.html", dados=dados)
+        return render_template(
+            "debug_gps.html",
+            dados=dados,
+            veiculos=veiculos,
+            rastreadores=rastreadores
+        )
 
     except Exception as e:
         print("ERRO debug_gps:", e, flush=True)
@@ -3859,7 +3917,6 @@ def debug_gps():
             cur.close()
         if conn:
             conn.close()
-
 
 @app.post("/api/mobile/terms/accept")
 def api_mobile_terms_accept():
@@ -5004,6 +5061,223 @@ def percurso_veiculo(veiculo_id):
 
     except Exception as e:
         print("ERRO percurso_veiculo:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": str(e)
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+# =========================
+# API RASTREADORES (IMEI -> VEÍCULO)
+# =========================
+@app.get("/api/rastreadores")
+def api_rastreadores_listar():
+    r = proteger_api()
+    if r:
+        return r
+
+    uid = usuario_id_atual()
+    conn = cur = None
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT
+                r.id,
+                r.imei,
+                r.veiculo_id,
+                r.usuario_id,
+                r.ativo,
+                r.criado_em,
+                v.modelo,
+                v.placa,
+                v.cidade
+            FROM rastreadores r
+            INNER JOIN veiculos v
+                ON v.id = r.veiculo_id
+            WHERE r.usuario_id = %s
+            ORDER BY r.id DESC
+        """, (uid,))
+
+        rows = cur.fetchall()
+
+        data_out = []
+        for row in rows:
+            data_out.append({
+                "id": int(row[0]),
+                "imei": row[1],
+                "veiculo_id": int(row[2]),
+                "usuario_id": int(row[3]),
+                "ativo": bool(row[4]),
+                "criado_em": row[5].isoformat() if row[5] else None,
+                "modelo": row[6],
+                "placa": row[7],
+                "cidade": row[8]
+            })
+
+        return jsonify({
+            "sucesso": True,
+            "rastreadores": data_out
+        }), 200
+
+    except Exception as e:
+        print("ERRO api_rastreadores_listar:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": str(e)
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.post("/api/rastreadores")
+def api_rastreadores_salvar():
+    r = proteger_api()
+    if r:
+        return r
+
+    uid = usuario_id_atual()
+    dados = request.get_json(silent=True) or {}
+
+    imei = str(dados.get("imei") or "").strip()
+    veiculo_id = dados.get("veiculo_id")
+    ativo = bool(dados.get("ativo", True))
+
+    if not imei:
+        return jsonify({
+            "sucesso": False,
+            "erro": "IMEI é obrigatório"
+        }), 400
+
+    if not veiculo_id:
+        return jsonify({
+            "sucesso": False,
+            "erro": "veiculo_id é obrigatório"
+        }), 400
+
+    # aceita só números no IMEI
+    imei = re.sub(r"\D", "", imei)
+
+    if len(imei) < 8:
+        return jsonify({
+            "sucesso": False,
+            "erro": "IMEI inválido"
+        }), 400
+
+    conn = cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        # garante que o veículo pertence ao usuário
+        cur.execute("""
+            SELECT id
+            FROM veiculos
+            WHERE id = %s
+              AND usuario_id = %s
+            LIMIT 1
+        """, (int(veiculo_id), uid))
+
+        if not cur.fetchone():
+            return jsonify({
+                "sucesso": False,
+                "erro": "Veículo não encontrado"
+            }), 404
+
+        # se já existir o imei, atualiza o vínculo
+        cur.execute("""
+            INSERT INTO rastreadores (
+                imei,
+                veiculo_id,
+                usuario_id,
+                ativo
+            )
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (imei)
+            DO UPDATE SET
+                veiculo_id = EXCLUDED.veiculo_id,
+                usuario_id = EXCLUDED.usuario_id,
+                ativo = EXCLUDED.ativo
+            RETURNING id
+        """, (
+            imei,
+            int(veiculo_id),
+            uid,
+            ativo
+        ))
+
+        rastreador_id = cur.fetchone()[0]
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True,
+            "id": int(rastreador_id),
+            "imei": imei
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("ERRO api_rastreadores_salvar:", e, flush=True)
+        return jsonify({
+            "sucesso": False,
+            "erro": str(e)
+        }), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.delete("/api/rastreadores/<int:rastreador_id>")
+def api_rastreadores_excluir(rastreador_id):
+    r = proteger_api()
+    if r:
+        return r
+
+    uid = usuario_id_atual()
+    conn = cur = None
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            DELETE FROM rastreadores
+            WHERE id = %s
+              AND usuario_id = %s
+        """, (rastreador_id, uid))
+
+        if cur.rowcount == 0:
+            conn.rollback()
+            return jsonify({
+                "sucesso": False,
+                "erro": "Rastreador não encontrado"
+            }), 404
+
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("ERRO api_rastreadores_excluir:", e, flush=True)
         return jsonify({
             "sucesso": False,
             "erro": str(e)

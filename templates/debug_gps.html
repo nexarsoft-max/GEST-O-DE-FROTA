@@ -14,6 +14,8 @@
       --line:#e5e7eb;
       --primary:#6f2cff;
       --primary-2:#9b5cff;
+      --danger:#dc2626;
+      --success:#16a34a;
       --shadow:0 18px 40px rgba(15,23,42,.08);
       --radius:20px;
     }
@@ -69,6 +71,12 @@
       box-shadow:var(--shadow);
     }
 
+    .grid{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:20px;
+    }
+
     .card{
       background:var(--card);
       border:1px solid var(--line);
@@ -104,6 +112,73 @@
       color:var(--primary);
       font-size:12px;
       font-weight:900;
+    }
+
+    .card-body{
+      padding:20px 22px;
+    }
+
+    .form-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr auto auto;
+      gap:12px;
+      align-items:end;
+    }
+
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .field label{
+      font-size:13px;
+      font-weight:800;
+      color:#374151;
+    }
+
+    .field input,
+    .field select{
+      height:46px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:0 14px;
+      font-size:14px;
+      outline:none;
+    }
+
+    .field input:focus,
+    .field select:focus{
+      border-color:var(--primary);
+    }
+
+    .checkbox-wrap{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      height:46px;
+      padding:0 8px;
+      font-weight:700;
+      color:#374151;
+    }
+
+    .btn{
+      height:46px;
+      border:none;
+      border-radius:12px;
+      padding:0 18px;
+      font-weight:800;
+      cursor:pointer;
+    }
+
+    .btn.primary{
+      color:#fff;
+      background:linear-gradient(135deg,var(--primary),var(--primary-2));
+    }
+
+    .btn.danger{
+      color:#fff;
+      background:var(--danger);
     }
 
     .table-wrap{
@@ -152,14 +227,33 @@
       padding:0 10px;
     }
 
-    .muted{
-      color:var(--muted);
+    .status-on{
+      color:var(--success);
+      font-weight:800;
+    }
+
+    .status-off{
+      color:var(--danger);
+      font-weight:800;
     }
 
     .empty{
       padding:32px;
       text-align:center;
       color:var(--muted);
+    }
+
+    .feedback{
+      margin-top:14px;
+      font-size:13px;
+      font-weight:700;
+      color:#374151;
+    }
+
+    @media (max-width: 980px){
+      .form-grid{
+        grid-template-columns:1fr;
+      }
     }
 
     @media (max-width: 768px){
@@ -178,7 +272,7 @@
     <div class="topo">
       <div>
         <h1>Debug GPS</h1>
-        <p>Últimos pontos recebidos do rastreamento.</p>
+        <p>Últimos pontos recebidos do rastreamento e vínculos de IMEI.</p>
       </div>
 
       <a class="btn-voltar" href="{{ url_for('monitoramento') }}">
@@ -186,49 +280,218 @@
       </a>
     </div>
 
-    <div class="card">
-      <div class="card-head">
-        <h2>Últimos registros</h2>
-        <span class="badge">{{ dados|length }} pontos</span>
+    <div class="grid">
+      <div class="card">
+        <div class="card-head">
+          <h2>Vincular IMEI ao veículo</h2>
+          <span class="badge">{{ veiculos|length }} veículos</span>
+        </div>
+
+        <div class="card-body">
+          <form id="formRastreador">
+            <div class="form-grid">
+              <div class="field">
+                <label for="imei">IMEI do rastreador</label>
+                <input type="text" id="imei" placeholder="Ex.: 123456789012345">
+              </div>
+
+              <div class="field">
+                <label for="veiculoId">Veículo</label>
+                <select id="veiculoId">
+                  <option value="">Selecione</option>
+                  {% for veiculo in veiculos %}
+                  <option value="{{ veiculo.id }}">
+                    {{ veiculo.modelo }} - {{ veiculo.placa }} - {{ veiculo.cidade }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <label class="checkbox-wrap">
+                <input type="checkbox" id="ativo" checked>
+                Ativo
+              </label>
+
+              <button type="submit" class="btn primary">Salvar vínculo</button>
+            </div>
+          </form>
+
+          <div id="feedbackRastreador" class="feedback"></div>
+        </div>
       </div>
 
-      {% if dados and dados|length > 0 %}
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Veículo</th>
-              <th>Placa</th>
-              <th>IMEI</th>
-              <th>Latitude</th>
-              <th>Longitude</th>
-              <th>Velocidade</th>
-              <th>Endereço</th>
-              <th>Recebido em</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for item in dados %}
-            <tr>
-              <td>{{ item.modelo }}</td>
-              <td><span class="placa">{{ item.placa or '—' }}</span></td>
-              <td>{{ item.imei or '—' }}</td>
-              <td>{{ item.latitude if item.latitude is not none else '—' }}</td>
-              <td>{{ item.longitude if item.longitude is not none else '—' }}</td>
-              <td>{{ "%.2f"|format(item.velocidade_kmh or 0) }} km/h</td>
-              <td>{{ item.endereco or '—' }}</td>
-              <td>{{ item.recebido_em or '—' }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      <div class="card">
+        <div class="card-head">
+          <h2>Rastreadores vinculados</h2>
+          <span class="badge">{{ rastreadores|length }} vínculos</span>
+        </div>
+
+        {% if rastreadores and rastreadores|length > 0 %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>IMEI</th>
+                <th>Veículo</th>
+                <th>Placa</th>
+                <th>Cidade</th>
+                <th>Status</th>
+                <th>Criado em</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in rastreadores %}
+              <tr>
+                <td>{{ item.imei }}</td>
+                <td>{{ item.modelo }}</td>
+                <td><span class="placa">{{ item.placa }}</span></td>
+                <td>{{ item.cidade }}</td>
+                <td>
+                  {% if item.ativo %}
+                    <span class="status-on">Ativo</span>
+                  {% else %}
+                    <span class="status-off">Inativo</span>
+                  {% endif %}
+                </td>
+                <td>{{ item.criado_em }}</td>
+                <td>
+                 <button class="btn danger btn-excluir-rastreador" data-rastreador-id="{{ item.id }}">
+                Excluir
+                </button>
+                
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty">
+          Nenhum IMEI vinculado ainda.
+        </div>
+        {% endif %}
       </div>
-      {% else %}
-      <div class="empty">
-        Nenhum ponto de GPS recebido ainda.
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Últimos registros</h2>
+          <span class="badge">{{ dados|length }} pontos</span>
+        </div>
+
+        {% if dados and dados|length > 0 %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Veículo</th>
+                <th>Placa</th>
+                <th>IMEI</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+                <th>Velocidade</th>
+                <th>Endereço</th>
+                <th>Recebido em</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in dados %}
+              <tr>
+                <td>{{ item.modelo }}</td>
+                <td><span class="placa">{{ item.placa or '—' }}</span></td>
+                <td>{{ item.imei or '—' }}</td>
+                <td>{{ item.latitude if item.latitude is not none else '—' }}</td>
+                <td>{{ item.longitude if item.longitude is not none else '—' }}</td>
+                <td>{{ "%.2f"|format(item.velocidade_kmh or 0) }} km/h</td>
+                <td>{{ item.endereco or '—' }}</td>
+                <td>{{ item.recebido_em or '—' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty">
+          Nenhum ponto de GPS recebido ainda.
+        </div>
+        {% endif %}
       </div>
-      {% endif %}
     </div>
   </div>
+
+  <script>
+  const formRastreador = document.getElementById("formRastreador");
+  const feedbackRastreador = document.getElementById("feedbackRastreador");
+
+  if (formRastreador) {
+    formRastreador.addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const imei = (document.getElementById("imei").value || "").trim();
+      const veiculoId = document.getElementById("veiculoId").value;
+      const ativo = document.getElementById("ativo").checked;
+
+      feedbackRastreador.textContent = "Salvando vínculo...";
+
+      try {
+        const resp = await fetch("/api/rastreadores", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            imei,
+            veiculo_id: veiculoId,
+            ativo
+          })
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok || data.sucesso === false) {
+          throw new Error(data.erro || "Erro ao salvar vínculo");
+        }
+
+        feedbackRastreador.textContent = "Vínculo salvo com sucesso.";
+        window.location.reload();
+      } catch (err) {
+        feedbackRastreador.textContent = err.message || "Erro ao salvar vínculo.";
+      }
+    });
+  }
+
+  async function excluirRastreador(id) {
+    if (!confirm("Deseja realmente excluir este vínculo de IMEI?")) {
+      return;
+    }
+
+    try {
+      const resp = await fetch(`/api/rastreadores/${id}`, {
+        method: "DELETE",
+        headers: { "Accept": "application/json" },
+        credentials: "same-origin"
+      });
+
+      const data = await resp.json();
+
+      if (!resp.ok || data.sucesso === false) {
+        throw new Error(data.erro || "Erro ao excluir vínculo");
+      }
+
+      window.location.reload();
+    } catch (err) {
+      alert(err.message || "Erro ao excluir vínculo.");
+    }
+  }
+
+  document.querySelectorAll(".btn-excluir-rastreador").forEach((btn) => {
+    btn.addEventListener("click", function () {
+      const id = this.dataset.rastreadorId;
+      excluirRastreador(id);
+    });
+  });
+</script>
 </body>
 </html>

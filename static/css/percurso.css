@@ -274,3 +274,36 @@ body{
     grid-template-columns:1fr 1fr;
   }
 }
+
+.map-card-percurso{
+  position: relative;
+}
+
+.percurso-aviso-tecnico{
+  position: absolute;
+  right: 14px;
+  bottom: 10px;
+  max-width: 320px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #6b7280;
+  background: rgba(255,255,255,0.78);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(229,231,235,0.9);
+  border-radius: 10px;
+  padding: 6px 10px;
+  box-shadow: 0 6px 18px rgba(15,23,42,0.06);
+  pointer-events: none;
+  user-select: none;
+}
+
+@media (max-width: 768px){
+  .percurso-aviso-tecnico{
+    left: 12px;
+    right: 12px;
+    bottom: 10px;
+    max-width: none;
+    font-size: 10px;
+  }
+}
