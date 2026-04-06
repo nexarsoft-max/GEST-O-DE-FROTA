@@ -3797,6 +3797,70 @@ def receber_localizacao():
         if conn:
             conn.close()
     
+@app.route("/api/gps/ingest", methods=["GET", "POST"])
+def api_gps_ingest():
+    try:
+        # aceita GET ou POST
+        dados = request.args if request.method == "GET" else (request.get_json(silent=True) or {})
+
+        imei = str(dados.get("imei") or "").strip()
+        lat = dados.get("lat")
+        lng = dados.get("lng")
+        velocidade = dados.get("speed") or dados.get("velocidade")
+
+        if not imei or lat is None or lng is None:
+            return jsonify({"sucesso": False, "erro": "Dados incompletos"}), 400
+
+        lat = float(lat)
+        lng = float(lng)
+        velocidade = float(velocidade) if velocidade else 0.0
+
+        conn = get_db()
+        cur = conn.cursor()
+
+        # 🔥 BUSCA PELO IMEI
+        cur.execute("""
+            SELECT veiculo_id, usuario_id
+            FROM rastreadores
+            WHERE imei = %s AND ativo = TRUE
+            LIMIT 1
+        """, (imei,))
+
+        row = cur.fetchone()
+
+        if not row:
+            return jsonify({"sucesso": False, "erro": "IMEI não vinculado"}), 404
+
+        veiculo_id, usuario_id = row
+
+        # 🔥 SALVA LOCALIZAÇÃO
+        cur.execute("""
+            INSERT INTO veiculos_localizacao (
+                veiculo_id,
+                usuario_id,
+                latitude,
+                longitude,
+                velocidade_kmh,
+                endereco,
+                recebido_em
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+        """, (
+            veiculo_id,
+            usuario_id,
+            lat,
+            lng,
+            velocidade,
+            None
+        ))
+
+        conn.commit()
+
+        return jsonify({"sucesso": True})
+
+    except Exception as e:
+        print("ERRO GPS INGEST:", e, flush=True)
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
 
 @app.get("/debug/gps")
 def debug_gps():
