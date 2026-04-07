@@ -78,10 +78,14 @@ app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=365)  # 1 ano
 
 
 from flask import request, jsonify
-from openai import OpenAI
 import os
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = None
+OPENAI_API_KEY = (os.getenv("OPENAI_API_KEY") or "").strip()
+
+if OPENAI_API_KEY:
+    from openai import OpenAI
+    client = OpenAI(api_key=OPENAI_API_KEY)
 
 
 def pergunta_valida(pergunta):
@@ -110,6 +114,12 @@ def chat():
     if not pergunta_valida(pergunta):
         return jsonify({
             "resposta": "Só posso ajudar com dados da frota (abastecimentos, veículos, motoristas, postos, manutenção e dashboard)."
+        })
+
+    # ✅ Se não houver chave/configuração da OpenAI, não derruba o app
+    if client is None:
+        return jsonify({
+            "resposta": "Seu Assistente de métricas está indisponível no momento, entre em contato com o suporte."
         })
 
     def _cols(cur, table_name: str):
@@ -219,7 +229,9 @@ def chat():
         dados = cur.fetchall()
 
         if not dados:
-            return jsonify({"resposta": "Ainda não existem abastecimentos cadastrados no sistema."})
+            return jsonify({
+                "resposta": "Ainda não existem abastecimentos cadastrados no sistema."
+            })
 
         contexto = "\n".join([
             f"Data: {str(d[0])} | Veículo: {d[1]} | Motorista: {d[2]} | Posto: {d[3]} | Combustível: {d[4]} | Litros: {d[5]} | Valor: R$ {d[6]}"
@@ -242,7 +254,6 @@ PERGUNTA DO USUÁRIO:
 {pergunta}
 """
 
-        # ✅ CHAMADA OPENAI (com tratamento de erro)
         try:
             resposta = client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -252,30 +263,33 @@ PERGUNTA DO USUÁRIO:
                 ],
                 temperature=0.2
             )
-            return jsonify({"resposta": resposta.choices[0].message.content})
+
+            conteudo = (
+                resposta.choices[0].message.content
+                if resposta and resposta.choices and resposta.choices[0].message
+                else "Não há dados suficientes para responder."
+            )
+
+            return jsonify({"resposta": conteudo})
 
         except Exception as e:
             msg = str(e)
 
-            # ✅ 429 / sem créditos / quota
             if ("Error code: 429" in msg) or ("insufficient_quota" in msg) or ("quota" in msg.lower()):
                 return jsonify({
                     "resposta": "Seu Assistente de métricas está indisponível no momento, entre em contato com o suporte."
                 })
 
-            # ✅ 401 / chave inválida
             if ("401" in msg) or ("authentication" in msg.lower()) or ("api key" in msg.lower()):
                 return jsonify({
                     "resposta": "Seu Assistente de métricas está indisponível no momento, entre em contato com o suporte."
                 })
 
-            # ✅ qualquer outro erro da IA
             return jsonify({
                 "resposta": "Seu Assistente de métricas está indisponível no momento, entre em contato com o suporte."
             })
 
     except Exception as e:
-        # erro geral (banco/sql/etc)
         return jsonify({"resposta": f"Erro: {str(e)}"})
 
     finally:
@@ -283,6 +297,7 @@ PERGUNTA DO USUÁRIO:
             cur.close()
         if conn:
             conn.close()
+            
 # =========================
 # LOG
 # =========================
