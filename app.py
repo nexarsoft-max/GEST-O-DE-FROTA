@@ -4883,11 +4883,71 @@ def api_mobile_expediente_atual():
         conn = get_db()
         cur = conn.cursor()
 
+        # Descobre colunas opcionais para não quebrar se algum ambiente estiver desatualizado
         cur.execute("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'expedientes'
+        """)
+        colunas_expedientes = {row[0] for row in cur.fetchall()}
+
+        tem_ajustado = "ajustado" in colunas_expedientes
+        tem_data = "data" in colunas_expedientes
+        tem_veic_danificado_saida = "veiculo_danificado_saida" in colunas_expedientes
+        tem_observacao_dano_saida = "observacao_dano_saida" in colunas_expedientes
+        tem_foto_dano_1 = "foto_dano_saida_url_1" in colunas_expedientes
+        tem_foto_dano_2 = "foto_dano_saida_url_2" in colunas_expedientes
+        tem_foto_dano_3 = "foto_dano_saida_url_3" in colunas_expedientes
+
+        select_ajustado = "COALESCE(e.ajustado, FALSE) AS ajustado" if tem_ajustado else "FALSE AS ajustado"
+        select_data = "e.data AS data_expediente" if tem_data else "NULL AS data_expediente"
+        select_veic_danificado = (
+            "e.veiculo_danificado_saida AS veiculo_danificado_saida"
+            if tem_veic_danificado_saida else
+            "NULL AS veiculo_danificado_saida"
+        )
+        select_obs_dano = (
+            "COALESCE(e.observacao_dano_saida, '') AS observacao_dano_saida"
+            if tem_observacao_dano_saida else
+            "'' AS observacao_dano_saida"
+        )
+        select_foto_dano_1 = (
+            "COALESCE(e.foto_dano_saida_url_1, '') AS foto_dano_saida_url_1"
+            if tem_foto_dano_1 else
+            "'' AS foto_dano_saida_url_1"
+        )
+        select_foto_dano_2 = (
+            "COALESCE(e.foto_dano_saida_url_2, '') AS foto_dano_saida_url_2"
+            if tem_foto_dano_2 else
+            "'' AS foto_dano_saida_url_2"
+        )
+        select_foto_dano_3 = (
+            "COALESCE(e.foto_dano_saida_url_3, '') AS foto_dano_saida_url_3"
+            if tem_foto_dano_3 else
+            "'' AS foto_dano_saida_url_3"
+        )
+
+        # Busca o expediente mais recente do colaborador, seja em andamento ou finalizado
+        cur.execute(f"""
             SELECT
                 e.id,
                 e.veiculo_id,
                 e.horario_inicio,
+                e.horario_fim,
+                e.status,
+                e.checklist_entrada,
+                e.checklist_saida,
+                {select_ajustado},
+                {select_data},
+                COALESCE(e.foto_entrada_url, '') AS foto_entrada_url,
+                COALESCE(e.foto_saida_url, '') AS foto_saida_url,
+                COALESCE(e.foto_odometro_entrada_url, '') AS foto_odometro_entrada_url,
+                {select_veic_danificado},
+                {select_obs_dano},
+                {select_foto_dano_1},
+                {select_foto_dano_2},
+                {select_foto_dano_3},
                 v.modelo,
                 v.placa,
                 v.cidade
@@ -4895,8 +4955,9 @@ def api_mobile_expediente_atual():
             INNER JOIN veiculos v
                 ON v.id = e.veiculo_id
             WHERE e.colaborador_id = %s
-              AND e.status = 'em_andamento'
-            ORDER BY e.horario_inicio DESC, e.id DESC
+            ORDER BY
+                COALESCE(e.horario_inicio, CURRENT_TIMESTAMP) DESC,
+                e.id DESC
             LIMIT 1
         """, (motorista_id,))
 
@@ -4909,19 +4970,67 @@ def api_mobile_expediente_atual():
                 "expediente": None
             }), 200
 
-        expediente_id, veiculo_id, horario_inicio, modelo, placa, cidade = row
+        (
+            expediente_id,
+            veiculo_id,
+            horario_inicio,
+            horario_fim,
+            status,
+            checklist_entrada,
+            checklist_saida,
+            ajustado,
+            data_expediente,
+            foto_entrada_url,
+            foto_saida_url,
+            foto_odometro_entrada_url,
+            veiculo_danificado_saida,
+            observacao_dano_saida,
+            foto_dano_saida_url_1,
+            foto_dano_saida_url_2,
+            foto_dano_saida_url_3,
+            modelo,
+            placa,
+            cidade
+        ) = row
+
+        checklist_entrada_obj = _safe_json_loads(checklist_entrada, default={})
+        checklist_saida_obj = _safe_json_loads(checklist_saida, default={})
+
+        fotos_dano_saida = [
+            str(url).strip()
+            for url in [
+                foto_dano_saida_url_1,
+                foto_dano_saida_url_2,
+                foto_dano_saida_url_3,
+            ]
+            if url and str(url).strip()
+        ]
+
+        expediente = {
+            "id": int(expediente_id),
+            "veiculo_id": int(veiculo_id) if veiculo_id is not None else None,
+            "modelo": modelo,
+            "placa": placa,
+            "cidade": cidade,
+            "horario_inicio": horario_inicio.isoformat() if horario_inicio else None,
+            "horario_fim": horario_fim.isoformat() if horario_fim else None,
+            "status": status,
+            "ajustado": bool(ajustado),
+            "data": data_expediente.isoformat() if data_expediente else None,
+            "checklist_entrada": checklist_entrada_obj,
+            "checklist_saida": checklist_saida_obj,
+            "foto_entrada_url": foto_entrada_url or None,
+            "foto_saida_url": foto_saida_url or None,
+            "foto_odometro_entrada_url": foto_odometro_entrada_url or None,
+            "veiculo_danificado_saida": veiculo_danificado_saida,
+            "observacao_dano_saida": observacao_dano_saida or "",
+            "fotos_dano_saida": fotos_dano_saida
+        }
 
         return jsonify({
             "sucesso": True,
-            "expediente_ativo": True,
-            "expediente": {
-                "id": int(expediente_id),
-                "veiculo_id": int(veiculo_id),
-                "modelo": modelo,
-                "placa": placa,
-                "cidade": cidade,
-                "horario_inicio": horario_inicio.isoformat() if horario_inicio else None
-            }
+            "expediente_ativo": status == "em_andamento",
+            "expediente": expediente
         }), 200
 
     except Exception as e:
