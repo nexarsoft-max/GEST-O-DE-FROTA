@@ -4883,7 +4883,6 @@ def api_mobile_expediente_atual():
         conn = get_db()
         cur = conn.cursor()
 
-        # Descobre colunas opcionais para não quebrar se algum ambiente estiver desatualizado
         cur.execute("""
             SELECT column_name
             FROM information_schema.columns
@@ -4899,6 +4898,7 @@ def api_mobile_expediente_atual():
         tem_foto_dano_1 = "foto_dano_saida_url_1" in colunas_expedientes
         tem_foto_dano_2 = "foto_dano_saida_url_2" in colunas_expedientes
         tem_foto_dano_3 = "foto_dano_saida_url_3" in colunas_expedientes
+        tem_foto_odometro = "foto_odometro_entrada_url" in colunas_expedientes
 
         select_ajustado = "COALESCE(e.ajustado, FALSE) AS ajustado" if tem_ajustado else "FALSE AS ajustado"
         select_data = "e.data AS data_expediente" if tem_data else "NULL AS data_expediente"
@@ -4927,8 +4927,12 @@ def api_mobile_expediente_atual():
             if tem_foto_dano_3 else
             "'' AS foto_dano_saida_url_3"
         )
+        select_foto_odometro = (
+            "COALESCE(e.foto_odometro_entrada_url, '') AS foto_odometro_entrada_url"
+            if tem_foto_odometro else
+            "'' AS foto_odometro_entrada_url"
+        )
 
-        # Busca o expediente mais recente do colaborador, seja em andamento ou finalizado
         cur.execute(f"""
             SELECT
                 e.id,
@@ -4942,7 +4946,7 @@ def api_mobile_expediente_atual():
                 {select_data},
                 COALESCE(e.foto_entrada_url, '') AS foto_entrada_url,
                 COALESCE(e.foto_saida_url, '') AS foto_saida_url,
-                COALESCE(e.foto_odometro_entrada_url, '') AS foto_odometro_entrada_url,
+                {select_foto_odometro},
                 {select_veic_danificado},
                 {select_obs_dano},
                 {select_foto_dano_1},
@@ -4955,9 +4959,7 @@ def api_mobile_expediente_atual():
             INNER JOIN veiculos v
                 ON v.id = e.veiculo_id
             WHERE e.colaborador_id = %s
-            ORDER BY
-                COALESCE(e.horario_inicio, CURRENT_TIMESTAMP) DESC,
-                e.id DESC
+            ORDER BY COALESCE(e.horario_inicio, CURRENT_TIMESTAMP) DESC, e.id DESC
             LIMIT 1
         """, (motorista_id,))
 
@@ -4993,6 +4995,24 @@ def api_mobile_expediente_atual():
             cidade
         ) = row
 
+        tz_br = ZoneInfo("America/Sao_Paulo")
+        tz_utc = ZoneInfo("UTC")
+
+        def _dt_para_br(dt):
+            if not dt:
+                return None
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=tz_utc)
+            return dt.astimezone(tz_br)
+
+        def _data_local(dt):
+            dt_br = _dt_para_br(dt)
+            return dt_br.strftime("%d/%m/%Y") if dt_br else None
+
+        def _hora_local(dt):
+            dt_br = _dt_para_br(dt)
+            return dt_br.strftime("%H:%M") if dt_br else None
+
         checklist_entrada_obj = _safe_json_loads(checklist_entrada, default={})
         checklist_saida_obj = _safe_json_loads(checklist_saida, default={})
 
@@ -5014,6 +5034,10 @@ def api_mobile_expediente_atual():
             "cidade": cidade,
             "horario_inicio": horario_inicio.isoformat() if horario_inicio else None,
             "horario_fim": horario_fim.isoformat() if horario_fim else None,
+            "data_inicio_local": _data_local(horario_inicio),
+            "hora_inicio_local": _hora_local(horario_inicio),
+            "data_fim_local": _data_local(horario_fim),
+            "hora_fim_local": _hora_local(horario_fim),
             "status": status,
             "ajustado": bool(ajustado),
             "data": data_expediente.isoformat() if data_expediente else None,
