@@ -1,7 +1,7 @@
 import psycopg2
 
 def get_db():
-    database_url = "postgresql://banconovo_8p1m_user:Px0f4HjzpddxtuwvoY1dNpr94Wzlp6tc@dpg-d6s6beh5pdvs73fg7cs0-a.oregon-postgres.render.com/banconovo_8p1m"
+    database_url = "postgresql://gestaodefrota_user:pJTUfCEABoDQPK1FtF19zOTgJJLh3aPv@dpg-d7h59ppkh4rs73aj85qg-a/gestaodefrota"
 
     conn = psycopg2.connect(
         database_url,
