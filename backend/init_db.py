@@ -827,7 +827,8 @@ def criar_tabelas():
     CREATE INDEX IF NOT EXISTS ix_localizacao_veiculo
     ON veiculos_localizacao (veiculo_id);
     """)
-        # =========================
+
+    # =========================
     # 12) RASTREADORES
     # =========================
     cur.execute("""
@@ -844,14 +845,12 @@ def criar_tabelas():
     );
     """)
 
-    # garante colunas
     cur.execute("""ALTER TABLE rastreadores ADD COLUMN IF NOT EXISTS imei VARCHAR(50);""")
     cur.execute("""ALTER TABLE rastreadores ADD COLUMN IF NOT EXISTS veiculo_id BIGINT;""")
     cur.execute("""ALTER TABLE rastreadores ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
     cur.execute("""ALTER TABLE rastreadores ADD COLUMN IF NOT EXISTS ativo BOOLEAN DEFAULT TRUE;""")
     cur.execute("""ALTER TABLE rastreadores ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
 
-    # index por IMEI
     cur.execute("""
     DO $$
     BEGIN
@@ -867,7 +866,6 @@ def criar_tabelas():
     END$$;
     """)
 
-    # index para histórico de localização por usuário + veículo + data
     cur.execute("""
     DO $$
     BEGIN
@@ -882,11 +880,6 @@ def criar_tabelas():
         END IF;
     END$$;
     """)
-
-    conn.commit()
-    cur.close()
-    conn.close()
-    print("✅ init_db.py: tabelas criadas/alinhadas com sucesso.")
 
     # =========================
     # 13) ALERTAS RESOLVIDOS
@@ -939,6 +932,12 @@ def criar_tabelas():
         END IF;
     END$$;
     """)
-    
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    print("✅ init_db.py: tabelas criadas/alinhadas com sucesso.")
+
+
 if __name__ == "__main__":
     criar_tabelas()
