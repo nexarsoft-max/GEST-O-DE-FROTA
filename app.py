@@ -3161,7 +3161,11 @@ def api_alertas():
         if cur:
             cur.close()
         if conn:
-            conn.close()@app.get("/api/alertas")
+            conn.close()
+            
+            
+            
+@app.get("/api/alertas")
 def api_alertas():
     r = proteger_api()
     if r:

@@ -888,6 +888,57 @@ def criar_tabelas():
     conn.close()
     print("✅ init_db.py: tabelas criadas/alinhadas com sucesso.")
 
+    # =========================
+    # 13) ALERTAS RESOLVIDOS
+    # =========================
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS alertas_resolvidos (
+        id BIGSERIAL PRIMARY KEY,
+        usuario_id BIGINT NOT NULL,
+        alerta_id TEXT NOT NULL,
+        alerta_tipo TEXT,
+        expediente_id BIGINT,
+        resolvido_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+    );
+    """)
+
+    cur.execute("""ALTER TABLE alertas_resolvidos ADD COLUMN IF NOT EXISTS usuario_id BIGINT;""")
+    cur.execute("""ALTER TABLE alertas_resolvidos ADD COLUMN IF NOT EXISTS alerta_id TEXT;""")
+    cur.execute("""ALTER TABLE alertas_resolvidos ADD COLUMN IF NOT EXISTS alerta_tipo TEXT;""")
+    cur.execute("""ALTER TABLE alertas_resolvidos ADD COLUMN IF NOT EXISTS expediente_id BIGINT;""")
+    cur.execute("""ALTER TABLE alertas_resolvidos ADD COLUMN IF NOT EXISTS resolvido_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;""")
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname = 'public'
+              AND indexname = 'ux_alertas_resolvidos_usuario_alerta'
+        ) THEN
+            CREATE UNIQUE INDEX ux_alertas_resolvidos_usuario_alerta
+            ON alertas_resolvidos (usuario_id, alerta_id);
+        END IF;
+    END$$;
+    """)
+
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_indexes
+            WHERE schemaname = 'public'
+              AND indexname = 'ix_alertas_resolvidos_usuario'
+        ) THEN
+            CREATE INDEX ix_alertas_resolvidos_usuario
+            ON alertas_resolvidos (usuario_id);
+        END IF;
+    END$$;
+    """)
+    
 if __name__ == "__main__":
     criar_tabelas()
