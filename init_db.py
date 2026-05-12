@@ -558,7 +558,7 @@ def criar_tabelas():
     END$$;
     """)
 
-          # =========================
+       # =========================
     # 11) EXPEDIENTES
     # =========================
     cur.execute("""
@@ -581,6 +581,16 @@ def criar_tabelas():
         foto_saida_url TEXT,
         foto_odometro_entrada_url TEXT,
 
+        -- =========================
+        -- DANOS NA ENTRADA
+        -- =========================
+        foto_dano_entrada_url_1 TEXT,
+        foto_dano_entrada_url_2 TEXT,
+        foto_dano_entrada_url_3 TEXT,
+
+        -- =========================
+        -- DANOS NA SAÍDA
+        -- =========================
         veiculo_danificado_saida BOOLEAN DEFAULT FALSE,
         observacao_dano_saida TEXT,
         foto_dano_saida_url_1 TEXT,
@@ -614,7 +624,16 @@ def criar_tabelas():
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS foto_saida_url TEXT;""")
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS foto_odometro_entrada_url TEXT;""")
 
-    # novos campos de dano na saída
+    # =========================
+    # DANOS NA ENTRADA
+    # =========================
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS foto_dano_entrada_url_1 TEXT;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS foto_dano_entrada_url_2 TEXT;""")
+    cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS foto_dano_entrada_url_3 TEXT;""")
+
+    # =========================
+    # DANOS NA SAÍDA
+    # =========================
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS veiculo_danificado_saida BOOLEAN DEFAULT FALSE;""")
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS observacao_dano_saida TEXT;""")
     cur.execute("""ALTER TABLE expedientes ADD COLUMN IF NOT EXISTS foto_dano_saida_url_1 TEXT;""")

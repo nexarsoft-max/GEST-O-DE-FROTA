@@ -4618,8 +4618,16 @@ def api_mobile_iniciar_expediente_completo():
 
     veiculo_id = request.form.get("veiculo_id")
     raw_checklist = request.form.get("checklist")
+
     foto = request.files.get("foto")
     foto_odometro = request.files.get("foto_odometro")
+
+    # =========================
+    # FOTOS DE DANO ENTRADA
+    # =========================
+    foto_dano_1 = request.files.get("foto_dano_1")
+    foto_dano_2 = request.files.get("foto_dano_2")
+    foto_dano_3 = request.files.get("foto_dano_3")
 
     if not veiculo_id:
         return jsonify({
@@ -4655,7 +4663,10 @@ def api_mobile_iniciar_expediente_completo():
         conn = get_db()
         cur = conn.cursor()
 
-        # fecha expediente antigo do mesmo colaborador
+        # =========================
+        # FECHA EXPEDIENTES ANTIGOS
+        # =========================
+
         cur.execute("""
             UPDATE expedientes
             SET
@@ -4665,7 +4676,6 @@ def api_mobile_iniciar_expediente_completo():
               AND status = 'em_andamento'
         """, (motorista_id,))
 
-        # fecha expediente antigo do mesmo veículo
         cur.execute("""
             UPDATE expedientes
             SET
@@ -4675,7 +4685,10 @@ def api_mobile_iniciar_expediente_completo():
               AND status = 'em_andamento'
         """, (veiculo_id,))
 
-        # encerra vínculos antigos do motorista
+        # =========================
+        # FECHA VÍNCULOS ANTIGOS
+        # =========================
+
         cur.execute("""
             UPDATE veiculos_uso
             SET ativo = FALSE,
@@ -4684,7 +4697,6 @@ def api_mobile_iniciar_expediente_completo():
               AND ativo = TRUE
         """, (motorista_id,))
 
-        # encerra vínculos antigos do veículo
         cur.execute("""
             UPDATE veiculos_uso
             SET ativo = FALSE,
@@ -4693,7 +4705,10 @@ def api_mobile_iniciar_expediente_completo():
               AND ativo = TRUE
         """, (veiculo_id,))
 
-        # cria vínculo novo
+        # =========================
+        # NOVO VÍNCULO
+        # =========================
+
         cur.execute("""
             INSERT INTO veiculos_uso (
                 motorista_id,
@@ -4710,104 +4725,178 @@ def api_mobile_iniciar_expediente_completo():
 
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
 
+        # =========================
+        # FOTO PRINCIPAL
+        # =========================
+
         filename_entrada = f"entrada/{veiculo_id}_{motorista_id}_{timestamp}.jpg"
+
         s3.upload_fileobj(
             foto,
             R2_BUCKET_NAME,
             filename_entrada,
-            ExtraArgs={"ContentType": foto.content_type or "image/jpeg"}
+            ExtraArgs={
+                "ContentType": foto.content_type or "image/jpeg"
+            }
         )
-        url_foto_entrada = montar_url_publica_r2(filename_entrada)
+
+        url_foto_entrada = montar_url_publica_r2(
+            filename_entrada
+        )
+
+        # =========================
+        # FOTO ODÔMETRO
+        # =========================
 
         url_foto_odometro = None
+
         if foto_odometro:
-            filename_odometro = f"odometro/entrada_{veiculo_id}_{motorista_id}_{timestamp}.jpg"
+
+            filename_odometro = (
+                f"odometro/entrada_{veiculo_id}_{motorista_id}_{timestamp}.jpg"
+            )
+
             s3.upload_fileobj(
                 foto_odometro,
                 R2_BUCKET_NAME,
                 filename_odometro,
-                ExtraArgs={"ContentType": foto_odometro.content_type or "image/jpeg"}
+                ExtraArgs={
+                    "ContentType":
+                        foto_odometro.content_type or "image/jpeg"
+                }
             )
-            url_foto_odometro = montar_url_publica_r2(filename_odometro)
 
-        # verifica se a coluna existe
+            url_foto_odometro = montar_url_publica_r2(
+                filename_odometro
+            )
+
+        # =========================
+        # FOTOS DANO ENTRADA
+        # =========================
+
+        def upload_dano(arquivo, indice):
+
+            if not arquivo:
+                return None
+
+            nome = (
+                f"dano_entrada/"
+                f"{veiculo_id}_{motorista_id}_{indice}_{timestamp}.jpg"
+            )
+
+            s3.upload_fileobj(
+                arquivo,
+                R2_BUCKET_NAME,
+                nome,
+                ExtraArgs={
+                    "ContentType":
+                        arquivo.content_type or "image/jpeg"
+                }
+            )
+
+            return montar_url_publica_r2(nome)
+
+        url_dano_1 = upload_dano(foto_dano_1, 1)
+        url_dano_2 = upload_dano(foto_dano_2, 2)
+        url_dano_3 = upload_dano(foto_dano_3, 3)
+
+        # =========================
+        # INSERT EXPEDIENTE
+        # =========================
+
         cur.execute("""
-            SELECT 1
-            FROM information_schema.columns
-            WHERE table_name = 'expedientes'
-              AND column_name = 'foto_odometro_entrada_url'
-            LIMIT 1
-        """)
-        tem_coluna_odometro = cur.fetchone() is not None
+            INSERT INTO expedientes (
+                usuario_id,
+                colaborador_id,
+                veiculo_id,
 
-        if tem_coluna_odometro:
-            cur.execute("""
-                INSERT INTO expedientes (
-                    usuario_id,
-                    colaborador_id,
-                    veiculo_id,
-                    foto_entrada_url,
-                    foto_odometro_entrada_url,
-                    checklist_entrada,
-                    horario_inicio,
-                    status
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, 'em_andamento')
-                RETURNING id
-            """, (
-                usuario_id,
-                motorista_id,
-                veiculo_id,
-                url_foto_entrada,
-                url_foto_odometro,
-                json.dumps(checklist),
-            ))
-        else:
-            cur.execute("""
-                INSERT INTO expedientes (
-                    usuario_id,
-                    colaborador_id,
-                    veiculo_id,
-                    foto_entrada_url,
-                    checklist_entrada,
-                    horario_inicio,
-                    status
-                )
-                VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP, 'em_andamento')
-                RETURNING id
-            """, (
-                usuario_id,
-                motorista_id,
-                veiculo_id,
-                url_foto_entrada,
-                json.dumps(checklist),
-            ))
+                foto_entrada_url,
+                foto_odometro_entrada_url,
+
+                foto_dano_entrada_url_1,
+                foto_dano_entrada_url_2,
+                foto_dano_entrada_url_3,
+
+                checklist_entrada,
+                horario_inicio,
+                status
+            )
+            VALUES (
+                %s,
+                %s,
+                %s,
+
+                %s,
+                %s,
+
+                %s,
+                %s,
+                %s,
+
+                %s,
+                CURRENT_TIMESTAMP,
+                'em_andamento'
+            )
+            RETURNING id
+        """, (
+            usuario_id,
+            motorista_id,
+            veiculo_id,
+
+            url_foto_entrada,
+            url_foto_odometro,
+
+            url_dano_1,
+            url_dano_2,
+            url_dano_3,
+
+            json.dumps(checklist),
+        ))
 
         expediente_id = cur.fetchone()[0]
+
         conn.commit()
 
         return jsonify({
             "sucesso": True,
             "expediente_id": int(expediente_id),
+
             "foto_url": url_foto_entrada,
-            "foto_odometro_url": url_foto_odometro
+            "foto_odometro_url": url_foto_odometro,
+
+            "fotos_dano_entrada": [
+                url for url in [
+                    url_dano_1,
+                    url_dano_2,
+                    url_dano_3
+                ] if url
+            ]
         }), 200
 
     except Exception as e:
+
         if conn:
             conn.rollback()
-        print("ERRO iniciar expediente:", e, flush=True)
+
+        print(
+            "ERRO iniciar expediente:",
+            e,
+            flush=True
+        )
+
         return jsonify({
             "sucesso": False,
             "erro": f"Erro ao iniciar expediente: {str(e)}"
         }), 500
 
     finally:
+
         if cur:
             cur.close()
+
         if conn:
             conn.close()
-            
+                        
 # =========================
 # API MOBILE - FINALIZAR EXPEDIENTE (COM FOTO)
 # =========================
