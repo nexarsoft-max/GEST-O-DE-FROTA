@@ -7,7 +7,7 @@ from datetime import datetime
 from conexao import get_db
 
 HOST = "0.0.0.0"
-PORT = 5001
+PORT = 5023
 BUFFER_SIZE = 4096
 RAW_LOG_FILE = "tcp_raw.log"
 
@@ -18,6 +18,47 @@ def log_raw(msg: str):
             f.write(f"[{datetime.utcnow().isoformat()}] {msg}\n")
     except Exception as e:
         print("ERRO log_raw:", e, flush=True)
+
+
+# =========================
+# 🔥 NOVO: DECODIFICADOR GT06
+# =========================
+def decode_gt06(data: bytes):
+    try:
+        hex_data = binascii.hexlify(data).decode()
+
+        if len(hex_data) < 20:
+            return None
+
+        if not (hex_data.startswith("7878") or hex_data.startswith("7979")):
+            return None
+
+        protocol = hex_data[6:8]
+
+        # LOGIN (IMEI)
+        if protocol == "01":
+            imei_hex = hex_data[8:24]
+            imei = str(int(imei_hex))
+            return {"imei": imei}
+
+        # LOCALIZAÇÃO
+        if protocol in ["12", "22"]:
+            lat_hex = hex_data[16:24]
+            lng_hex = hex_data[24:32]
+
+            lat = int(lat_hex, 16) / 1800000
+            lng = int(lng_hex, 16) / 1800000
+
+            return {
+                "latitude": lat,
+                "longitude": lng
+            }
+
+        return None
+
+    except Exception as e:
+        print("ERRO decode_gt06:", e, flush=True)
+        return None
 
 
 def buscar_vinculo_rastreador(imei: str):
@@ -108,12 +149,6 @@ def salvar_localizacao(usuario_id, veiculo_id, latitude, longitude, velocidade_k
 
 
 def extrair_imei(texto: str):
-    """
-    Tenta achar IMEI em formatos comuns:
-    IMEI:123456789012345
-    imei=123456789012345
-    ...123456789012345...
-    """
     if not texto:
         return None
 
@@ -129,13 +164,6 @@ def extrair_imei(texto: str):
 
 
 def extrair_lat_lng_vel(texto: str):
-    """
-    Parser provisório e tolerante.
-    Aceita exemplos como:
-    LAT:-7.2301;LNG:-35.8811;SPD:42
-    lat=-7.2301 lon=-35.8811 speed=42
-    latitude:-7.2301 longitude:-35.8811
-    """
     if not texto:
         return None, None, None
 
@@ -161,29 +189,11 @@ def extrair_lat_lng_vel(texto: str):
 
 
 def parsear_pacote_generico(texto: str):
-    """
-    Retorna dict com:
-    {
-        "imei": "...",
-        "latitude": ...,
-        "longitude": ...,
-        "velocidade_kmh": ...
-    }
-    ou None se não conseguiu parsear.
-    """
     imei = extrair_imei(texto)
     lat, lng, vel = extrair_lat_lng_vel(texto)
 
     if not imei:
         return None
-
-    if lat is None or lng is None:
-        return {
-            "imei": imei,
-            "latitude": None,
-            "longitude": None,
-            "velocidade_kmh": vel
-        }
 
     return {
         "imei": imei,
@@ -194,96 +204,73 @@ def parsear_pacote_generico(texto: str):
 
 
 def processar_pacote_texto(texto: str, addr):
-    """
-    Fluxo antigo preservado:
-    1) loga bruto
-    2) tenta extrair IMEI
-    3) cruza com rastreadores
-    4) se tiver lat/lng, salva em veiculos_localizacao
-    """
     log_raw(f"{addr} -> TEXTO -> {texto}")
 
     pacote = parsear_pacote_generico(texto)
 
     if not pacote:
-        print(f"PACOTE TEXTO SEM PARSER | origem={addr} | bruto={texto}", flush=True)
+        print(f"PACOTE TEXTO SEM PARSER | origem={addr}", flush=True)
         return
 
-    imei = pacote["imei"]
-    latitude = pacote["latitude"]
-    longitude = pacote["longitude"]
-    velocidade_kmh = pacote["velocidade_kmh"]
-
-    print(
-        f"PACOTE PARSEADO | origem={addr} | imei={imei} | lat={latitude} | lng={longitude} | vel={velocidade_kmh}",
-        flush=True
-    )
-
-    vinculo = buscar_vinculo_rastreador(imei)
+    vinculo = buscar_vinculo_rastreador(pacote["imei"])
     if not vinculo:
-        print(f"IMEI NÃO VINCULADO OU INATIVO | imei={imei}", flush=True)
         return
 
-    usuario_id = vinculo["usuario_id"]
-    veiculo_id = vinculo["veiculo_id"]
-
-    if latitude is None or longitude is None:
-        print(
-            f"IMEI VINCULADO, MAS PACOTE SEM LAT/LNG | imei={imei} | usuario_id={usuario_id} | veiculo_id={veiculo_id}",
-            flush=True
-        )
+    if pacote["latitude"] is None:
         return
 
     salvar_localizacao(
-        usuario_id=usuario_id,
-        veiculo_id=veiculo_id,
-        latitude=latitude,
-        longitude=longitude,
-        velocidade_kmh=velocidade_kmh,
-        endereco=None
+        usuario_id=vinculo["usuario_id"],
+        veiculo_id=vinculo["veiculo_id"],
+        latitude=pacote["latitude"],
+        longitude=pacote["longitude"],
+        velocidade_kmh=pacote["velocidade_kmh"]
     )
 
 
-def processar_pacote_binario(data: bytes, addr):
-    """
-    Novo fluxo para o J16 Ultra / binário:
-    - grava HEX cru
-    - tenta mostrar texto legível
-    - não quebra o servidor
-    - prepara a próxima etapa de decodificação
-    """
-    hex_data = binascii.hexlify(data).decode("ascii", errors="ignore")
+# =========================
+# 🔥 BINÁRIO COM ESTADO (IMEI)
+# =========================
+def processar_pacote_binario(data: bytes, addr, estado):
+    hex_data = binascii.hexlify(data).decode()
     log_raw(f"{addr} -> HEX -> {hex_data}")
 
-    print(f"PACOTE BINÁRIO | origem={addr} | hex={hex_data}", flush=True)
+    print(f"BINÁRIO HEX: {hex_data}", flush=True)
 
+    decoded = decode_gt06(data)
+
+    if not decoded:
+        return
+
+    if "imei" in decoded:
+        estado["imei"] = decoded["imei"]
+        print(f"IMEI CAPTURADO: {decoded['imei']}", flush=True)
+        return
+
+    if "latitude" in decoded and estado.get("imei"):
+        vinculo = buscar_vinculo_rastreador(estado["imei"])
+        if not vinculo:
+            return
+
+        salvar_localizacao(
+            usuario_id=vinculo["usuario_id"],
+            veiculo_id=vinculo["veiculo_id"],
+            latitude=decoded["latitude"],
+            longitude=decoded["longitude"]
+        )
+
+
+def responder_ack(conn):
     try:
-        texto_legivel = data.decode("utf-8", errors="ignore").strip()
-    except Exception:
-        texto_legivel = ""
-
-    if texto_legivel:
-        print(f"PACOTE BINÁRIO COM TEXTO | origem={addr} | texto={texto_legivel}", flush=True)
-
-        # Se por acaso vier um pacote híbrido com IMEI/LAT/LNG em texto,
-        # reaproveita o fluxo antigo sem quebrar nada.
-        if extrair_imei(texto_legivel):
-            processar_pacote_texto(texto_legivel, addr)
-
-
-def responder_ack(conn, data: bytes):
-    """
-    ACK genérico.
-    Mantido para não quebrar o fluxo atual.
-    """
-    try:
-        conn.sendall(b"OK")
-    except Exception as e:
-        print("ERRO responder_ack:", e, flush=True)
+        conn.sendall(b"\x78\x78\x05\x01\x00\x01\xd9\xdc")
+    except:
+        pass
 
 
 def handle_client(conn, addr):
     print(f"NOVA CONEXÃO TCP: {addr}", flush=True)
+
+    estado = {"imei": None}
 
     try:
         while True:
@@ -291,34 +278,23 @@ def handle_client(conn, addr):
             if not data:
                 break
 
-            print(f"DADOS RECEBIDOS: {data[:120]!r}", flush=True)
-
-            # Primeiro tenta interpretar como texto
             try:
                 texto = data.decode("utf-8", errors="ignore").strip()
-            except Exception:
+            except:
                 texto = ""
 
-            # Se vier texto claro e útil, usa o fluxo antigo
-            if texto and any(ch.isalnum() for ch in texto):
-                print(f"PACOTE RECEBIDO | origem={addr} | bruto={texto}", flush=True)
+            if texto and any(c.isalnum() for c in texto):
                 processar_pacote_texto(texto, addr)
             else:
-                # Caso contrário, trata como binário/hex
-                processar_pacote_binario(data, addr)
+                processar_pacote_binario(data, addr, estado)
 
-            responder_ack(conn, data)
+            responder_ack(conn)
 
     except Exception as e:
-        print(f"ERRO handle_client {addr}: {e}", flush=True)
+        print("ERRO:", e, flush=True)
 
     finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
-
-        print(f"CONEXÃO ENCERRADA: {addr}", flush=True)
+        conn.close()
 
 
 def start_tcp_server():
@@ -331,8 +307,7 @@ def start_tcp_server():
 
     while True:
         conn, addr = server.accept()
-        thread = threading.Thread(target=handle_client, args=(conn, addr), daemon=True)
-        thread.start()
+        threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
 
 
 if __name__ == "__main__":
