@@ -315,7 +315,7 @@ function gerarPdfAlerta(alerta) {
   }
 
   const url = `/api/alertas/pdf/${encodeURIComponent(alerta.expediente_id)}`;
-  window.location.href = url;
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 async function resolverNoBackend(alerta) {

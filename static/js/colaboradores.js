@@ -702,6 +702,54 @@ function configurarCardsResumoAlertas() {
 // =========================
 // CARDS SUPERIORES
 // =========================
+async function atualizarCardsResumoPelosAlertas() {
+  try {
+    const response = await fetch("/api/alertas", {
+      headers: { Accept: "application/json" }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || data.sucesso === false) {
+      throw new Error(data.erro || "Erro ao carregar alertas");
+    }
+
+    const alertas = Array.isArray(data.alertas) ? data.alertas : [];
+    const ativos = alertas.filter((alerta) => alerta.resolvido !== true);
+
+    const countByType = (tipo) =>
+      ativos.filter((alerta) => alerta.tipo === tipo).length;
+
+    const cardCelularDanificado = document.getElementById("cardCelularDanificado");
+
+    if (cardVeiculosEmUso) {
+      cardVeiculosEmUso.textContent = countByType("veiculos_em_uso") || "--";
+    }
+
+    if (cardCelularDanificado) {
+      cardCelularDanificado.textContent = countByType("celular_danificado") || "--";
+    }
+
+    if (cardChecklistFaltando) {
+      cardChecklistFaltando.textContent = countByType("checklist_faltando") || "--";
+    }
+
+    if (cardVeiculoDanificado) {
+      cardVeiculoDanificado.textContent = countByType("veiculo_danificado") || "--";
+    }
+
+    if (cardObservacoes) {
+      cardObservacoes.textContent = countByType("observacoes") || "--";
+    }
+
+    if (cardPendencias) {
+      cardPendencias.textContent = countByType("pendentes") || "--";
+    }
+  } catch (erro) {
+    console.error("Erro ao sincronizar cards com alertas:", erro);
+  }
+}
+
 function calcularResumoCards(lista) {
   const registrosHoje = lista.filter((item) => ehDoDiaAtual(item.data));
 
@@ -808,6 +856,7 @@ function calcularResumoCards(lista) {
   }
 
   configurarCardsResumoAlertas();
+atualizarCardsResumoPelosAlertas();
 }
 // =========================
 // TABELA PRINCIPAL

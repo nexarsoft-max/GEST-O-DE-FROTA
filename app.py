@@ -2079,7 +2079,7 @@ def api_detalhe_expediente(expediente_id):
             cur.close()
         if conn:
             conn.close()
-                        
+
 @app.get("/api/mobile/terms/status")
 def api_mobile_terms_status():
     r = proteger_api_mobile()
@@ -3403,17 +3403,6 @@ def gerar_pdf_alerta(alerta_id):
     uid = usuario_id_atual()
     conn = cur = None
 
-    def _baixar_imagem_para_bytes(url):
-        try:
-            if not url:
-                return None
-            req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urlopen(req, timeout=15) as resp:
-                return BytesIO(resp.read())
-        except Exception as e:
-            print("ERRO ao baixar imagem para PDF:", e, flush=True)
-            return None
-
     def _fmt_datahora(dt):
         if not dt:
             return "-"
@@ -3435,11 +3424,17 @@ def gerar_pdf_alerta(alerta_id):
     def _normalizar_checklist_pdf(valor):
         detalhe = _normalizar_checklist_detalhe_colaboradores(valor)
         itens = detalhe.get("itens_marcados") or detalhe.get("itens") or []
+
         if not isinstance(itens, list):
             itens = []
+
         return {
             "itens": [str(i).strip() for i in itens if str(i).strip()],
             "veiculo_perfeito": detalhe.get("veiculo_perfeito"),
+            "celular_perfeito": detalhe.get("celular_perfeito"),
+            "celular_danificado": detalhe.get("celular_danificado"),
+            "estado_celular": str(detalhe.get("estado_celular") or "").strip(),
+            "observacao_celular": str(detalhe.get("observacao_celular") or "").strip(),
             "observacao": str(detalhe.get("observacao") or "").strip(),
             "quantidade_cones": str(detalhe.get("quantidade_cones") or "").strip(),
             "trabalhando_em_dupla_ou_mais": detalhe.get("trabalhando_em_dupla_ou_mais"),
@@ -3464,24 +3459,29 @@ def gerar_pdf_alerta(alerta_id):
             SELECT 1
             FROM information_schema.columns
             WHERE table_name = 'expedientes'
-              AND column_name = 'foto_dano_saida_url_1'
+              AND column_name = 'veiculo_danificado_saida'
             LIMIT 1
         """)
         tem_dano_saida = cur.fetchone() is not None
 
         campo_foto_odometro = (
             "COALESCE(e.foto_odometro_entrada_url, '')"
-            if tem_foto_odometro else "''"
+            if tem_foto_odometro
+            else "''"
         )
 
         if tem_dano_saida:
             campos_dano_saida = """
+                COALESCE(e.veiculo_danificado_saida, FALSE),
+                COALESCE(e.observacao_dano_saida, ''),
                 COALESCE(e.foto_dano_saida_url_1, ''),
                 COALESCE(e.foto_dano_saida_url_2, ''),
                 COALESCE(e.foto_dano_saida_url_3, '')
             """
         else:
             campos_dano_saida = """
+                FALSE,
+                '',
                 '',
                 '',
                 ''
@@ -3502,11 +3502,9 @@ def gerar_pdf_alerta(alerta_id):
                 COALESCE(e.foto_entrada_url, '') AS foto_entrada_url,
                 COALESCE(e.foto_saida_url, '') AS foto_saida_url,
                 {campo_foto_odometro} AS foto_odometro_url,
-                COALESCE(e.veiculo_danificado_saida, FALSE) AS veiculo_danificado_saida,
-                COALESCE(e.observacao_dano_saida, '') AS observacao_dano_saida,
+                {campos_dano_saida},
                 COALESCE(e.motivo_ajuste, '') AS motivo_ajuste,
-                COALESCE(e.ajustado, FALSE) AS ajustado,
-                {campos_dano_saida}
+                COALESCE(e.ajustado, FALSE) AS ajustado
             FROM expedientes e
             LEFT JOIN motoristas m
                 ON m.id = COALESCE(e.colaborador_id, e.motorista_id)
@@ -3528,13 +3526,18 @@ def gerar_pdf_alerta(alerta_id):
         checklist_entrada = _normalizar_checklist_pdf(row[8])
         checklist_saida = _normalizar_checklist_pdf(row[9])
 
+        veiculo_danificado_saida = bool(row[13])
+        observacao_dano_saida = row[14] or ""
         fotos_dano = [
             str(url).strip()
-            for url in [row[17], row[18], row[19]]
+            for url in [row[15], row[16], row[17]]
             if url and str(url).strip()
         ]
+        motivo_ajuste = row[18] or ""
+        ajustado = bool(row[19])
 
         buffer = BytesIO()
+
         doc = SimpleDocTemplate(
             buffer,
             pagesize=A4,
@@ -3545,6 +3548,7 @@ def gerar_pdf_alerta(alerta_id):
         )
 
         styles = getSampleStyleSheet()
+
         style_title = ParagraphStyle(
             "TitleNexar",
             parent=styles["Title"],
@@ -3553,6 +3557,7 @@ def gerar_pdf_alerta(alerta_id):
             textColor=colors.HexColor("#24163A"),
             spaceAfter=10
         )
+
         style_h2 = ParagraphStyle(
             "H2Nexar",
             parent=styles["Heading2"],
@@ -3562,6 +3567,7 @@ def gerar_pdf_alerta(alerta_id):
             spaceBefore=10,
             spaceAfter=8
         )
+
         style_body = ParagraphStyle(
             "BodyNexar",
             parent=styles["BodyText"],
@@ -3569,6 +3575,7 @@ def gerar_pdf_alerta(alerta_id):
             leading=13,
             textColor=colors.HexColor("#2B2438")
         )
+
         style_small = ParagraphStyle(
             "SmallNexar",
             parent=styles["BodyText"],
@@ -3580,12 +3587,14 @@ def gerar_pdf_alerta(alerta_id):
         story = []
 
         logo_path = os.path.join(STATIC_DIR, "img", "logo.png")
+
         if os.path.exists(logo_path):
             logo = Image(logo_path, width=1.9 * cm, height=1.9 * cm)
             titulo_bloco = Paragraph(
                 "<b>Agência Nexar</b><br/><font size='9' color='#5F5870'>Relatório completo do expediente e ocorrência</font>",
                 style_body
             )
+
             header = Table([[logo, titulo_bloco]], colWidths=[2.3 * cm, 13.5 * cm])
             header.setStyle(TableStyle([
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -3605,9 +3614,10 @@ def gerar_pdf_alerta(alerta_id):
         resumo = Table([
             ["Colaborador", _texto(row[1]), "CPF", _texto(row[2])],
             ["Email", _texto(row[3]), "Veículo", _texto(row[4])],
-            ["Placa", _texto(row[5]), "Ajustado", _fmt_bool(bool(row[16]))],
+            ["Placa", _texto(row[5]), "Ajustado", _fmt_bool(ajustado)],
             ["Entrada", _fmt_datahora(row[6]), "Saída", _fmt_datahora(row[7])],
         ], colWidths=[2.8 * cm, 5.2 * cm, 2.2 * cm, 5.6 * cm])
+
         resumo.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F7F4FD")),
             ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#DDD3F7")),
@@ -3623,13 +3633,23 @@ def gerar_pdf_alerta(alerta_id):
             ("TOPPADDING", (0, 0), (-1, -1), 7),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
         ]))
+
         story.append(resumo)
         story.append(Spacer(1, 0.35 * cm))
 
         story.append(Paragraph("Checklist de entrada", style_h2))
-        entrada_texto = "<br/>".join([f"- {item}" for item in checklist_entrada["itens"]]) if checklist_entrada["itens"] else "- Nenhum item marcado"
+
+        entrada_texto = (
+            "<br/>".join([f"- {item}" for item in checklist_entrada["itens"]])
+            if checklist_entrada["itens"]
+            else "- Nenhum item marcado"
+        )
+
         story.append(Paragraph(
-            f"<b>Estado do veículo:</b> {_fmt_bool(False if checklist_entrada['veiculo_perfeito'] is False else True if checklist_entrada['veiculo_perfeito'] is True else None)}<br/>"
+            f"<b>Estado do veículo:</b> {_fmt_bool(checklist_entrada['veiculo_perfeito'])}<br/>"
+            f"<b>Estado do celular:</b> {_fmt_bool(checklist_entrada['celular_perfeito'])}<br/>"
+            f"<b>Celular danificado:</b> {_fmt_bool(checklist_entrada['celular_danificado'])}<br/>"
+            f"<b>Observação do celular:</b> {_texto(checklist_entrada['observacao_celular'])}<br/>"
             f"<b>Observação entrada:</b> {_texto(checklist_entrada['observacao'])}<br/>"
             f"<b>Cones:</b> {_texto(checklist_entrada['quantidade_cones'])}<br/>"
             f"<b>Dupla:</b> {_fmt_bool(checklist_entrada['trabalhando_em_dupla_ou_mais'])}<br/>"
@@ -3637,51 +3657,51 @@ def gerar_pdf_alerta(alerta_id):
             f"<b>Confirmação de veracidade:</b> {_fmt_bool(checklist_entrada['confirmacao_veracidade'])}",
             style_body
         ))
+
         story.append(Spacer(1, 0.12 * cm))
         story.append(Paragraph(f"<b>Itens marcados:</b><br/>{entrada_texto}", style_body))
         story.append(Spacer(1, 0.25 * cm))
 
         story.append(Paragraph("Checklist / condição na saída", style_h2))
-        saida_texto = "<br/>".join([f"- {item}" for item in checklist_saida["itens"]]) if checklist_saida["itens"] else "- Nenhum item marcado"
+
+        saida_texto = (
+            "<br/>".join([f"- {item}" for item in checklist_saida["itens"]])
+            if checklist_saida["itens"]
+            else "- Nenhum item marcado"
+        )
+
         story.append(Paragraph(
-            f"<b>Veículo danificado:</b> {_fmt_bool(bool(row[13]))}<br/>"
-            f"<b>Observação do dano:</b> {_texto(row[14])}<br/>"
-            f"<b>Motivo de ajuste:</b> {_texto(row[15])}",
+            f"<b>Veículo danificado:</b> {_fmt_bool(veiculo_danificado_saida)}<br/>"
+            f"<b>Observação do dano do veículo:</b> {_texto(observacao_dano_saida)}<br/>"
+            f"<b>Estado do celular na saída:</b> {_fmt_bool(checklist_saida['celular_perfeito'])}<br/>"
+            f"<b>Celular danificado na saída:</b> {_fmt_bool(checklist_saida['celular_danificado'])}<br/>"
+            f"<b>Observação do celular na saída:</b> {_texto(checklist_saida['observacao_celular'])}<br/>"
+            f"<b>Motivo de ajuste:</b> {_texto(motivo_ajuste)}",
             style_body
         ))
+
         story.append(Spacer(1, 0.12 * cm))
         story.append(Paragraph(f"<b>Itens de saída:</b><br/>{saida_texto}", style_body))
         story.append(Spacer(1, 0.25 * cm))
 
-        story.append(Paragraph("Fotos anexadas", style_h2))
+        story.append(Paragraph("Fotos / anexos", style_h2))
 
-        fotos_bloco = [
+        links = [
             ("Foto de entrada", row[10]),
             ("Foto de saída", row[11]),
             ("Foto do odômetro", row[12]),
         ]
 
-        for titulo, url in fotos_bloco:
+        for titulo, url in links:
             story.append(Paragraph(f"<b>{titulo}:</b> {_texto(url)}", style_small))
-            img_bytes = _baixar_imagem_para_bytes(url)
-            if img_bytes:
-                try:
-                    story.append(Image(img_bytes, width=7.2 * cm, height=5.2 * cm))
-                except Exception as e:
-                    print("ERRO ao inserir imagem no PDF:", e, flush=True)
-            story.append(Spacer(1, 0.18 * cm))
+            story.append(Spacer(1, 0.10 * cm))
 
         if fotos_dano:
             story.append(Paragraph("<b>Fotos do dano:</b>", style_small))
+
             for idx, url in enumerate(fotos_dano, start=1):
                 story.append(Paragraph(f"Foto do dano {idx}: {_texto(url)}", style_small))
-                img_bytes = _baixar_imagem_para_bytes(url)
-                if img_bytes:
-                    try:
-                        story.append(Image(img_bytes, width=7.2 * cm, height=5.2 * cm))
-                    except Exception as e:
-                        print("ERRO ao inserir foto de dano no PDF:", e, flush=True)
-                story.append(Spacer(1, 0.18 * cm))
+                story.append(Spacer(1, 0.10 * cm))
 
         story.append(Spacer(1, 0.3 * cm))
         story.append(Paragraph("Contato: contatoagencianexar@gmail.com", style_small))
@@ -3689,12 +3709,10 @@ def gerar_pdf_alerta(alerta_id):
         doc.build(story)
         buffer.seek(0)
 
-        nome_pdf = f"Ocorrencia_{alerta_id}.pdf"
-
         return send_file(
             buffer,
             as_attachment=True,
-            download_name=nome_pdf,
+            download_name=f"Ocorrencia_{alerta_id}.pdf",
             mimetype="application/pdf"
         )
 
@@ -3710,6 +3728,7 @@ def gerar_pdf_alerta(alerta_id):
             cur.close()
         if conn:
             conn.close()
+            
 # =========================
 # API COLABORADORES - PENDÊNCIAS
 # =========================
@@ -3771,6 +3790,7 @@ def api_ajustar_ponto():
 
         if "multipart/form-data" in content_type:
             payload_raw = request.form.get("payload") or "{}"
+
             try:
                 payload = json.loads(payload_raw)
             except Exception:
@@ -3781,8 +3801,10 @@ def api_ajustar_ponto():
 
             for chave in ["foto_dano_1", "foto_dano_2", "foto_dano_3"]:
                 arquivo = request.files.get(chave)
+
                 if arquivo and (arquivo.filename or "").strip():
                     arquivos_dano.append(arquivo)
+
         else:
             payload = request.get_json(silent=True) or {}
 
@@ -3790,7 +3812,7 @@ def api_ajustar_ponto():
         entrada = payload.get("entrada")
         saida = payload.get("saida")
         checklist_entrada = payload.get("checklistEntrada")
-        checklist_saida = payload.get("checklistSaida")  # mantido por compatibilidade temporária
+        checklist_saida = payload.get("checklistSaida")
         motivo = payload.get("motivo")
 
         veiculo_danificado_saida = payload.get("veiculoDanificadoSaida")
@@ -3813,15 +3835,19 @@ def api_ajustar_ponto():
 
         cur.execute("""
             SELECT
-                horario_inicio,
-                horario_fim,
-                status,
-                data,
-                COALESCE(foto_dano_saida_url_1, ''),
-                COALESCE(foto_dano_saida_url_2, ''),
-                COALESCE(foto_dano_saida_url_3, '')
-            FROM expedientes
-            WHERE id = %s
+                e.horario_inicio,
+                e.horario_fim,
+                e.status,
+                e.data,
+                e.colaborador_id,
+                e.veiculo_id,
+
+                COALESCE(e.foto_dano_saida_url_1, ''),
+                COALESCE(e.foto_dano_saida_url_2, ''),
+                COALESCE(e.foto_dano_saida_url_3, '')
+
+            FROM expedientes e
+            WHERE e.id = %s
             LIMIT 1
         """, (expediente_id,))
 
@@ -3838,6 +3864,9 @@ def api_ajustar_ponto():
             horario_fim_atual,
             status_atual,
             data_expediente,
+            colaborador_id,
+            veiculo_id,
+
             foto1_atual,
             foto2_atual,
             foto3_atual
@@ -3848,16 +3877,19 @@ def api_ajustar_ponto():
                 return None
 
             texto = str(hora_str).strip()
+
             if not texto:
                 return None
 
             try:
                 return datetime.strptime(texto, "%H:%M").time()
+
             except ValueError:
                 raise ValueError("Horário inválido. Use o formato HH:MM.")
 
         def _combinar_data_com_hora(data_base, hora_str, dt_base=None):
             hora_obj = _parse_hora_texto(hora_str)
+
             if not hora_obj:
                 return None
 
@@ -3866,17 +3898,20 @@ def api_ajustar_ponto():
 
             if isinstance(data_base, datetime):
                 data_ref = data_base.date()
+
             elif isinstance(data_base, date):
                 data_ref = data_base
+
             elif isinstance(dt_base, datetime):
                 data_ref = dt_base.date()
+
             else:
                 data_ref = date.today()
 
             dt_local = datetime.combine(data_ref, hora_obj).replace(tzinfo=tz_br)
+
             dt_utc = dt_local.astimezone(tz_utc)
 
-            # salva como TIMESTAMP sem timezone no banco
             return dt_utc.replace(tzinfo=None)
 
         campos = []
@@ -3891,6 +3926,7 @@ def api_ajustar_ponto():
                 hora_str=entrada,
                 dt_base=horario_inicio_atual or horario_fim_atual
             )
+
             if novo_horario_inicio is not None:
                 campos.append("horario_inicio = %s")
                 valores.append(novo_horario_inicio)
@@ -3901,17 +3937,20 @@ def api_ajustar_ponto():
                 hora_str=saida,
                 dt_base=horario_fim_atual or horario_inicio_atual
             )
+
             if novo_horario_fim is not None:
                 campos.append("horario_fim = %s")
                 valores.append(novo_horario_fim)
 
         if checklist_entrada is not None:
             checklist_entrada_json = _parse_checklist_json(checklist_entrada)
+
             campos.append("checklist_entrada = %s")
             valores.append(json.dumps(checklist_entrada_json))
 
         if checklist_saida is not None:
             checklist_saida_json = _parse_checklist_json(checklist_saida)
+
             campos.append("checklist_saida = %s")
             valores.append(json.dumps(checklist_saida_json))
 
@@ -3926,23 +3965,36 @@ def api_ajustar_ponto():
             if bool(veiculo_danificado_saida):
                 campos.append("observacao_dano_saida = %s")
                 valores.append(observacao_dano_saida)
+
             else:
                 campos.append("observacao_dano_saida = %s")
                 valores.append("")
+
                 campos.append("foto_dano_saida_url_1 = %s")
                 valores.append("")
+
                 campos.append("foto_dano_saida_url_2 = %s")
                 valores.append("")
+
                 campos.append("foto_dano_saida_url_3 = %s")
                 valores.append("")
 
-        urls_finais = [foto1_atual or "", foto2_atual or "", foto3_atual or ""]
+        urls_finais = [
+            foto1_atual or "",
+            foto2_atual or "",
+            foto3_atual or ""
+        ]
 
         if arquivos_dano:
-            limite = 3
             novas_urls = []
-            for indice, arquivo in enumerate(arquivos_dano[:limite], start=1):
-                nova_url = _upload_foto_dano_saida(expediente_id, indice, arquivo)
+
+            for indice, arquivo in enumerate(arquivos_dano[:3], start=1):
+                nova_url = _upload_foto_dano_saida(
+                    expediente_id,
+                    indice,
+                    arquivo
+                )
+
                 if nova_url:
                     novas_urls.append(nova_url)
 
@@ -3962,9 +4014,15 @@ def api_ajustar_ponto():
 
         campos.append("ajustado = TRUE")
 
-        horario_fim_resultante = novo_horario_fim if novo_horario_fim is not None else horario_fim_atual
+        horario_fim_resultante = (
+            novo_horario_fim
+            if novo_horario_fim is not None
+            else horario_fim_atual
+        )
 
-        if horario_fim_resultante:
+        expediente_finalizado = horario_fim_resultante is not None
+
+        if expediente_finalizado:
             campos.append("status = 'finalizado'")
         else:
             campos.append("status = 'em_andamento'")
@@ -3982,18 +4040,42 @@ def api_ajustar_ponto():
         """
 
         valores.append(expediente_id)
+
         cur.execute(query, valores)
+
+        # ======================================
+        # LIBERA VEÍCULO SE FINALIZOU NO AJUSTE
+        # ======================================
+
+        if expediente_finalizado and colaborador_id and veiculo_id:
+
+            cur.execute("""
+                UPDATE veiculos_uso
+                SET
+                    ativo = FALSE,
+                    finalizado_em = CURRENT_TIMESTAMP
+                WHERE motorista_id = %s
+                  AND veiculo_id = %s
+                  AND ativo = TRUE
+            """, (
+                colaborador_id,
+                veiculo_id
+            ))
+
         conn.commit()
 
         return jsonify({
             "sucesso": True,
             "mensagem": "Ajuste salvo com sucesso",
+            "expediente_finalizado": expediente_finalizado,
+            "veiculo_liberado": expediente_finalizado,
             "fotosDanoSaida": urls_finais
         }), 200
 
     except ValueError as e:
         if conn:
             conn.rollback()
+
         return jsonify({
             "sucesso": False,
             "erro": str(e)
@@ -4002,7 +4084,9 @@ def api_ajustar_ponto():
     except Exception as e:
         if conn:
             conn.rollback()
+
         print("ERRO ajuste:", e, flush=True)
+
         return jsonify({
             "sucesso": False,
             "erro": str(e)
@@ -4011,6 +4095,7 @@ def api_ajustar_ponto():
     finally:
         if cur:
             cur.close()
+
         if conn:
             conn.close()
 # =========================
