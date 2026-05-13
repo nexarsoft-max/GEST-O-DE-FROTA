@@ -1824,15 +1824,19 @@ def api_detalhe_expediente(expediente_id):
                 except Exception:
                     vazio = _checklist_vazio()
                     vazio["itens"] = [texto]
+                    vazio["itens_marcados"] = [texto]
                     return vazio
 
             if isinstance(valor, list):
-                vazio = _checklist_vazio()
-                vazio["itens"] = [
+                itens = [
                     str(item).strip()
                     for item in valor
                     if str(item).strip()
                 ]
+
+                vazio = _checklist_vazio()
+                vazio["itens"] = itens
+                vazio["itens_marcados"] = itens
                 return vazio
 
             if isinstance(valor, dict):
@@ -1890,7 +1894,11 @@ def api_detalhe_expediente(expediente_id):
                         "nomes_dupla_ou_mais",
                         "confirmacao_veracidade",
                         "veiculo_danificado",
-                        "estado_veiculo"
+                        "estado_veiculo",
+                        "celular_perfeito",
+                        "celular_danificado",
+                        "estado_celular",
+                        "observacao_celular"
                     )
 
                     itens_lista = [
@@ -1905,18 +1913,16 @@ def api_detalhe_expediente(expediente_id):
                         and str(chave).strip() not in campos_ignorados
                     ]
 
-                    return {
+                return {
                     "itens": itens_lista,
                     "itens_marcados": itens_lista,
                     "veiculo_perfeito": valor.get("veiculo_perfeito"),
                     "veiculo_danificado": valor.get("veiculo_danificado"),
                     "estado_veiculo": str(valor.get("estado_veiculo") or "").strip(),
-
                     "celular_perfeito": valor.get("celular_perfeito"),
                     "celular_danificado": valor.get("celular_danificado"),
                     "estado_celular": str(valor.get("estado_celular") or "").strip(),
                     "observacao_celular": str(valor.get("observacao_celular") or "").strip(),
-
                     "observacao": str(valor.get("observacao") or "").strip(),
                     "quantidade_cones": str(valor.get("quantidade_cones") or "").strip(),
                     "trabalhando_em_dupla_ou_mais": valor.get("trabalhando_em_dupla_ou_mais"),
@@ -1926,6 +1932,7 @@ def api_detalhe_expediente(expediente_id):
 
             vazio = _checklist_vazio()
             vazio["itens"] = [str(valor).strip()] if str(valor).strip() else []
+            vazio["itens_marcados"] = vazio["itens"]
             return vazio
 
         except Exception as erro_normalizacao:
@@ -2072,8 +2079,7 @@ def api_detalhe_expediente(expediente_id):
             cur.close()
         if conn:
             conn.close()
-            
-            
+                        
 @app.get("/api/mobile/terms/status")
 def api_mobile_terms_status():
     r = proteger_api_mobile()
