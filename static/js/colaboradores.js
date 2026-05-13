@@ -389,15 +389,23 @@ async function verChecklist(id) {
 
     const itensEntrada = entrada.itens_marcados || entrada.itens || [];
 
-    if (listaEntrada) listaEntrada.innerHTML = montarItensChecklistHtml(itensEntrada);
+    if (listaEntrada) {
+      listaEntrada.innerHTML = montarItensChecklistHtml(itensEntrada);
+    }
+
     aplicarEstado(estadoEntrada, entrada.veiculo_perfeito);
 
     if (observacaoEntrada) {
       observacaoEntrada.textContent = entrada.observacao || "Sem observação.";
     }
 
-    if (horaEntrada) horaEntrada.textContent = data.horaEntrada || "-";
-    if (horaSaida) horaSaida.textContent = data.horaSaida || "-";
+    if (horaEntrada) {
+      horaEntrada.textContent = data.horaEntrada || "-";
+    }
+
+    if (horaSaida) {
+      horaSaida.textContent = data.horaSaida || "-";
+    }
 
     const conesEntrada = document.getElementById("checklistConesEntrada");
     const duplaEntrada = document.getElementById("checklistDuplaEntrada");
@@ -410,8 +418,11 @@ async function verChecklist(id) {
 
     if (duplaEntrada) {
       duplaEntrada.textContent =
-        entrada.trabalhando_em_dupla_ou_mais === true ? "Sim" :
-        entrada.trabalhando_em_dupla_ou_mais === false ? "Não" : "-";
+        entrada.trabalhando_em_dupla_ou_mais === true
+          ? "Sim"
+          : entrada.trabalhando_em_dupla_ou_mais === false
+            ? "Não"
+            : "-";
     }
 
     if (nomesEntrada) {
@@ -429,10 +440,19 @@ async function verChecklist(id) {
     aplicarEstadoDanoSaida(danoSaidaEl, data.veiculoDanificadoSaida);
 
     if (observacaoDanoSaidaEl) {
-      observacaoDanoSaidaEl.textContent = data.observacaoDanoSaida || "Sem observação.";
+      observacaoDanoSaidaEl.textContent =
+        data.observacaoDanoSaida || "Sem observação.";
     }
 
-    renderizarFotosDanoVisualizacao("checklistFotosDanoSaida", data.fotosDanoSaida || []);
+    renderizarFotosDanoVisualizacao(
+      "checklistFotosDanoEntrada",
+      data.fotosDanoEntrada || []
+    );
+
+    renderizarFotosDanoVisualizacao(
+      "checklistFotosDanoSaida",
+      data.fotosDanoSaida || []
+    );
 
     if (modal) {
       modal.classList.remove("hidden");

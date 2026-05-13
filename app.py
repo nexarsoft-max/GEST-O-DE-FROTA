@@ -1792,6 +1792,8 @@ def api_detalhe_expediente(expediente_id):
         return {
             "itens": [],
             "veiculo_perfeito": None,
+            "veiculo_danificado": None,
+            "estado_veiculo": "",
             "observacao": "",
             "quantidade_cones": "",
             "trabalhando_em_dupla_ou_mais": None,
@@ -1812,26 +1814,18 @@ def api_detalhe_expediente(expediente_id):
                 try:
                     valor = json.loads(texto)
                 except Exception:
-                    return {
-                        "itens": [texto],
-                        "veiculo_perfeito": None,
-                        "observacao": "",
-                        "quantidade_cones": "",
-                        "trabalhando_em_dupla_ou_mais": None,
-                        "nomes_dupla_ou_mais": "",
-                        "confirmacao_veracidade": False
-                    }
+                    vazio = _checklist_vazio()
+                    vazio["itens"] = [texto]
+                    return vazio
 
             if isinstance(valor, list):
-                return {
-                    "itens": [str(item).strip() for item in valor if str(item).strip()],
-                    "veiculo_perfeito": None,
-                    "observacao": "",
-                    "quantidade_cones": "",
-                    "trabalhando_em_dupla_ou_mais": None,
-                    "nomes_dupla_ou_mais": "",
-                    "confirmacao_veracidade": False
-                }
+                vazio = _checklist_vazio()
+                vazio["itens"] = [
+                    str(item).strip()
+                    for item in valor
+                    if str(item).strip()
+                ]
+                return vazio
 
             if isinstance(valor, dict):
                 itens_lista = []
@@ -1849,7 +1843,8 @@ def api_detalhe_expediente(expediente_id):
                         for chave, marcado in valor.get("itens", {}).items()
                         if (
                             marcado is True
-                            or str(marcado).strip().lower() in ("ok", "sim", "true", "1", "conforme")
+                            or str(marcado).strip().lower()
+                            in ("ok", "sim", "true", "1", "conforme")
                         )
                         and str(chave).strip()
                     ]
@@ -1876,32 +1871,38 @@ def api_detalhe_expediente(expediente_id):
                     ]
 
                 else:
+                    campos_ignorados = (
+                        "veiculo_perfeito",
+                        "observacao",
+                        "tipo",
+                        "placa",
+                        "modelo",
+                        "quantidade_cones",
+                        "trabalhando_em_dupla_ou_mais",
+                        "nomes_dupla_ou_mais",
+                        "confirmacao_veracidade",
+                        "veiculo_danificado",
+                        "estado_veiculo"
+                    )
+
                     itens_lista = [
                         str(chave).strip()
                         for chave, marcado in valor.items()
                         if (
                             marcado is True
-                            or str(marcado).strip().lower() in ("ok", "sim", "true", "1", "conforme")
+                            or str(marcado).strip().lower()
+                            in ("ok", "sim", "true", "1", "conforme")
                         )
                         and str(chave).strip()
-                        and str(chave).strip() not in (
-                            "veiculo_perfeito",
-                            "observacao",
-                            "tipo",
-                            "placa",
-                            "modelo",
-                            "quantidade_cones",
-                            "trabalhando_em_dupla_ou_mais",
-                            "nomes_dupla_ou_mais",
-                            "confirmacao_veracidade",
-                            "veiculo_danificado",
-                            "estado_veiculo"
-                        )
+                        and str(chave).strip() not in campos_ignorados
                     ]
 
                 return {
                     "itens": itens_lista,
+                    "itens_marcados": itens_lista,
                     "veiculo_perfeito": valor.get("veiculo_perfeito"),
+                    "veiculo_danificado": valor.get("veiculo_danificado"),
+                    "estado_veiculo": str(valor.get("estado_veiculo") or "").strip(),
                     "observacao": str(valor.get("observacao") or "").strip(),
                     "quantidade_cones": str(valor.get("quantidade_cones") or "").strip(),
                     "trabalhando_em_dupla_ou_mais": valor.get("trabalhando_em_dupla_ou_mais"),
@@ -1909,21 +1910,15 @@ def api_detalhe_expediente(expediente_id):
                     "confirmacao_veracidade": bool(valor.get("confirmacao_veracidade"))
                 }
 
-            return {
-                "itens": [str(valor).strip()] if str(valor).strip() else [],
-                "veiculo_perfeito": None,
-                "observacao": "",
-                "quantidade_cones": "",
-                "trabalhando_em_dupla_ou_mais": None,
-                "nomes_dupla_ou_mais": "",
-                "confirmacao_veracidade": False
-            }
+            vazio = _checklist_vazio()
+            vazio["itens"] = [str(valor).strip()] if str(valor).strip() else []
+            return vazio
 
         except Exception as erro_normalizacao:
             print("ERRO _normalizar_checklist:", erro_normalizacao, flush=True)
             return _checklist_vazio()
 
-    def _lista_fotos_dano_saida(f1, f2, f3):
+    def _lista_fotos_dano(f1, f2, f3):
         return [
             str(url).strip()
             for url in [f1, f2, f3]
@@ -1948,6 +1943,28 @@ def api_detalhe_expediente(expediente_id):
             if tem_foto_odometro
             else "''"
         )
+
+        cur.execute("""
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'expedientes'
+              AND column_name = 'foto_dano_entrada_url_1'
+            LIMIT 1
+        """)
+        tem_dano_entrada = cur.fetchone() is not None
+
+        if tem_dano_entrada:
+            campos_dano_entrada = """
+                COALESCE(foto_dano_entrada_url_1, ''),
+                COALESCE(foto_dano_entrada_url_2, ''),
+                COALESCE(foto_dano_entrada_url_3, '')
+            """
+        else:
+            campos_dano_entrada = """
+                '',
+                '',
+                ''
+            """
 
         cur.execute("""
             SELECT 1
@@ -1986,6 +2003,7 @@ def api_detalhe_expediente(expediente_id):
                 horario_fim,
                 COALESCE(ajustado, FALSE),
                 COALESCE(motivo_ajuste, ''),
+                {campos_dano_entrada},
                 {campos_dano_saida}
             FROM expedientes
             WHERE id = %s
@@ -2004,7 +2022,8 @@ def api_detalhe_expediente(expediente_id):
         checklist_entrada = _normalizar_checklist(row[0])
         checklist_saida = _normalizar_checklist(row[1])
 
-        fotos_dano_saida = _lista_fotos_dano_saida(row[11], row[12], row[13])
+        fotos_dano_entrada = _lista_fotos_dano(row[9], row[10], row[11])
+        fotos_dano_saida = _lista_fotos_dano(row[14], row[15], row[16])
 
         return jsonify({
             "sucesso": True,
@@ -2019,8 +2038,10 @@ def api_detalhe_expediente(expediente_id):
             "horaSaida": formatar_hora(row[6]),
             "ajustado": bool(row[7]),
             "motivoAjuste": row[8] or "",
-            "veiculoDanificadoSaida": bool(row[9]),
-            "observacaoDanoSaida": row[10] or "",
+            "fotosDanoEntrada": fotos_dano_entrada,
+            "fotoDanoEntrada": fotos_dano_entrada[0] if fotos_dano_entrada else "",
+            "veiculoDanificadoSaida": bool(row[12]),
+            "observacaoDanoSaida": row[13] or "",
             "fotosDanoSaida": fotos_dano_saida,
             "fotoDanoSaida": fotos_dano_saida[0] if fotos_dano_saida else ""
         }), 200

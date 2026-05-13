@@ -54,7 +54,7 @@
           Colaboradores
         </a>
 
-        <a class="item-menu ativo" href="{{ url_for('alertas') }}">
+        <a class="item-menu " href="{{ url_for('alertas') }}">
           Alertas
         </a>
       </div>
@@ -383,6 +383,13 @@
             <span>Observação</span>
             <p id="checklistObservacaoEntrada">Sem observação.</p>
           </div>
+
+          <div class="checklist-observacao">
+            <span>Fotos do dano na entrada</span>
+            <div id="checklistFotosDanoEntrada" class="galeria-fotos-dano">
+              <p class="texto-sem-foto">Nenhuma foto enviada.</p>
+            </div>
+          </div>
         </section>
 
         <section class="checklist-coluna">
@@ -404,7 +411,7 @@
           </div>
 
           <div class="checklist-observacao">
-            <span>Fotos do dano</span>
+            <span>Fotos do dano na saída</span>
             <div id="checklistFotosDanoSaida" class="galeria-fotos-dano">
               <p class="texto-sem-foto">Nenhuma foto enviada.</p>
             </div>
