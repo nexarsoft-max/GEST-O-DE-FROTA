@@ -134,30 +134,31 @@ function valorBooleanSelect(valor) {
 }
 
 function normalizarChecklistDetalhe(valor) {
-  if (!valor) {
-    return {
-      itens: [],
-      itens_marcados: [],
-      veiculo_perfeito: null,
-      observacao: "",
-      quantidade_cones: "",
-      trabalhando_em_dupla_ou_mais: null,
-      nomes_dupla_ou_mais: "",
-      confirmacao_veracidade: false
-    };
-  }
+  const base = {
+    itens: [],
+    itens_marcados: [],
+    veiculo_perfeito: null,
+    veiculo_danificado: null,
+    estado_veiculo: "",
+    celular_perfeito: null,
+    celular_danificado: null,
+    estado_celular: "",
+    observacao_celular: "",
+    observacao: "",
+    quantidade_cones: "",
+    trabalhando_em_dupla_ou_mais: null,
+    nomes_dupla_ou_mais: "",
+    confirmacao_veracidade: false
+  };
+
+  if (!valor) return base;
 
   if (Array.isArray(valor)) {
     const itens = valor.map((item) => String(item));
     return {
+      ...base,
       itens,
-      itens_marcados: itens,
-      veiculo_perfeito: null,
-      observacao: "",
-      quantidade_cones: "",
-      trabalhando_em_dupla_ou_mais: null,
-      nomes_dupla_ou_mais: "",
-      confirmacao_veracidade: false
+      itens_marcados: itens
     };
   }
 
@@ -171,9 +172,18 @@ function normalizarChecklistDetalhe(valor) {
       : itens;
 
     return {
+      ...base,
       itens,
       itens_marcados: itensMarcados,
       veiculo_perfeito: valor.veiculo_perfeito,
+      veiculo_danificado: valor.veiculo_danificado,
+      estado_veiculo: (valor.estado_veiculo || "").toString().trim(),
+
+      celular_perfeito: valor.celular_perfeito,
+      celular_danificado: valor.celular_danificado,
+      estado_celular: (valor.estado_celular || "").toString().trim(),
+      observacao_celular: (valor.observacao_celular || "").toString().trim(),
+
       observacao: (valor.observacao || "").toString().trim(),
       quantidade_cones: valor.quantidade_cones || "",
       trabalhando_em_dupla_ou_mais: valor.trabalhando_em_dupla_ou_mais,
@@ -183,14 +193,9 @@ function normalizarChecklistDetalhe(valor) {
   }
 
   return {
+    ...base,
     itens: [String(valor)],
-    itens_marcados: [String(valor)],
-    veiculo_perfeito: null,
-    observacao: "",
-    quantidade_cones: "",
-    trabalhando_em_dupla_ou_mais: null,
-    nomes_dupla_ou_mais: "",
-    confirmacao_veracidade: false
+    itens_marcados: [String(valor)]
   };
 }
 
@@ -238,6 +243,23 @@ function aplicarEstadoDanoSaida(elemento, valor) {
     elemento.classList.add("estado-badge", "ruim");
   } else if (valor === false) {
     elemento.textContent = "Não";
+    elemento.classList.add("estado-badge", "bom");
+  } else {
+    elemento.textContent = "Não informado";
+    elemento.classList.add("estado-badge", "neutro");
+  }
+}
+
+function aplicarEstadoCelular(elemento, valorPerfeito, valorDanificado) {
+  if (!elemento) return;
+
+  elemento.classList.remove("bom", "ruim", "neutro");
+
+  if (valorDanificado === true || valorPerfeito === false) {
+    elemento.textContent = "Com problema";
+    elemento.classList.add("estado-badge", "ruim");
+  } else if (valorPerfeito === true || valorDanificado === false) {
+    elemento.textContent = "Celular OK";
     elemento.classList.add("estado-badge", "bom");
   } else {
     elemento.textContent = "Não informado";
@@ -379,6 +401,7 @@ async function verChecklist(id) {
     }
 
     const entrada = normalizarChecklistDetalhe(data.checklist_entrada_detalhe);
+    const saida = normalizarChecklistDetalhe(data.checklist_saida_detalhe);
 
     const listaEntrada = document.getElementById("listaChecklistEntrada");
     const estadoEntrada = document.getElementById("checklistEstadoEntrada");
@@ -434,6 +457,20 @@ async function verChecklist(id) {
         entrada.confirmacao_veracidade ? "Confirmado" : "Não confirmado";
     }
 
+    const celularEntradaEl = document.getElementById("checklistCelularEntrada");
+    const observacaoCelularEntradaEl = document.getElementById("checklistObservacaoCelularEntrada");
+
+    aplicarEstadoCelular(
+      celularEntradaEl,
+      entrada.celular_perfeito,
+      entrada.celular_danificado
+    );
+
+    if (observacaoCelularEntradaEl) {
+      observacaoCelularEntradaEl.textContent =
+        entrada.observacao_celular || "Sem observação.";
+    }
+
     const danoSaidaEl = document.getElementById("checklistVeiculoDanificadoSaida");
     const observacaoDanoSaidaEl = document.getElementById("checklistObservacaoDanoSaida");
 
@@ -442,6 +479,20 @@ async function verChecklist(id) {
     if (observacaoDanoSaidaEl) {
       observacaoDanoSaidaEl.textContent =
         data.observacaoDanoSaida || "Sem observação.";
+    }
+
+    const celularSaidaEl = document.getElementById("checklistCelularSaida");
+    const observacaoCelularSaidaEl = document.getElementById("checklistObservacaoCelularSaida");
+
+    aplicarEstadoCelular(
+      celularSaidaEl,
+      saida.celular_perfeito,
+      saida.celular_danificado
+    );
+
+    if (observacaoCelularSaidaEl) {
+      observacaoCelularSaidaEl.textContent =
+        saida.observacao_celular || "Sem observação.";
     }
 
     renderizarFotosDanoVisualizacao(
@@ -656,27 +707,32 @@ function calcularResumoCards(lista) {
 
   const registrosAbertos = registrosHoje.filter((item) => expedienteEstaAberto(item));
 
-  const colaboradoresAtivosSet = new Set();
-
-  registrosAbertos.forEach((item) => {
-    if (item.colaborador && normalizarTexto(item.colaborador)) {
-      colaboradoresAtivosSet.add(normalizarTexto(item.colaborador));
-    }
-
-    obterNomesDupla(item).forEach((nome) => {
-      if (normalizarTexto(nome)) {
-        colaboradoresAtivosSet.add(normalizarTexto(nome));
-      }
-    });
-  });
-
   const veiculosEmUsoSet = new Set();
 
   registrosAbertos.forEach((item) => {
     const chave = `${normalizarTexto(item.veiculo)}|${normalizarTexto(item.placa)}`;
+
     if (chave !== "|" && chave !== "") {
       veiculosEmUsoSet.add(chave);
     }
+  });
+
+  const celularDanificadoSet = new Set();
+
+  registrosHoje.forEach((item) => {
+    const detalhe = item.checklistEntradaDetalhe || {};
+
+    const celularDanificado =
+      detalhe.celular_danificado === true ||
+      detalhe.celular_perfeito === false;
+
+    if (!celularDanificado) return;
+
+    const chave = String(
+      item.id || `${item.colaborador}-${item.data}-${item.horaEntrada}`
+    );
+
+    celularDanificadoSet.add(chave);
   });
 
   const checklistFaltando = registrosHoje.filter((item) => {
@@ -686,10 +742,16 @@ function calcularResumoCards(lista) {
   const veiculoDanificadoSet = new Set();
 
   registrosHoje.forEach((item) => {
-    const temDano = temVeiculoDanificadoEntrada(item) || temVeiculoDanificadoSaida(item);
+    const temDano =
+      temVeiculoDanificadoEntrada(item) ||
+      temVeiculoDanificadoSaida(item);
+
     if (!temDano) return;
 
-    const chave = String(item.id || `${item.colaborador}-${item.data}-${item.horaEntrada}`);
+    const chave = String(
+      item.id || `${item.colaborador}-${item.data}-${item.horaEntrada}`
+    );
+
     veiculoDanificadoSet.add(chave);
   });
 
@@ -701,28 +763,48 @@ function calcularResumoCards(lista) {
     return expedienteEstaAberto(item) && horasEmAberto(item) >= 11;
   }).length;
 
-  if (cardColaboradoresAtivos) {
-    cardColaboradoresAtivos.textContent = colaboradoresAtivosSet.size > 0 ? colaboradoresAtivosSet.size : "--";
+  if (cardVeiculosEmUso) {
+    cardVeiculosEmUso.textContent =
+      veiculosEmUsoSet.size > 0
+        ? veiculosEmUsoSet.size
+        : "--";
   }
 
-  if (cardVeiculosEmUso) {
-    cardVeiculosEmUso.textContent = veiculosEmUsoSet.size > 0 ? veiculosEmUsoSet.size : "--";
+  const cardCelularDanificado = document.getElementById("cardCelularDanificado");
+
+  if (cardCelularDanificado) {
+    cardCelularDanificado.textContent =
+      celularDanificadoSet.size > 0
+        ? celularDanificadoSet.size
+        : "--";
   }
 
   if (cardChecklistFaltando) {
-    cardChecklistFaltando.textContent = checklistFaltando > 0 ? checklistFaltando : "--";
+    cardChecklistFaltando.textContent =
+      checklistFaltando > 0
+        ? checklistFaltando
+        : "--";
   }
 
   if (cardVeiculoDanificado) {
-    cardVeiculoDanificado.textContent = veiculoDanificadoSet.size > 0 ? veiculoDanificadoSet.size : "--";
+    cardVeiculoDanificado.textContent =
+      veiculoDanificadoSet.size > 0
+        ? veiculoDanificadoSet.size
+        : "--";
   }
 
   if (cardObservacoes) {
-    cardObservacoes.textContent = observacoes > 0 ? observacoes : "--";
+    cardObservacoes.textContent =
+      observacoes > 0
+        ? observacoes
+        : "--";
   }
 
   if (cardPendencias) {
-    cardPendencias.textContent = pendencias > 0 ? pendencias : "--";
+    cardPendencias.textContent =
+      pendencias > 0
+        ? pendencias
+        : "--";
   }
 
   configurarCardsResumoAlertas();

@@ -1,8 +1,8 @@
 const STORAGE_KEY = "gorota_alertas_resolvidos_v2";
 
 const iconesPorTipo = {
-  colaboradores_ativos: "fa-users",
   veiculos_em_uso: "fa-car-side",
+  celular_danificado: "fa-mobile-screen-button",
   checklist_faltando: "fa-toolbox",
   veiculo_danificado: "fa-triangle-exclamation",
   observacoes: "fa-comment-dots",
@@ -10,15 +10,20 @@ const iconesPorTipo = {
 };
 
 const nomeTipo = {
-  colaboradores_ativos: "Colaboradores ativos",
   veiculos_em_uso: "Veículos em uso",
+  celular_danificado: "Celular danificado",
   checklist_faltando: "Check list faltando equipamento",
   veiculo_danificado: "Veículo danificado",
   observacoes: "Observações",
   pendentes: "Pendentes"
 };
 
-const tiposCriticos = ["checklist_faltando", "veiculo_danificado", "pendentes"];
+const tiposCriticos = [
+  "celular_danificado",
+  "checklist_faltando",
+  "veiculo_danificado",
+  "pendentes"
+];
 
 const alertList = document.getElementById("alertList");
 const emptyState = document.getElementById("emptyState");
@@ -32,8 +37,8 @@ const heroFiltroAtual = document.getElementById("heroFiltroAtual");
 const heroFiltroDescricao = document.getElementById("heroFiltroDescricao");
 const heroCriticosQtd = document.getElementById("heroCriticosQtd");
 
-const countColaboradoresAtivos = document.getElementById("countColaboradoresAtivos");
 const countVeiculosEmUso = document.getElementById("countVeiculosEmUso");
+const countCelularDanificado = document.getElementById("countCelularDanificado");
 const countChecklistFaltando = document.getElementById("countChecklistFaltando");
 const countVeiculoDanificado = document.getElementById("countVeiculoDanificado");
 const countObservacoes = document.getElementById("countObservacoes");
@@ -198,17 +203,42 @@ async function carregarAlertas() {
 function atualizarResumo(alertas) {
   const ativos = alertas.filter((a) => !a.resolvido);
 
-  const countByType = (tipo) => ativos.filter((a) => a.tipo === tipo).length;
+  const countByType = (tipo) =>
+    ativos.filter((a) => a.tipo === tipo).length;
 
-  if (countColaboradoresAtivos) countColaboradoresAtivos.textContent = countByType("colaboradores_ativos") || "--";
-  if (countVeiculosEmUso) countVeiculosEmUso.textContent = countByType("veiculos_em_uso") || "--";
-  if (countChecklistFaltando) countChecklistFaltando.textContent = countByType("checklist_faltando") || "--";
-  if (countVeiculoDanificado) countVeiculoDanificado.textContent = countByType("veiculo_danificado") || "--";
-  if (countObservacoes) countObservacoes.textContent = countByType("observacoes") || "--";
-  if (countPendentes) countPendentes.textContent = countByType("pendentes") || "--";
+  if (countVeiculosEmUso) {
+    countVeiculosEmUso.textContent =
+      countByType("veiculos_em_uso") || "--";
+  }
+
+  if (countCelularDanificado) {
+    countCelularDanificado.textContent =
+      countByType("celular_danificado") || "--";
+  }
+
+  if (countChecklistFaltando) {
+    countChecklistFaltando.textContent =
+      countByType("checklist_faltando") || "--";
+  }
+
+  if (countVeiculoDanificado) {
+    countVeiculoDanificado.textContent =
+      countByType("veiculo_danificado") || "--";
+  }
+
+  if (countObservacoes) {
+    countObservacoes.textContent =
+      countByType("observacoes") || "--";
+  }
+
+  if (countPendentes) {
+    countPendentes.textContent =
+      countByType("pendentes") || "--";
+  }
 
   if (heroCriticosQtd) {
     heroCriticosQtd.textContent =
+      countByType("celular_danificado") +
       countByType("checklist_faltando") +
       countByType("veiculo_danificado") +
       countByType("pendentes");

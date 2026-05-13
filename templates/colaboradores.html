@@ -61,14 +61,6 @@
     </header>
 
 <section class="cards-grid">
-  <article class="metric-card metric-card-clickable" data-alert-key="colaboradores_ativos">
-    <div class="metric-icon bg-purple-soft">
-      <i class="fa-solid fa-users"></i>
-    </div>
-    <h3>Colaboradores ativos</h3>
-    <strong id="cardColaboradoresAtivos">--</strong>
-    <span>Colaboradores com expediente iniciado e ainda não finalizado. Em dupla, soma também os nomes informados.</span>
-  </article>
 
   <article class="metric-card metric-card-clickable" data-alert-key="veiculos_em_uso">
     <div class="metric-icon bg-purple-soft">
@@ -77,6 +69,15 @@
     <h3>Veículos em uso</h3>
     <strong id="cardVeiculosEmUso">--</strong>
     <span>Veículos vinculados a expedientes em aberto no momento.</span>
+  </article>
+
+  <article class="metric-card metric-card-clickable metric-card-danger" data-alert-key="celular_danificado">
+    <div class="metric-icon bg-danger-soft">
+      <i class="fa-solid fa-mobile-screen-button"></i>
+    </div>
+    <h3>Celular danificado</h3>
+    <strong id="cardCelularDanificado">--</strong>
+    <span>Aparelhos informados como danificados no checklist do colaborador.</span>
   </article>
 
   <article class="metric-card metric-card-clickable metric-card-danger" data-alert-key="checklist_faltando">
@@ -114,6 +115,7 @@
     <strong id="cardPendencias">--</strong>
     <span>Expedientes com mais de 11 horas de abertura sem encerramento.</span>
   </article>
+
 </section>
     <section class="panel">
       <div class="panel-header">
@@ -366,6 +368,18 @@
             </strong>
           </div>
 
+          <div class="checklist-estado-box">
+            <span>Estado do celular</span>
+            <strong id="checklistCelularEntrada" class="estado-badge neutro">
+              Não informado
+            </strong>
+          </div>
+
+          <div class="checklist-observacao">
+            <span>Observação do celular</span>
+            <p id="checklistObservacaoCelularEntrada">Sem observação.</p>
+          </div>
+
           <div class="checklist-lista-wrap">
             <ul id="listaChecklistEntrada" class="checklist-lista"></ul>
           </div>
@@ -406,8 +420,20 @@
           </div>
 
           <div class="checklist-info-extra">
-            <span>Observação do dano</span>
+            <span>Observação do dano do veículo</span>
             <p id="checklistObservacaoDanoSaida">Sem observação.</p>
+          </div>
+
+          <div class="checklist-estado-box">
+            <span>Estado do celular na saída</span>
+            <strong id="checklistCelularSaida" class="estado-badge neutro">
+              Não informado
+            </strong>
+          </div>
+
+          <div class="checklist-observacao">
+            <span>Observação do celular na saída</span>
+            <p id="checklistObservacaoCelularSaida">Sem observação.</p>
           </div>
 
           <div class="checklist-observacao">

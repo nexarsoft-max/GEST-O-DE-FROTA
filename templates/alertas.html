@@ -61,61 +61,81 @@
 
      
 
-      <section class="resumo-grid">
-        <article class="resumo-card" data-filter="colaboradores_ativos">
-          <div class="resumo-icone"><i class="fa-solid fa-users"></i></div>
-          <div class="resumo-conteudo">
-            <span>Colaboradores ativos</span>
-            <strong id="countColaboradoresAtivos">--</strong>
-            <p>Expedientes em aberto no momento</p>
-          </div>
-        </article>
+    <section class="resumo-grid">
 
-        <article class="resumo-card" data-filter="veiculos_em_uso">
-          <div class="resumo-icone"><i class="fa-solid fa-car-side"></i></div>
-          <div class="resumo-conteudo">
-            <span>Veículos em uso</span>
-            <strong id="countVeiculosEmUso">--</strong>
-            <p>Veículos atualmente vinculados a expedientes abertos</p>
-          </div>
-        </article>
+  <article class="resumo-card" data-filter="veiculos_em_uso">
+    <div class="resumo-icone">
+      <i class="fa-solid fa-car-side"></i>
+    </div>
 
-        <article class="resumo-card danger" data-filter="checklist_faltando">
-          <div class="resumo-icone"><i class="fa-solid fa-toolbox"></i></div>
-          <div class="resumo-conteudo">
-            <span>Checklist faltando equipamento</span>
-            <strong id="countChecklistFaltando">--</strong>
-            <p>Alertas críticos de equipamento ausente</p>
-          </div>
-        </article>
+    <div class="resumo-conteudo">
+      <span>Veículos em uso</span>
+      <strong id="countVeiculosEmUso">--</strong>
+      <p>Veículos atualmente vinculados a expedientes abertos</p>
+    </div>
+  </article>
 
-        <article class="resumo-card danger" data-filter="veiculo_danificado">
-          <div class="resumo-icone"><i class="fa-solid fa-triangle-exclamation"></i></div>
-          <div class="resumo-conteudo">
-            <span>Veículo danificado</span>
-            <strong id="countVeiculoDanificado">--</strong>
-            <p>Ocorrências não resolvidas relacionadas ao estado do veículo</p>
-          </div>
-        </article>
+  <article class="resumo-card danger" data-filter="celular_danificado">
+    <div class="resumo-icone">
+      <i class="fa-solid fa-mobile-screen-button"></i>
+    </div>
 
-        <article class="resumo-card" data-filter="observacoes">
-          <div class="resumo-icone"><i class="fa-solid fa-comment-dots"></i></div>
-          <div class="resumo-conteudo">
-            <span>Observações</span>
-            <strong id="countObservacoes">--</strong>
-            <p>Observações registradas nos expedientes</p>
-          </div>
-        </article>
+    <div class="resumo-conteudo">
+      <span>Celular danificado</span>
+      <strong id="countCelularDanificado">--</strong>
+      <p>Aparelhos informados com problema no checklist</p>
+    </div>
+  </article>
 
-        <article class="resumo-card danger" data-filter="pendentes">
-          <div class="resumo-icone"><i class="fa-solid fa-clock"></i></div>
-          <div class="resumo-conteudo">
-            <span>Pendentes</span>
-            <strong id="countPendentes">--</strong>
-            <p>Expedientes acima do limite sem finalização</p>
-          </div>
-        </article>
-      </section>
+  <article class="resumo-card danger" data-filter="checklist_faltando">
+    <div class="resumo-icone">
+      <i class="fa-solid fa-toolbox"></i>
+    </div>
+
+    <div class="resumo-conteudo">
+      <span>Checklist faltando equipamento</span>
+      <strong id="countChecklistFaltando">--</strong>
+      <p>Alertas críticos de equipamento ausente</p>
+    </div>
+  </article>
+
+  <article class="resumo-card danger" data-filter="veiculo_danificado">
+    <div class="resumo-icone">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+    </div>
+
+    <div class="resumo-conteudo">
+      <span>Veículo danificado</span>
+      <strong id="countVeiculoDanificado">--</strong>
+      <p>Ocorrências não resolvidas relacionadas ao estado do veículo</p>
+    </div>
+  </article>
+
+  <article class="resumo-card" data-filter="observacoes">
+    <div class="resumo-icone">
+      <i class="fa-solid fa-comment-dots"></i>
+    </div>
+
+    <div class="resumo-conteudo">
+      <span>Observações</span>
+      <strong id="countObservacoes">--</strong>
+      <p>Observações registradas nos expedientes</p>
+    </div>
+  </article>
+
+  <article class="resumo-card danger" data-filter="pendentes">
+    <div class="resumo-icone">
+      <i class="fa-solid fa-clock"></i>
+    </div>
+
+    <div class="resumo-conteudo">
+      <span>Pendentes</span>
+      <strong id="countPendentes">--</strong>
+      <p>Expedientes acima do limite sem finalização</p>
+    </div>
+  </article>
+
+</section>
 
       <section class="toolbar-alertas">
         <div class="toolbar-left">
@@ -128,15 +148,33 @@
             >
           </div>
 
-          <select id="typeFilter">
-            <option value="">Todos os tipos</option>
-            <option value="colaboradores_ativos">Colaboradores ativos</option>
-            <option value="veiculos_em_uso">Veículos em uso</option>
-            <option value="checklist_faltando">Checklist faltando equipamento</option>
-            <option value="veiculo_danificado">Veículo danificado</option>
-            <option value="observacoes">Observações</option>
-            <option value="pendentes">Pendentes</option>
-          </select>
+         <select id="typeFilter">
+  <option value="">Todos os tipos</option>
+
+  <option value="veiculos_em_uso">
+    Veículos em uso
+  </option>
+
+  <option value="celular_danificado">
+    Celular danificado
+  </option>
+
+  <option value="checklist_faltando">
+    Checklist faltando equipamento
+  </option>
+
+  <option value="veiculo_danificado">
+    Veículo danificado
+  </option>
+
+  <option value="observacoes">
+    Observações
+  </option>
+
+  <option value="pendentes">
+    Pendentes
+  </option>
+</select>
         </div>
 
         <div class="toolbar-right">

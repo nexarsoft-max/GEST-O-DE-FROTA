@@ -366,64 +366,67 @@ def _normalizar_checklist_colaboradores(valor):
 
 def _normalizar_checklist_detalhe_colaboradores(valor):
     """
-    Mantém o formato que o seu front já espera no modal.
+    Mantém o formato que o front espera no modal.
+    Agora também leva dados do celular/aparelho.
     """
-    if not valor:
-        return {
-            "itens": [],
-            "itens_marcados": [],
-            "veiculo_perfeito": None,
-            "observacao": "",
-            "quantidade_cones": "",
-            "trabalhando_em_dupla_ou_mais": None,
-            "nomes_dupla_ou_mais": "",
-            "confirmacao_veracidade": False
-        }
-
-    if isinstance(valor, str):
-        try:
-            valor = json.loads(valor)
-        except Exception:
-            valor = [valor]
-
-    if isinstance(valor, list):
-        itens = [str(item) for item in valor]
-        return {
-            "itens": itens,
-            "itens_marcados": itens,
-            "veiculo_perfeito": None,
-            "observacao": "",
-            "quantidade_cones": "",
-            "trabalhando_em_dupla_ou_mais": None,
-            "nomes_dupla_ou_mais": "",
-            "confirmacao_veracidade": False
-        }
-
-    if isinstance(valor, dict):
-        itens = valor.get("itens", []) if isinstance(valor.get("itens"), list) else []
-        itens_marcados = valor.get("itens_marcados", []) if isinstance(valor.get("itens_marcados"), list) else itens
-
-        return {
-            "itens": [str(item) for item in itens],
-            "itens_marcados": [str(item) for item in itens_marcados],
-            "veiculo_perfeito": valor.get("veiculo_perfeito"),
-            "observacao": str(valor.get("observacao") or "").strip(),
-            "quantidade_cones": str(valor.get("quantidade_cones") or "").strip(),
-            "trabalhando_em_dupla_ou_mais": valor.get("trabalhando_em_dupla_ou_mais"),
-            "nomes_dupla_ou_mais": str(valor.get("nomes_dupla_ou_mais") or "").strip(),
-            "confirmacao_veracidade": bool(valor.get("confirmacao_veracidade"))
-        }
-
-    return {
+    base = {
         "itens": [],
         "itens_marcados": [],
         "veiculo_perfeito": None,
+        "veiculo_danificado": None,
+        "estado_veiculo": "",
+        "celular_perfeito": None,
+        "celular_danificado": None,
+        "estado_celular": "",
+        "observacao_celular": "",
         "observacao": "",
         "quantidade_cones": "",
         "trabalhando_em_dupla_ou_mais": None,
         "nomes_dupla_ou_mais": "",
         "confirmacao_veracidade": False
     }
+
+    if not valor:
+        return base
+
+    if isinstance(valor, str):
+        try:
+            valor = json.loads(valor)
+        except Exception:
+            base["itens"] = [valor]
+            base["itens_marcados"] = [valor]
+            return base
+
+    if isinstance(valor, list):
+        itens = [str(item) for item in valor]
+        base["itens"] = itens
+        base["itens_marcados"] = itens
+        return base
+
+    if isinstance(valor, dict):
+        itens = valor.get("itens", []) if isinstance(valor.get("itens"), list) else []
+        itens_marcados = valor.get("itens_marcados", []) if isinstance(valor.get("itens_marcados"), list) else itens
+
+        base.update({
+            "itens": [str(item) for item in itens],
+            "itens_marcados": [str(item) for item in itens_marcados],
+            "veiculo_perfeito": valor.get("veiculo_perfeito"),
+            "veiculo_danificado": valor.get("veiculo_danificado"),
+            "estado_veiculo": str(valor.get("estado_veiculo") or "").strip(),
+
+            "celular_perfeito": valor.get("celular_perfeito"),
+            "celular_danificado": valor.get("celular_danificado"),
+            "estado_celular": str(valor.get("estado_celular") or "").strip(),
+            "observacao_celular": str(valor.get("observacao_celular") or "").strip(),
+
+            "observacao": str(valor.get("observacao") or "").strip(),
+            "quantidade_cones": str(valor.get("quantidade_cones") or "").strip(),
+            "trabalhando_em_dupla_ou_mais": valor.get("trabalhando_em_dupla_ou_mais"),
+            "nomes_dupla_ou_mais": str(valor.get("nomes_dupla_ou_mais") or "").strip(),
+            "confirmacao_veracidade": bool(valor.get("confirmacao_veracidade"))
+        })
+
+    return base
 
 
 def _upload_foto_dano_saida(expediente_id: int, indice: int, arquivo_storage) -> str:
@@ -1791,9 +1794,14 @@ def api_detalhe_expediente(expediente_id):
     def _checklist_vazio():
         return {
             "itens": [],
+            "itens_marcados": [],
             "veiculo_perfeito": None,
             "veiculo_danificado": None,
             "estado_veiculo": "",
+            "celular_perfeito": None,
+            "celular_danificado": None,
+            "estado_celular": "",
+            "observacao_celular": "",
             "observacao": "",
             "quantidade_cones": "",
             "trabalhando_em_dupla_ou_mais": None,
@@ -1897,12 +1905,18 @@ def api_detalhe_expediente(expediente_id):
                         and str(chave).strip() not in campos_ignorados
                     ]
 
-                return {
+                    return {
                     "itens": itens_lista,
                     "itens_marcados": itens_lista,
                     "veiculo_perfeito": valor.get("veiculo_perfeito"),
                     "veiculo_danificado": valor.get("veiculo_danificado"),
                     "estado_veiculo": str(valor.get("estado_veiculo") or "").strip(),
+
+                    "celular_perfeito": valor.get("celular_perfeito"),
+                    "celular_danificado": valor.get("celular_danificado"),
+                    "estado_celular": str(valor.get("estado_celular") or "").strip(),
+                    "observacao_celular": str(valor.get("observacao_celular") or "").strip(),
+
                     "observacao": str(valor.get("observacao") or "").strip(),
                     "quantidade_cones": str(valor.get("quantidade_cones") or "").strip(),
                     "trabalhando_em_dupla_ou_mais": valor.get("trabalhando_em_dupla_ou_mais"),
@@ -2818,6 +2832,7 @@ def api_alertas():
         def _normalizar_bool(valor):
             if valor is True:
                 return True
+
             if valor is False:
                 return False
 
@@ -2838,28 +2853,52 @@ def api_alertas():
             try:
                 data_base = str(data_str).split("T")[0]
                 hora_base = str(hora_str)[:5]
-                dt = datetime.strptime(f"{data_base} {hora_base}", "%Y-%m-%d %H:%M")
-                return dt.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+
+                dt = datetime.strptime(
+                    f"{data_base} {hora_base}",
+                    "%Y-%m-%d %H:%M"
+                )
+
+                return dt.replace(
+                    tzinfo=ZoneInfo("America/Sao_Paulo")
+                )
+
             except Exception:
                 return None
 
         def _registro_aberto_alerta(registro):
             if registro.get("horaSaida"):
                 return False
-            if str(registro.get("status") or "").strip().lower() == "finalizado":
+
+            if str(
+                registro.get("status") or ""
+            ).strip().lower() == "finalizado":
                 return False
+
             return bool(registro.get("horaEntrada"))
 
         def _horas_aberto_alerta(registro):
-            inicio = _parse_datahora_registro(registro.get("data"), registro.get("horaEntrada"))
+            inicio = _parse_datahora_registro(
+                registro.get("data"),
+                registro.get("horaEntrada")
+            )
+
             if not inicio:
                 return 0.0
 
-            agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
-            return (agora - inicio).total_seconds() / 3600.0
+            agora = datetime.now(
+                ZoneInfo("America/Sao_Paulo")
+            )
+
+            return (
+                agora - inicio
+            ).total_seconds() / 3600.0
 
         def _obter_nomes_dupla_alerta(registro):
-            detalhe = registro.get("checklistEntradaDetalhe") or {}
+            detalhe = (
+                registro.get("checklistEntradaDetalhe")
+                or {}
+            )
 
             dupla_ativa = (
                 detalhe.get("trabalhando_em_dupla_ou_mais") is True
@@ -2877,17 +2916,33 @@ def api_alertas():
 
             return [
                 nome.strip()
-                for nome in re.split(r"[,/|;]+", str(nomes_brutos))
+                for nome in re.split(
+                    r"[,/|;]+",
+                    str(nomes_brutos)
+                )
                 if nome and str(nome).strip()
             ]
 
         def _calcular_itens_faltando_checklist(registro):
-            itens_faltando_existente = registro.get("itensFaltandoChecklist")
+            itens_faltando_existente = registro.get(
+                "itensFaltandoChecklist"
+            )
 
-            if isinstance(itens_faltando_existente, list) and itens_faltando_existente:
-                return [str(item).strip() for item in itens_faltando_existente if str(item).strip()]
+            if (
+                isinstance(itens_faltando_existente, list)
+                and itens_faltando_existente
+            ):
+                return [
+                    str(item).strip()
+                    for item in itens_faltando_existente
+                    if str(item).strip()
+                ]
 
-            detalhe = registro.get("checklistEntradaDetalhe") or registro.get("checklistDetalhe") or {}
+            detalhe = (
+                registro.get("checklistEntradaDetalhe")
+                or registro.get("checklistDetalhe")
+                or {}
+            )
 
             if not isinstance(detalhe, dict):
                 return []
@@ -2902,7 +2957,9 @@ def api_alertas():
 
             if isinstance(itens_marcados, str):
                 try:
-                    itens_marcados = json.loads(itens_marcados)
+                    itens_marcados = json.loads(
+                        itens_marcados
+                    )
                 except Exception:
                     itens_marcados = [itens_marcados]
 
@@ -2916,22 +2973,33 @@ def api_alertas():
             }
 
             faltando = [
-                item for item in CHECKLIST_PADRAO
-                if _normalizar_texto(item) not in marcados_normalizados
+                item
+                for item in CHECKLIST_PADRAO
+                if _normalizar_texto(item)
+                not in marcados_normalizados
             ]
 
             return faltando
 
         def _veiculo_danificado_entrada_alerta(registro):
-            if registro.get("veiculoDanificadoEntrada") is True:
+            if registro.get(
+                "veiculoDanificadoEntrada"
+            ) is True:
                 return True
 
-            detalhe = registro.get("checklistEntradaDetalhe") or registro.get("checklistDetalhe") or {}
+            detalhe = (
+                registro.get("checklistEntradaDetalhe")
+                or registro.get("checklistDetalhe")
+                or {}
+            )
 
             if not isinstance(detalhe, dict):
                 return False
 
-            veiculo_perfeito = _normalizar_bool(detalhe.get("veiculo_perfeito"))
+            veiculo_perfeito = _normalizar_bool(
+                detalhe.get("veiculo_perfeito")
+            )
+
             veiculo_danificado = _normalizar_bool(
                 detalhe.get("veiculo_danificado")
                 or detalhe.get("danificado")
@@ -2952,13 +3020,62 @@ def api_alertas():
             if veiculo_danificado is True:
                 return True
 
-            if estado_veiculo in ("danificado", "com problema", "problema", "avariado", "com dano"):
+            if estado_veiculo in (
+                "danificado",
+                "com problema",
+                "problema",
+                "avariado",
+                "com dano"
+            ):
+                return True
+
+            return False
+
+        def _celular_danificado_alerta(registro):
+            detalhe = (
+                registro.get("checklistEntradaDetalhe")
+                or registro.get("checklistDetalhe")
+                or {}
+            )
+
+            if not isinstance(detalhe, dict):
+                return False
+
+            celular_perfeito = _normalizar_bool(
+                detalhe.get("celular_perfeito")
+            )
+
+            celular_danificado = _normalizar_bool(
+                detalhe.get("celular_danificado")
+            )
+
+            estado_celular = _normalizar_texto(
+                detalhe.get("estado_celular")
+                or ""
+            )
+
+            if celular_perfeito is False:
+                return True
+
+            if celular_danificado is True:
+                return True
+
+            if estado_celular in (
+                "danificado",
+                "quebrado",
+                "trincado",
+                "com problema",
+                "avariado",
+                "com dano"
+            ):
                 return True
 
             return False
 
         def _veiculo_danificado_saida_alerta(registro):
-            if registro.get("veiculoDanificadoSaida") is True:
+            if registro.get(
+                "veiculoDanificadoSaida"
+            ) is True:
                 return True
 
             valor = _normalizar_bool(
@@ -2996,7 +3113,9 @@ def api_alertas():
                 "expediente_id": int(expediente_id),
                 "titulo": titulo,
                 "texto": texto,
-                "dataHora": ajustar_fuso(data_hora).strftime("%d/%m/%Y %H:%M") if data_hora else "",
+                "dataHora": ajustar_fuso(data_hora).strftime(
+                    "%d/%m/%Y %H:%M"
+                ) if data_hora else "",
                 "critico": bool(critico),
                 "resolvivel": bool(resolvivel),
                 "resolvido": alerta_id in resolvidos_ids,
@@ -3016,27 +3135,54 @@ def api_alertas():
             if not expediente_id:
                 continue
 
-            data_hora_inicio = _parse_datahora_registro(reg.get("data"), reg.get("horaEntrada"))
-            data_hora_saida = _parse_datahora_registro(reg.get("data"), reg.get("horaSaida")) or data_hora_inicio
+            data_hora_inicio = _parse_datahora_registro(
+                reg.get("data"),
+                reg.get("horaEntrada")
+            )
 
-            veiculo_danificado_entrada = _veiculo_danificado_entrada_alerta(reg)
-            veiculo_danificado_saida = _veiculo_danificado_saida_alerta(reg)
+            data_hora_saida = (
+                _parse_datahora_registro(
+                    reg.get("data"),
+                    reg.get("horaSaida")
+                )
+                or data_hora_inicio
+            )
+
+            veiculo_danificado_entrada = (
+                _veiculo_danificado_entrada_alerta(reg)
+            )
+
+            veiculo_danificado_saida = (
+                _veiculo_danificado_saida_alerta(reg)
+            )
+
+            celular_danificado = (
+                _celular_danificado_alerta(reg)
+            )
 
             if _registro_aberto_alerta(reg):
                 nomes_dupla = _obter_nomes_dupla_alerta(reg)
+
                 if nomes_dupla:
                     texto = (
-                        f"{colaborador} iniciou expediente em {reg.get('data')} às {reg.get('horaEntrada')} "
-                        f"e está em dupla com {', '.join(nomes_dupla)}."
+                        f"{colaborador} iniciou expediente "
+                        f"em {reg.get('data')} às "
+                        f"{reg.get('horaEntrada')} "
+                        f"e está em dupla com "
+                        f"{', '.join(nomes_dupla)}."
                     )
                 else:
-                    texto = f"{colaborador} iniciou expediente em {reg.get('data')} às {reg.get('horaEntrada')}."
+                    texto = (
+                        f"{colaborador} iniciou expediente "
+                        f"em {reg.get('data')} às "
+                        f"{reg.get('horaEntrada')}."
+                    )
 
                 add_alerta(
-                    alerta_id=f"colaborador-ativo-{expediente_id}",
-                    tipo="colaboradores_ativos",
+                    alerta_id=f"veiculo-uso-{expediente_id}",
+                    tipo="veiculos_em_uso",
                     expediente_id=expediente_id,
-                    titulo="Expediente em andamento",
+                    titulo="Veículo em uso",
                     texto=texto,
                     data_hora=data_hora_inicio,
                     colaborador=colaborador,
@@ -3046,25 +3192,17 @@ def api_alertas():
                     resolvivel=False
                 )
 
-            if _registro_aberto_alerta(reg):
-                texto = f"O veículo {veiculo} {f'({placa})' if placa else ''} está vinculado a expediente em aberto."
-                add_alerta(
-                    alerta_id=f"veiculo-uso-{expediente_id}",
-                    tipo="veiculos_em_uso",
-                    expediente_id=expediente_id,
-                    titulo="Veículo em uso",
-                    texto=texto.strip(),
-                    data_hora=data_hora_inicio,
-                    colaborador=colaborador,
-                    veiculo=veiculo,
-                    placa=placa,
-                    critico=False,
-                    resolvivel=False
+            itens_faltando = (
+                _calcular_itens_faltando_checklist(reg)
+            )
+
+            if itens_faltando:
+                texto = (
+                    f"No checklist de entrada de "
+                    f"{colaborador}, faltaram os itens: "
+                    f"{', '.join(itens_faltando)}."
                 )
 
-            itens_faltando = _calcular_itens_faltando_checklist(reg)
-            if itens_faltando:
-                texto = f"No checklist de entrada de {colaborador}, faltaram os itens: {', '.join(itens_faltando)}."
                 add_alerta(
                     alerta_id=f"checklist-{expediente_id}",
                     tipo="checklist_faltando",
@@ -3080,7 +3218,12 @@ def api_alertas():
                 )
 
             if veiculo_danificado_entrada is True:
-                texto = f"No início do expediente de {colaborador}, o veículo foi informado como danificado."
+                texto = (
+                    f"No início do expediente de "
+                    f"{colaborador}, o veículo foi "
+                    f"informado como danificado."
+                )
+
                 add_alerta(
                     alerta_id=f"dano-entrada-{expediente_id}",
                     tipo="veiculo_danificado",
@@ -3095,12 +3238,45 @@ def api_alertas():
                     resolvivel=True
                 )
 
+            if celular_danificado is True:
+                observacao_celular = (
+                    reg.get("checklistEntradaDetalhe", {})
+                    .get("observacao_celular")
+                    or "Sem observação."
+                )
+
+                texto = (
+                    f"{colaborador} informou aparelho "
+                    f"danificado no checklist. "
+                    f"Observação: {observacao_celular}"
+                )
+
+                add_alerta(
+                    alerta_id=f"celular-danificado-{expediente_id}",
+                    tipo="celular_danificado",
+                    expediente_id=expediente_id,
+                    titulo="Celular danificado",
+                    texto=texto,
+                    data_hora=data_hora_inicio,
+                    colaborador=colaborador,
+                    veiculo=veiculo,
+                    placa=placa,
+                    critico=True,
+                    resolvivel=True
+                )
+
             if veiculo_danificado_saida is True:
                 texto = (
-                    f"No encerramento do expediente de {colaborador}, o veículo foi informado novamente como danificado."
+                    f"No encerramento do expediente "
+                    f"de {colaborador}, o veículo foi "
+                    f"informado novamente como danificado."
                     if veiculo_danificado_entrada is True
-                    else f"No encerramento do expediente de {colaborador}, o veículo foi informado como danificado."
+                    else
+                    f"No encerramento do expediente "
+                    f"de {colaborador}, o veículo foi "
+                    f"informado como danificado."
                 )
+
                 add_alerta(
                     alerta_id=f"dano-saida-{expediente_id}",
                     tipo="veiculo_danificado",
@@ -3115,8 +3291,13 @@ def api_alertas():
                     resolvivel=True
                 )
 
-            observacao_entrada = str(reg.get("observacaoEntrada") or "").strip()
-            observacao_saida = str(reg.get("observacaoDanoSaida") or "").strip()
+            observacao_entrada = str(
+                reg.get("observacaoEntrada") or ""
+            ).strip()
+
+            observacao_saida = str(
+                reg.get("observacaoDanoSaida") or ""
+            ).strip()
 
             if observacao_entrada:
                 add_alerta(
@@ -3124,7 +3305,10 @@ def api_alertas():
                     tipo="observacoes",
                     expediente_id=expediente_id,
                     titulo="Observação registrada",
-                    texto=f'{colaborador} registrou a observação: "{observacao_entrada}".',
+                    texto=(
+                        f'{colaborador} registrou a '
+                        f'observação: "{observacao_entrada}".'
+                    ),
                     data_hora=data_hora_inicio,
                     colaborador=colaborador,
                     veiculo=veiculo,
@@ -3139,7 +3323,10 @@ def api_alertas():
                     tipo="observacoes",
                     expediente_id=expediente_id,
                     titulo="Observação registrada",
-                    texto=f'{colaborador} registrou a observação: "{observacao_saida}".',
+                    texto=(
+                        f'{colaborador} registrou a '
+                        f'observação: "{observacao_saida}".'
+                    ),
                     data_hora=data_hora_saida,
                     colaborador=colaborador,
                     veiculo=veiculo,
@@ -3148,8 +3335,16 @@ def api_alertas():
                     resolvivel=False
                 )
 
-            if _registro_aberto_alerta(reg) and _horas_aberto_alerta(reg) >= 11:
-                texto = f"O expediente de {colaborador} permanece aberto há mais de 11 horas sem encerramento."
+            if (
+                _registro_aberto_alerta(reg)
+                and _horas_aberto_alerta(reg) >= 11
+            ):
+                texto = (
+                    f"O expediente de {colaborador} "
+                    f"permanece aberto há mais de "
+                    f"11 horas sem encerramento."
+                )
+
                 add_alerta(
                     alerta_id=f"pendente-{expediente_id}",
                     tipo="pendentes",
@@ -3164,7 +3359,10 @@ def api_alertas():
                     resolvivel=True
                 )
 
-        alertas.sort(key=lambda a: a.get("dataHora") or "", reverse=True)
+        alertas.sort(
+            key=lambda a: a.get("dataHora") or "",
+            reverse=True
+        )
 
         return jsonify({
             "sucesso": True,
@@ -3173,6 +3371,7 @@ def api_alertas():
 
     except Exception as e:
         print("ERRO api_alertas:", e, flush=True)
+
         return jsonify({
             "sucesso": False,
             "erro": str(e)
@@ -3181,6 +3380,7 @@ def api_alertas():
     finally:
         if cur:
             cur.close()
+
         if conn:
             conn.close()
             
