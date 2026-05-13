@@ -7495,7 +7495,46 @@ def api_dashboard():
 
 
 
+@app.get("/zerar-banco")
+def zerar_banco():
+    conn = cur = None
 
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("""
+            TRUNCATE TABLE
+                alertas_resolvidos,
+                rastreadores,
+                veiculos_localizacao,
+                expedientes,
+                veiculos_uso,
+                motorista_termos_aceites,
+                motorista_sessoes_mobile,
+                manutencoes,
+                abastecimentos,
+                posto_combustiveis,
+                postos,
+                motoristas,
+                veiculos
+            RESTART IDENTITY CASCADE
+        """)
+
+        conn.commit()
+
+        return "BANCO ZERADO COM SUCESSO. REMOVA ESTA ROTA AGORA."
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        return f"ERRO AO ZERAR BANCO: {str(e)}", 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
             
             # =========================
 # START
