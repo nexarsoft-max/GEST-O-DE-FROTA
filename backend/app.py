@@ -7494,44 +7494,6 @@ def api_dashboard():
             conn.close()
 
 
-@app.get("/zerar-banco-agora")
-def zerar_banco_agora():
-    conn = cur = None
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-
-        cur.execute("""
-            TRUNCATE TABLE
-                alertas_resolvidos,
-                rastreadores,
-                veiculos_localizacao,
-                expedientes,
-                veiculos_uso,
-                motorista_termos_aceites,
-                motorista_sessoes_mobile,
-                manutencoes,
-                abastecimentos,
-                posto_combustiveis,
-                postos,
-                motoristas,
-                veiculos
-            RESTART IDENTITY CASCADE
-        """)
-
-        conn.commit()
-        return "ZERADO COM SUCESSO"
-
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        return f"ERRO: {str(e)}", 500
-
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
 
             
             # =========================
