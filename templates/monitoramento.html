@@ -1,3 +1,6 @@
+### monitoramento.html COMPLETO
+
+```html
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -5,7 +8,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Monitoramento - Gestão de Frota</title>
 
-<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
 <link rel="stylesheet" href="{{ url_for('static', filename='css/monitoramento.css') }}">
 </head>
 
@@ -28,112 +31,82 @@
   </aside>
 
   <main class="conteudo">
+
     <header class="topo monitor-topo">
       <div>
         <h1>Visão Executiva</h1>
       </div>
 
-   <div class="topo-botoes">
-  <a class="item-menu" href="{{ url_for('dashboard') }}">
-    Consumo
-  </a>
+      <div class="topo-botoes">
+        <a class="item-menu" href="{{ url_for('dashboard') }}">
+          Consumo
+        </a>
 
-  <a class="item-menu ativo" href="{{ url_for('monitoramento') }}">
-    Monitoramento
-  </a>
+        <a class="item-menu ativo" href="{{ url_for('monitoramento') }}">
+          Monitoramento
+        </a>
 
-  <a class="item-menu" href="{{ url_for('colaboradores') }}">
-    Colaboradores
-  </a>
+        <a class="item-menu" href="{{ url_for('colaboradores') }}">
+          Colaboradores
+        </a>
 
-  <a class="item-menu " href="{{ url_for('alertas') }}">
+        <a class="item-menu" href="{{ url_for('alertas') }}">
           Alertas
         </a>
-</div>
+      </div>
     </header>
 
-    <div class="tab-painel ativo" id="tab-monitoramento">
+    <section class="plano-bloqueado">
 
-      <section class="monitor-resumo">
-        <div class="monitor-card total">
-          <div class="icon-bubble">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M5 11l1.4-4.2A2 2 0 0 1 8.3 5h7.4a2 2 0 0 1 1.9 1.8L19 11m-14 0h14m-14 0a2 2 0 0 0-2 2v3h2m14-5a2 2 0 0 1 2 2v3h-2m-11 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/>
-            </svg>
-          </div>
-          <div class="mc-text">
-            <span>Total de Veículos</span>
-            <strong id="m_total">0</strong>
-          </div>
+      <div class="plano-card">
+
+        <div class="plano-icon">
+          🔒
         </div>
 
-        <div class="monitor-card moving">
-          <div class="icon-bubble">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 2l8 20-8-4-8 4 8-20zm0 6.5L9.8 14 12 13l2.2 1L12 8.5z"/>
-            </svg>
+        <span class="plano-badge">
+          Recurso indisponível
+        </span>
+
+        <h2>
+          Seu plano atual não suporta o módulo de monitoramento
+        </h2>
+
+        <p>
+          O monitoramento em tempo real, mapa geral, localização GPS e rastreamento da frota
+          estão desabilitados nesta conta.
+        </p>
+
+        <div class="plano-grid">
+
+          <div class="plano-item">
+            <strong>Mapa em tempo real</strong>
+            <span>Indisponível</span>
           </div>
-          <div class="mc-text">
-            <span>Em Movimento</span>
-            <strong id="m_moving">0</strong>
+
+          <div class="plano-item">
+            <strong>Monitoramento GPS</strong>
+            <span>Indisponível</span>
           </div>
+
+          <div class="plano-item">
+            <strong>Localização da frota</strong>
+            <span>Indisponível</span>
+          </div>
+
         </div>
 
-        <div class="monitor-card stopped">
-          <div class="icon-bubble">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 22s7-5.2 7-12A7 7 0 1 0 5 10c0 6.8 7 12 7 12zm0-9.5A2.5 2.5 0 1 0 12 7a2.5 2.5 0 0 0 0 5.5z"/>
-            </svg>
-          </div>
-          <div class="mc-text">
-            <span>Parados</span>
-            <strong id="m_stopped">0</strong>
-          </div>
+        <div class="plano-footer">
+          Caso queira liberar este módulo, entre em contato com o provedor via WhatsApp
+          para realizar o upgrade do seu plano.
         </div>
 
-        <div class="monitor-card offline">
-          <div class="icon-bubble">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M2.8 3.5l18 18-1.3 1.3-2.3-2.3a9.8 9.8 0 0 1-5.2 1.5c-1.8 0-3.6-.5-5.2-1.5l2-2a7 7 0 0 0 8.9 0l-2.2-2.2a4 4 0 0 1-4.5 0l-2 2a9.7 9.7 0 0 1-2.8-3.2l2.3-2.3a7.2 7.2 0 0 0 4.1 2.4l-2-2a4.2 4.2 0 0 1-1.2-.7L3.5 4.8 2.8 3.5zm8.8 17.2l.4-.4.4.4-.8 0zM12 2c3.7 0 7.2 1.5 9.8 4.2l-2.3 2.3A10 10 0 0 0 12 6c-1.7 0-3.4.4-4.9 1.2L4.8 5A12 12 0 0 1 12 2z"/>
-            </svg>
-          </div>
-          <div class="mc-text">
-            <span>Offline</span>
-            <strong id="m_offline">0</strong>
-          </div>
-        </div>
-      </section>
-
-      <div class="monitor-busca">
-        <div class="monitor-input">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M10 2a8 8 0 1 1 5.3 14l4.2 4.2-1.4 1.4-4.2-4.2A8 8 0 0 1 10 2zm0 2a6 6 0 1 0 0 12 6 6 0 0 0 0-12z"/>
-          </svg>
-          <input id="monitorSearch" type="text" placeholder="Buscar por veículo, placa ou motorista...">
-        </div>
       </div>
 
-      <div class="monitor-titulo">
-  <h2>Frota Disponível</h2>
+    </section>
 
-  <div class="monitor-acoes">
-    <span class="pill" id="m_pill">0 veículos</span>
-
-<a href="{{ url_for('mapageral') }}" class="btn-mapa-geral">
-  Ver Mapa Geral
-</a>  
-</div>
-</div>
-
-      <div class="monitor-grid" id="monitorGrid"></div>
-
-      <div id="monitorEmpty" class="monitor-empty" style="display:none;">
-        Nenhum veículo encontrado.
-      </div>
-    </div>
   </main>
 </div>
-
-<script src="{{ url_for('static', filename='js/monitoramento.js') }}"></script>
 </body>
 </html>
+```
