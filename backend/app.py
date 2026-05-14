@@ -7494,11 +7494,9 @@ def api_dashboard():
             conn.close()
 
 
-
-@app.get("/zerar-banco")
-def zerar_banco():
+@app.get("/zerar-banco-agora")
+def zerar_banco_agora():
     conn = cur = None
-
     try:
         conn = get_db()
         cur = conn.cursor()
@@ -7522,19 +7520,19 @@ def zerar_banco():
         """)
 
         conn.commit()
-
-        return "BANCO ZERADO COM SUCESSO. REMOVA ESTA ROTA AGORA."
+        return "ZERADO COM SUCESSO"
 
     except Exception as e:
         if conn:
             conn.rollback()
-        return f"ERRO AO ZERAR BANCO: {str(e)}", 500
+        return f"ERRO: {str(e)}", 500
 
     finally:
         if cur:
             cur.close()
         if conn:
             conn.close()
+
             
             # =========================
 # START
