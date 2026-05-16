@@ -763,12 +763,23 @@ body{
   }
 }
 
-.logo img {
-  width: 100px;
-  height: 100px;
+.logo{
+  width: 100%;
+  height: 110px;
   display: flex;
+  align-items: center;
   justify-content: center;
-  margin-left: 56px;
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+
+.logo-sidebar{
+  width: 185px;
+  max-width: 100%;
+  height: auto;
+  max-height: 95px;
+  object-fit: contain;
+  display: block;
 }
 
 .nexar-chat-wrapper{
