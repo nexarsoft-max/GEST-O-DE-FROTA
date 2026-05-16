@@ -18,14 +18,23 @@ body{ background:var(--bg); color:var(--texto); }
 .container-principal{ display:flex; height:100vh; }
 
 /* Sidebar */
-.barra-lateral {
-  width: 260px;
-  background: #ffffff;
-  padding: 20px;
-  border-right: 1px solid #e5e5ea;
-  height: 100vh;
-  position: sticky;
-  top: 0;
+.logo{
+  width: 100%;
+  height: 78px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 10px;
+  overflow: visible;
+}
+
+.logo-sidebar{
+  width: 170px;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  transform: scale(1.55);
+  transform-origin: center;
 }
 
 /* Menu */
