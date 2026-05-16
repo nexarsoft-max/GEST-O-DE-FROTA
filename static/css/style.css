@@ -765,12 +765,11 @@ body{
 
 .logo{
   width: 100%;
-  height: 78px;
+  min-height: 78px;
   display: flex;
   justify-content: center;
   align-items: center;
   margin-bottom: 10px;
-  overflow: hidden;
 }
 
 .logo-sidebar{
