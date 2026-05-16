@@ -147,11 +147,21 @@ body {
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
-.barra-lateral > img{
-  width: 100px;      /* ajuste aqui */
-  height: 10s0px;     /* ajuste aqui */
+.logo{
+  width: 100%;
+  height: 78px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 10px;
+  overflow: visible;
+}
+
+.logo-sidebar{
+  width: 170px;
+  height: auto;
   object-fit: contain;
   display: block;
-  margin: 0 auto 8px; /* centraliza e dá espaço embaixo */
-  margin-left: 56px;
+  transform: scale(1.55);
+  transform-origin: center;
 }

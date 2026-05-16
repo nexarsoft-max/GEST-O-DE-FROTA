@@ -4,16 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gestão de Frota - Registros</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/geral.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/geral.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/geral.css') }}">
 </head>
 
 <body>
 
 <div class="container-principal">
 
-  <aside class="barra-lateral">
-    <h2 class="titulo-sistema"> Nexar </h2>
-    <p class="subtitulo">Sistema de Frota</p>
+ <aside class="barra-lateral">
+  <div class="logo">
+  <img class="logo-sidebar"
+       src="{{ url_for('static', filename='img/logoinfoway.png') }}"
+       alt="Infoway Unny Telecom">
+</div>
 
     <nav class="menu-novo">
       <a href="{{ url_for('dashboard') }}" class="item-menu">Executivo</a>
@@ -23,7 +26,7 @@
 
       <a href="{{ url_for('abastecimento') }}" class="item-menu">Registrar abastecimento</a>
       <a href="{{ url_for('cadastro') }}" class="item-menu">Cadastrar</a>
-      <a href="{{ url_for('ajuda') }}" class="item-menu">Ajuda</a>
+      <a href="{{ url_for('termos') }}" class="item-menu">Termos</a>
       <a href="{{ url_for('logout') }}" class="item-menu sair">Sair</a>
     </nav>
   </aside>
@@ -59,17 +62,7 @@
 
 </div>
 
-<script>
-  document.querySelectorAll('.card-registro button').forEach(btn => {
-    btn.addEventListener('click', e => {
-      const destino = e.currentTarget.dataset.destino;
-      document.body.classList.add("page-exit");
-      setTimeout(() => {
-        window.location.href = destino;
-      }, 150);
-    });
-  });
-</script>
+<script src="{{ url_for('static', filename='js/geralinformacao.js') }}"></script>
 
 </body>
 </html>
