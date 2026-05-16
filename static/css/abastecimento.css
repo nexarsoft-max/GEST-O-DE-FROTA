@@ -87,46 +87,6 @@ body{ background:var(--bg); color:var(--texto); }
 }
 
 
-/* Menu */
-.menu-novo {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 20px;
-}
-
-.item-menu {
-  text-decoration: none;
-  color: #222;
-  padding: 12px 14px;
-  border-radius: 12px;
-  font-size: 14px;
-  background: #f4f4f8;
-  transition: all 0.2s ease;
-}
-
-.item-menu:hover {
-  background: linear-gradient(90deg, #6f2cff, #9b5cff);
-  color: white;
-  transform: translateX(4px);
-}
-
-.item-menu.ativo {
-  background: linear-gradient(90deg, #6f2cff, #9b5cff);
-  color: white;
-  font-weight: bold;
-}
-
-.item-menu.sair {
-  margin-top: 12px;
-  background: #111;
-  color: white;
-}
-
-.item-menu.sair:hover {
-  background: #000;
-}
-
 
 /* CONTEÚDO */
 .conteudo{ flex:1; padding:32px; overflow-y:auto; }
