@@ -765,19 +765,21 @@ body{
 
 .logo{
   width: 100%;
-  min-height: 78px;
+  height: 78px;
   display: flex;
   justify-content: center;
   align-items: center;
   margin-bottom: 10px;
+  overflow: visible;
 }
 
 .logo-sidebar{
-  width: 280px;
-  max-width: 100%;
+  width: 170px;
   height: auto;
   object-fit: contain;
   display: block;
+  transform: scale(1.55);
+  transform-origin: center;
 }
 
 .nexar-chat-wrapper{
